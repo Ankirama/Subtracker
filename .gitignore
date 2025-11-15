@@ -84,6 +84,11 @@ postgres_data/
 redis_data/
 *.sql.gz
 
+# Backups
+backups/
+.backup_env
+backup.log
+
 # Temporary scripts
 /tmp/
 *.tmp
