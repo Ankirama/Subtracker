@@ -8,7 +8,7 @@ set -e
 
 # Configuration
 CONTAINER_NAME="${POSTGRES_CONTAINER:-subscriptions_db}"
-DATABASE="${POSTGRES_DB:-subscriptions}"
+DATABASE="${POSTGRES_DB:-subscription_tracker}"
 
 # Colors for output
 RED='\033[0;31m'

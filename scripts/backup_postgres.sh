@@ -9,7 +9,7 @@ set -e
 # Configuration
 BACKUP_DIR="${BACKUP_DIR:-./backups}"
 CONTAINER_NAME="${POSTGRES_CONTAINER:-subscriptions_db}"
-DATABASE="${POSTGRES_DB:-subscriptions}"
+DATABASE="${POSTGRES_DB:-subscription_tracker}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-7}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="${BACKUP_DIR}/postgres_backup_${TIMESTAMP}.sql.gz"

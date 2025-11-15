@@ -70,7 +70,7 @@ cat > "${ENV_FILE}" <<EOF
 # Backup configuration
 BACKUP_DIR="${PROJECT_DIR}/backups"
 POSTGRES_CONTAINER="subscriptions_db"
-POSTGRES_DB="subscriptions"
+POSTGRES_DB="subscription_tracker"
 BACKUP_RETENTION_DAYS=${RETENTION_DAYS}
 EOF
 
