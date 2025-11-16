@@ -36,6 +36,7 @@ class UserResponse(BaseModel):
     id: UUID
     email: str
     is_active: bool
+    is_admin: bool
     created_at: datetime
     updated_at: datetime
 

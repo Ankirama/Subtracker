@@ -3,7 +3,9 @@ import { ChakraProvider } from '@chakra-ui/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/common/ProtectedRoute'
+import { AdminRoute } from './components/common/AdminRoute'
 import { DashboardLayout } from './components/common/DashboardLayout'
+import { AdminLayout } from './components/admin/AdminLayout'
 import { LoginPage } from './components/auth/LoginPage'
 import { RegisterPage } from './components/auth/RegisterPage'
 import { DashboardPage } from './components/subscriptions/DashboardPage'
@@ -13,6 +15,7 @@ import { MailboxesPage } from './components/mailboxes/MailboxesPage'
 import { AnalyticsPage } from './components/analytics/AnalyticsPage'
 import { AISandboxPage } from './components/ai-sandbox/AISandboxPage'
 import { NotificationSettingsPage } from './components/notifications/NotificationSettingsPage'
+import { ConfigPage } from './pages/admin/ConfigPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +48,14 @@ function App() {
                   <Route path="/ai-sandbox" element={<AISandboxPage />} />
                   <Route path="/notifications/settings" element={<NotificationSettingsPage />} />
                 </Route>
+              </Route>
+
+              {/* Admin routes */}
+              <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+                <Route path="config" element={<ConfigPage />} />
+                <Route path="users" element={<div>Users Page (Coming Soon)</div>} />
+                <Route path="logs" element={<div>Logs Page (Coming Soon)</div>} />
+                <Route path="security" element={<div>Security Events Page (Coming Soon)</div>} />
               </Route>
 
               {/* Default redirect */}
