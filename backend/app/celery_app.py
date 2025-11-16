@@ -12,7 +12,7 @@ celery_app = Celery(
     "subscription_tracker",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.tasks.email_sync"]  # Task modules to import
+    include=["app.tasks.email_sync", "app.tasks.notifications"]  # Task modules to import
 )
 
 # Celery configuration
@@ -23,8 +23,8 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_track_started=True,
-    task_time_limit=30 * 60,  # 30 minutes max per task
-    task_soft_time_limit=25 * 60,  # 25 minutes soft limit
+    task_time_limit=None,  # No time limit - task completes when pagination finishes
+    task_soft_time_limit=None,  # No soft time limit - relies on natural completion
     worker_max_tasks_per_child=1000,  # Restart worker after 1000 tasks (memory management)
     worker_prefetch_multiplier=4,  # Number of tasks to prefetch
     task_acks_late=True,  # Acknowledge tasks after completion (safer)
@@ -36,9 +36,25 @@ celery_app.conf.update(
 #     "app.tasks.email_sync.*": {"queue": "email_processing"},
 # }
 
-# Celery Beat schedule for periodic tasks (Phase 2)
+# Celery Beat schedule for periodic tasks
 celery_app.conf.beat_schedule = {
-    # Will add periodic sync tasks in Phase 2
+    # Notification tasks
+    "check-renewal-reminders": {
+        "task": "tasks.send_renewal_reminders",
+        "schedule": 3600.0,  # Run every hour
+    },
+    "send-weekly-summaries": {
+        "task": "tasks.send_weekly_summaries",
+        "schedule": 86400.0,  # Run daily (will check if it's the right day)
+    },
+    "send-monthly-summaries": {
+        "task": "tasks.send_monthly_summaries",
+        "schedule": 86400.0,  # Run daily (will check if it's the right day)
+    },
+    "check-inactive-subscriptions": {
+        "task": "tasks.check_inactive_subscriptions",
+        "schedule": 604800.0,  # Run weekly (every 7 days)
+    },
 }
 
 logger.info("Celery app initialized")
