@@ -2,6 +2,7 @@ import {
   Box,
   Flex,
   VStack,
+  HStack,
   Text,
   Icon,
   Button,
@@ -16,6 +17,7 @@ import {
 } from '@chakra-ui/react'
 import { Link as RouterLink, useLocation, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { NotificationBell } from '../notifications/NotificationBell'
 import {
   FiHome,
   FiCreditCard,
@@ -112,7 +114,25 @@ export const DashboardLayout = () => {
 
       {/* Main content */}
       <Box flex={1} overflow="auto">
-        <Outlet />
+        {/* Header with notification bell */}
+        <Flex
+          h="60px"
+          px={6}
+          bg={sidebarBg}
+          borderBottomWidth="1px"
+          borderColor={borderColor}
+          align="center"
+          justify="flex-end"
+        >
+          <HStack spacing={2}>
+            <NotificationBell />
+          </HStack>
+        </Flex>
+
+        {/* Page content */}
+        <Box>
+          <Outlet />
+        </Box>
       </Box>
     </Flex>
   )

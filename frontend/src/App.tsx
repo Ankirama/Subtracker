@@ -12,6 +12,7 @@ import { SubscriptionDetailPage } from './components/subscriptions/SubscriptionD
 import { MailboxesPage } from './components/mailboxes/MailboxesPage'
 import { AnalyticsPage } from './components/analytics/AnalyticsPage'
 import { AISandboxPage } from './components/ai-sandbox/AISandboxPage'
+import { NotificationSettingsPage } from './components/notifications/NotificationSettingsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,6 +43,7 @@ function App() {
                   <Route path="/mailboxes" element={<MailboxesPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/ai-sandbox" element={<AISandboxPage />} />
+                  <Route path="/notifications/settings" element={<NotificationSettingsPage />} />
                 </Route>
               </Route>
 
