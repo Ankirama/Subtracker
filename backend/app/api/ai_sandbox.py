@@ -3,7 +3,7 @@ AI Sandbox API endpoints for testing and reviewing email classification/extracti
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 from typing import List
 from uuid import UUID
 from datetime import datetime, timezone
@@ -164,25 +164,28 @@ async def get_uncertain_emails(
                 extraction_failed=0
             )
 
-        # Query for uncertain emails
-        query = db.query(EmailMessage).filter(
-            and_(
-                EmailMessage.mailbox_id.in_(mailbox_ids),
-                EmailMessage.is_subscription == True,
-                or_(
-                    EmailMessage.classification_confidence < 0.8,  # Low confidence
-                    EmailMessage.id.notin_(  # No subscription created
-                        db.query(EmailMessage.id)
-                        .join(EmailMessage.subscriptions)
-                        .filter(EmailMessage.mailbox_id.in_(mailbox_ids))
-                    )
+        # Build base query for uncertain emails
+        base_filter = and_(
+            EmailMessage.mailbox_id.in_(mailbox_ids),
+            EmailMessage.is_subscription == True,
+            or_(
+                EmailMessage.classification_confidence < 0.8,  # Low confidence
+                EmailMessage.id.notin_(  # No subscription created
+                    db.query(EmailMessage.id)
+                    .join(EmailMessage.subscriptions)
+                    .filter(EmailMessage.mailbox_id.in_(mailbox_ids))
                 )
             )
-        ).order_by(EmailMessage.date.desc()).limit(limit)
+        )
 
+        # Get total count of all uncertain emails
+        total_count = db.query(func.count(EmailMessage.id)).filter(base_filter).scalar()
+
+        # Get limited results for display
+        query = db.query(EmailMessage).filter(base_filter).order_by(EmailMessage.date.desc()).limit(limit)
         emails = query.all()
 
-        # Count different types of uncertain emails
+        # Count different types of uncertain emails from returned results
         uncertain_classified = sum(1 for e in emails if e.classification_confidence < 0.8)
         extraction_failed = sum(1 for e in emails if not e.subscriptions)
 
@@ -207,7 +210,7 @@ async def get_uncertain_emails(
 
         return UncertainEmailsResponse(
             emails=uncertain_emails,
-            total=len(uncertain_emails),
+            total=total_count,
             uncertain_classified=uncertain_classified,
             extraction_failed=extraction_failed
         )

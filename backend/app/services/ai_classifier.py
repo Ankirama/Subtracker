@@ -3,16 +3,29 @@ AI-powered email classification service.
 Uses OpenAI GPT to determine if an email is subscription-related.
 """
 from openai import AsyncOpenAI
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from sqlalchemy.orm import Session
 from app.config import settings
 from app.email_providers.base import EmailMessage
+from app.utils.config_helper import get_config_value
 import logging
 import json
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI client
-client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+def get_openai_client(db: Optional[Session] = None) -> AsyncOpenAI:
+    """
+    Get OpenAI client with API key from admin settings or environment.
+
+    Args:
+        db: Optional database session to check admin settings
+
+    Returns:
+        Configured AsyncOpenAI client
+    """
+    api_key = get_config_value('openai.api_key', settings.OPENAI_API_KEY, db)
+    return AsyncOpenAI(api_key=api_key)
 
 
 CLASSIFICATION_PROMPT = """You are an AI assistant that classifies emails to detect BILLING, PAYMENT, or ACCOUNT MANAGEMENT emails for SUBSCRIPTION SERVICES.
@@ -124,13 +137,14 @@ Respond ONLY with a JSON object in this exact format:
 }}"""
 
 
-async def classify_email(email: EmailMessage) -> Dict[str, Any]:
+async def classify_email(email: EmailMessage, db: Optional[Session] = None) -> Dict[str, Any]:
     """
     Classify an email to determine if it's subscription-related.
-    
+
     Args:
         email: EmailMessage object to classify
-        
+        db: Optional database session to check admin settings
+
     Returns:
         Dict with classification results:
         {
@@ -141,10 +155,13 @@ async def classify_email(email: EmailMessage) -> Dict[str, Any]:
         }
     """
     try:
+        # Get OpenAI client with admin settings support
+        client = get_openai_client(db)
+
         # Prepare email content
         body = email.body_text or email.body_html or ""
         body = body[:1000]  # Limit to first 1000 chars
-        
+
         prompt = CLASSIFICATION_PROMPT.format(
             subject=email.subject,
             sender=email.sender,
@@ -152,9 +169,9 @@ async def classify_email(email: EmailMessage) -> Dict[str, Any]:
             date=email.date.isoformat(),
             body=body
         )
-        
+
         logger.info(f"Classifying email: {email.subject}")
-        
+
         # Call OpenAI API
         response = await client.chat.completions.create(
             model="gpt-4o-mini",  # Using mini for cost efficiency

@@ -125,6 +125,13 @@ export const SubscriptionModal = ({
   })
 
   const handleSubmit = () => {
+    // Convert date to datetime string if provided
+    let renewalDateTime = null
+    if (formData.renewal_date) {
+      // Convert date string (YYYY-MM-DD) to datetime string (YYYY-MM-DDTHH:MM:SS)
+      renewalDateTime = `${formData.renewal_date}T00:00:00`
+    }
+
     const data: SubscriptionCreate | SubscriptionUpdate = {
       provider: formData.provider,
       amount: formData.amount ? parseFloat(formData.amount) : null,
@@ -133,7 +140,7 @@ export const SubscriptionModal = ({
       category: formData.category,
       custom_label: formData.custom_label || null,
       notes: formData.notes || null,
-      renewal_date: formData.renewal_date || null,
+      renewal_date: renewalDateTime,
     }
 
     if (subscription) {

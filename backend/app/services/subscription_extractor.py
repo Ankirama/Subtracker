@@ -6,15 +6,28 @@ from openai import AsyncOpenAI
 from typing import Dict, Any, Optional
 from datetime import datetime
 from decimal import Decimal
+from sqlalchemy.orm import Session
 from app.config import settings
 from app.email_providers.base import EmailMessage
+from app.utils.config_helper import get_config_value
 import logging
 import json
 
 logger = logging.getLogger(__name__)
 
-# Initialize OpenAI client
-client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+
+def get_openai_client(db: Optional[Session] = None) -> AsyncOpenAI:
+    """
+    Get OpenAI client with API key from admin settings or environment.
+
+    Args:
+        db: Optional database session to check admin settings
+
+    Returns:
+        Configured AsyncOpenAI client
+    """
+    api_key = get_config_value('openai.api_key', settings.OPENAI_API_KEY, db)
+    return AsyncOpenAI(api_key=api_key)
 
 
 EXTRACTION_PROMPT = """You are an AI assistant that extracts subscription information from emails.
@@ -97,26 +110,33 @@ Rules:
 - Be EXTREMELY conservative - when in doubt, return 0.0"""
 
 
-async def extract_subscription_data(email: EmailMessage) -> Optional[Dict[str, Any]]:
+async def extract_subscription_data(
+    email: EmailMessage,
+    db: Optional[Session] = None
+) -> Optional[Dict[str, Any]]:
     """
     Extract structured subscription information from an email.
-    
+
     Args:
         email: EmailMessage object classified as subscription-related
-        
+        db: Optional database session to check admin settings
+
     Returns:
         Dict with subscription data or None if extraction fails
     """
     try:
+        # Get OpenAI client with admin settings support
+        client = get_openai_client(db)
+
         # Prepare email content
         body = email.body_text or email.body_html or ""
-        
+
         # Format relevant headers
         relevant_headers = {
             k: v for k, v in email.headers.items()
             if k.lower() in ['list-unsubscribe', 'x-service-name', 'x-subscription-id']
         }
-        
+
         prompt = EXTRACTION_PROMPT.format(
             subject=email.subject,
             sender=email.sender,
@@ -125,9 +145,9 @@ async def extract_subscription_data(email: EmailMessage) -> Optional[Dict[str, A
             body=body[:3000],  # Limit to 3000 chars for context
             headers=json.dumps(relevant_headers, indent=2) if relevant_headers else "None"
         )
-        
+
         logger.info(f"Extracting subscription data from: {email.subject}")
-        
+
         # Call OpenAI API
         response = await client.chat.completions.create(
             model="gpt-4o-mini",

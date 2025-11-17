@@ -13,11 +13,12 @@ class SubscriptionBase(BaseModel):
     provider: str = Field(..., min_length=1, max_length=255, description="Service provider name")
     amount: Optional[float] = Field(None, ge=0, description="Subscription amount")
     currency: Optional[str] = Field(None, max_length=3, description="Currency code (USD, EUR, etc.)")
-    billing_cycle: Optional[Literal['monthly', 'yearly', 'weekly', 'one-time', 'none']] = None
+    billing_cycle: Optional[Literal['monthly', 'yearly', 'weekly', 'quarterly', 'biannual', 'one-time', 'none']] = None
     renewal_date: Optional[datetime] = None
     description: Optional[str] = Field(None, max_length=500)
     category: Literal['streaming', 'software', 'storage', 'productivity', 'entertainment', 'fitness', 'gaming', 'news', 'education', 'communication', 'finance', 'shopping', 'music', 'other'] = 'other'
-    status: Literal['active', 'cancelled', 'paused', 'trial'] = 'active'
+    custom_label: Optional[str] = Field(None, max_length=255, description="Custom label to differentiate multiple accounts")
+    is_active: bool = Field(default=True, description="Whether the subscription is currently active")
 
 
 class SubscriptionCreate(SubscriptionBase):
@@ -37,11 +38,12 @@ class SubscriptionUpdate(BaseModel):
     provider: Optional[str] = Field(None, min_length=1, max_length=255)
     amount: Optional[float] = Field(None, ge=0)
     currency: Optional[str] = Field(None, max_length=3)
-    billing_cycle: Optional[Literal['monthly', 'yearly', 'weekly', 'one-time', 'none']] = None
+    billing_cycle: Optional[Literal['monthly', 'yearly', 'weekly', 'quarterly', 'biannual', 'one-time', 'none']] = None
     renewal_date: Optional[datetime] = None
     description: Optional[str] = Field(None, max_length=500)
     category: Optional[Literal['streaming', 'software', 'storage', 'productivity', 'entertainment', 'fitness', 'gaming', 'news', 'education', 'communication', 'finance', 'shopping', 'music', 'other']] = None
-    status: Optional[Literal['active', 'cancelled', 'paused', 'trial']] = None
+    custom_label: Optional[str] = Field(None, max_length=255)
+    is_active: Optional[bool] = None
     notes: Optional[str] = None
     
     @field_validator('currency')
@@ -64,6 +66,7 @@ class SubscriptionResponse(SubscriptionBase):
     last_confirmed_at: datetime
     created_at: datetime
     updated_at: datetime
+    next_renewal_date: Optional[datetime] = Field(None, description="Computed next future renewal date")
 
     class Config:
         from_attributes = True
@@ -137,3 +140,64 @@ class SubscriptionDetailResponse(SubscriptionResponse):
 
     class Config:
         from_attributes = True
+
+
+class MonthlySpendingData(BaseModel):
+    """Monthly spending analytics data point."""
+    month: str  # Format: "2024-01" or "Jan 2024"
+    year: int
+    month_num: int
+    total_cost: float
+    subscription_count: int
+    new_subscriptions: int
+    cancelled_subscriptions: int
+
+
+class CategorySpendingTrend(BaseModel):
+    """Category spending over time."""
+    category: str
+    monthly_data: list[dict]  # {month, amount}
+
+
+class AnalyticsResponse(BaseModel):
+    """Analytics data response."""
+    monthly_spending: list[MonthlySpendingData]
+    category_trends: list[CategorySpendingTrend]
+    total_spent: float
+    average_monthly_cost: float
+    peak_month: Optional[str] = None
+    peak_month_cost: Optional[float] = None
+
+
+class FeedbackCreate(BaseModel):
+    """Schema for creating subscription feedback."""
+    subscription_id: UUID
+    feedback_type: Literal[
+        'not_subscription',
+        'duplicate',
+        'wrong_amount',
+        'wrong_provider',
+        'wrong_category',
+        'wrong_billing_cycle',
+        'other'
+    ]
+    feedback_text: Optional[str] = Field(None, max_length=1000, description="Optional explanation")
+
+
+class FeedbackResponse(BaseModel):
+    """Schema for feedback response."""
+    id: UUID
+    user_id: UUID
+    subscription_id: UUID
+    feedback_type: str
+    feedback_text: Optional[str] = None
+    subscription_snapshot: dict
+    ai_classification_data: Optional[dict] = None
+    source_email_ids: list[UUID] = []
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            UUID: str
+        }

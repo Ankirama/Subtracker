@@ -8,6 +8,9 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.ext.hybrid import hybrid_property
+from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 import uuid
 
 from app.database import Base
@@ -66,6 +69,48 @@ class Subscription(Base):
         secondary="subscription_emails",
         back_populates="subscriptions"
     )
+
+    @property
+    def next_renewal_date(self):
+        """
+        Calculate the next future renewal date based on renewal_date and billing_cycle.
+
+        If renewal_date is in the past, add billing cycles until it's in the future.
+        If renewal_date is None, return None.
+
+        Returns:
+            date: Next future renewal date or None
+        """
+        if not self.renewal_date or not self.billing_cycle:
+            return None
+
+        today = datetime.now().date()
+        next_date = self.renewal_date
+
+        # If renewal date is already in the future, return it
+        if next_date > today:
+            return next_date
+
+        # Map billing cycles to relativedelta parameters
+        cycle_map = {
+            'weekly': {'weeks': 1},
+            'monthly': {'months': 1},
+            'quarterly': {'months': 3},
+            'biannual': {'months': 6},
+            'yearly': {'years': 1},
+            'annual': {'years': 1},
+        }
+
+        cycle_delta = cycle_map.get(self.billing_cycle.lower())
+        if not cycle_delta:
+            # Unknown billing cycle, return the stored date
+            return next_date
+
+        # Add billing cycles until date is in the future
+        while next_date <= today:
+            next_date = next_date + relativedelta(**cycle_delta)
+
+        return next_date
 
     def __repr__(self):
         return f"<Subscription(id={self.id}, provider={self.provider}, amount={self.amount})>"
