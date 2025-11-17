@@ -16,6 +16,7 @@ from app.models.subscription import Subscription
 from app.models.email_message import EmailMessage, subscription_emails
 from app.email_providers import JMAPProvider
 from app.security.encryption import decrypt_credentials
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -63,164 +64,236 @@ async def _sync_mailbox_async(
         if not auth_success:
             return {"success": False, "error": "Authentication failed"}
         
-        # Determine date filter
+        # Determine date filter - prioritize explicit date_filter parameter
         since_date = None
-        if not force_full_sync and mailbox.last_sync_at:
-            since_date = mailbox.last_sync_at
-        elif date_filter or mailbox.import_date_filter:
-            filter_str = date_filter or mailbox.import_date_filter
+        if date_filter:
+            # Use explicit date filter if provided (from UI or API call)
+            filter_str = date_filter
             since_date = parse_date_filter(filter_str)
-        
-        # Fetch emails
-        logger.info(f"Fetching emails since {since_date} with batch size {mailbox.batch_size}")
-        emails = await provider.fetch_messages(
-            folder=None,
-            since_date=since_date,
-            limit=mailbox.batch_size
-        )
-        
-        logger.info(f"Fetched {len(emails)} emails from mailbox {mailbox.id}")
-        
+            logger.info(f"Using custom date filter: {filter_str} (since {since_date})")
+        elif not force_full_sync and mailbox.last_sync_at:
+            # Use last sync time for incremental updates
+            since_date = mailbox.last_sync_at
+            logger.info(f"Using last sync time: {since_date}")
+        elif mailbox.import_date_filter:
+            # Fall back to mailbox's default import filter
+            filter_str = mailbox.import_date_filter
+            since_date = parse_date_filter(filter_str)
+            logger.info(f"Using mailbox default filter: {filter_str} (since {since_date})")
+        else:
+            # No filter - fetch all emails
+            since_date = None
+            logger.info("No date filter - fetching all emails")
+
         # Import AI services here to avoid circular imports
         from app.services.ai_classifier import classify_email
         from app.services.subscription_extractor import extract_subscription_data
-        
-        # Process emails
-        total_emails = len(emails)
+
+        # Pagination loop - fetch and process emails in batches
+        position = 0
+        has_more = True
+        total_emails_processed = 0
         subscriptions_found = 0
         subscriptions_updated = 0
-        
-        for email in emails:
-            try:
-                # Get Message-ID from headers for uniqueness check
-                message_id = email.headers.get('Message-ID', email.id)
+        batch_num = 0
 
-                # Check if email already exists in database
-                existing_email = db.query(EmailMessage).filter(
-                    EmailMessage.message_id == message_id
-                ).first()
+        logger.info(f"Starting paginated email fetch since {since_date}")
 
-                if not existing_email:
-                    # Stage 1: Classify email
-                    classification = await classify_email(email)
+        while has_more:
+            batch_num += 1
 
-                    # Save email to database
-                    email_record = EmailMessage(
-                        mailbox_id=mailbox.id,
-                        message_id=message_id,
-                        thread_id=email.headers.get('Thread-ID'),
-                        subject=email.subject,
-                        sender=email.sender,
-                        sender_name=email.sender_name,
-                        recipient=email.recipients[0] if email.recipients else mailbox.email_address,
-                        date=email.date,
-                        body_text=email.body_text,
-                        body_html=email.body_html,
-                        labels=[email.folder] if email.folder else None,
-                        attachments=None,  # TODO: Store attachment metadata if needed
-                        is_subscription=classification.get('is_subscription', False),
-                        classification_confidence=classification.get('confidence', 0.0),
-                        classification_reasoning=classification
-                    )
-                    db.add(email_record)
-                    db.flush()  # Get the ID without committing
-                    logger.info(f"Saved email to database: {email.subject}")
-                else:
-                    email_record = existing_email
-                    logger.info(f"Email already exists in database: {email.subject}")
+            # Fetch batch of emails
+            logger.info(f"Fetching batch {batch_num} (position {position}, batch_size {mailbox.batch_size})")
+            emails, has_more = await provider.fetch_messages(
+                folder=None,
+                since_date=since_date,
+                limit=mailbox.batch_size,
+                position=position
+            )
 
-                # Process subscription if email is classified as subscription-related
-                if email_record.is_subscription:
-                    logger.info(f"Subscription email detected: {email.subject}")
+            batch_size = len(emails)
+            logger.info(f"SYNC DEBUG - Fetched {batch_size} emails in batch {batch_num}, has_more={has_more}, current position={position}")
 
-                    # Stage 2: Extract subscription data
-                    subscription_data = await extract_subscription_data(email)
+            if batch_size == 0:
+                logger.info("SYNC DEBUG - No more emails to fetch (batch_size=0), breaking loop")
+                break
 
-                    if subscription_data:
-                        # Check if subscription already exists using composite key
-                        # Use provider + custom_label for uniqueness to handle:
-                        # - Different subscription types (e.g., Twitch Turbo vs channel subs)
-                        # - Different tiers/channels (e.g., BastiUi Tier 1 vs Tier 3)
-                        query = db.query(Subscription).filter(
-                            Subscription.mailbox_id == mailbox.id,
-                            Subscription.provider == subscription_data['provider']
+            logger.info(f"SYNC DEBUG - Loop state BEFORE processing: has_more={has_more}, position={position}, batch_num={batch_num}")
+
+            # Process emails in this batch
+            for idx, email in enumerate(emails):
+                try:
+                    # Get Message-ID from headers for uniqueness check
+                    message_id = email.headers.get('Message-ID', email.id)
+
+                    # Check if email already exists in database
+                    existing_email = db.query(EmailMessage).filter(
+                        EmailMessage.message_id == message_id
+                    ).first()
+
+                    if not existing_email:
+                        # Stage 1: Classify email (OpenAI API call)
+                        classification = await classify_email(email)
+
+                        # Rate limiting: Add delay after OpenAI API call
+                        if idx < len(emails) - 1:  # Don't delay after the last email
+                            delay = settings.OPENAI_REQUEST_DELAY_SECONDS
+                            logger.debug(f"Rate limiting: waiting {delay}s before next email...")
+                            await asyncio.sleep(delay)
+
+                        # Save email to database
+                        email_record = EmailMessage(
+                            mailbox_id=mailbox.id,
+                            message_id=message_id,
+                            thread_id=email.headers.get('Thread-ID'),
+                            subject=email.subject,
+                            sender=email.sender,
+                            sender_name=email.sender_name,
+                            recipient=email.recipients[0] if email.recipients else mailbox.email_address,
+                            date=email.date,
+                            body_text=email.body_text,
+                            body_html=email.body_html,
+                            labels=[email.folder] if email.folder else None,
+                            attachments=None,  # TODO: Store attachment metadata if needed
+                            is_subscription=classification.get('is_subscription', False),
+                            classification_confidence=classification.get('confidence', 0.0),
+                            classification_reasoning=classification
                         )
+                        db.add(email_record)
+                        db.flush()  # Get the ID without committing
+                        logger.info(f"Saved email to database: {email.subject}")
+                    else:
+                        email_record = existing_email
+                        logger.info(f"Email already exists in database: {email.subject}")
 
-                        # Add custom_label to uniqueness check if present
-                        custom_label = subscription_data.get('custom_label')
-                        if custom_label:
-                            # Match subscriptions with the same custom_label
-                            query = query.filter(Subscription.custom_label == custom_label)
-                        else:
-                            # Match subscriptions with no custom_label
-                            query = query.filter(Subscription.custom_label.is_(None))
+                    # Process subscription if email is classified as subscription-related
+                    if email_record.is_subscription:
+                        logger.info(f"Subscription email detected: {email.subject}")
 
-                        existing_sub = query.first()
+                        # Stage 2: Extract subscription data (OpenAI API call)
+                        subscription_data = await extract_subscription_data(email)
 
-                        subscription_record = None
-                        if existing_sub:
-                            # Update existing subscription
-                            for key, value in subscription_data.items():
-                                setattr(existing_sub, key, value)
-                            existing_sub.updated_at = datetime.now(timezone.utc)
-                            subscription_record = existing_sub
-                            subscriptions_updated += 1
-                            logger.info(f"Updated subscription: {subscription_data['provider']} - {custom_label or 'No label'}")
-                        else:
-                            # Create new subscription
-                            new_subscription = Subscription(
-                                user_id=mailbox.user_id,
-                                mailbox_id=mailbox.id,
-                                **subscription_data
+                        # Rate limiting: Add delay after OpenAI API call
+                        if idx < len(emails) - 1:  # Don't delay after the last email
+                            delay = settings.OPENAI_REQUEST_DELAY_SECONDS
+                            logger.debug(f"Rate limiting: waiting {delay}s before next email...")
+                            await asyncio.sleep(delay)
+
+                        if subscription_data:
+                            # Check if subscription already exists using composite key
+                            # Strategy: Match on stable fields (provider, amount, billing_cycle, email_sender)
+                            # Only use custom_label for genuinely different subscriptions (Twitch channels, specific tiers)
+
+                            # Start with base query: mailbox + provider
+                            query = db.query(Subscription).filter(
+                                Subscription.mailbox_id == mailbox.id,
+                                Subscription.provider == subscription_data['provider']
                             )
-                            db.add(new_subscription)
-                            db.flush()  # Get the ID
-                            subscription_record = new_subscription
-                            subscriptions_found += 1
-                            logger.info(f"Created new subscription: {subscription_data['provider']} - {custom_label or 'No label'}")
 
-                        # Create subscription-email relationship if not exists
-                        if subscription_record and email_record:
-                            # Check if relationship already exists
-                            relationship_exists = db.execute(
-                                subscription_emails.select().where(
-                                    subscription_emails.c.subscription_id == subscription_record.id,
-                                    subscription_emails.c.email_id == email_record.id
-                                )
-                            ).first()
+                            # Add stable matching fields to prevent AI-description-based duplicates
+                            if subscription_data.get('amount') is not None:
+                                query = query.filter(Subscription.amount == subscription_data['amount'])
 
-                            if not relationship_exists:
-                                # Convert datetime objects to ISO strings for JSONB storage
-                                extraction_data_json = {}
+                            if subscription_data.get('billing_cycle'):
+                                query = query.filter(Subscription.billing_cycle == subscription_data['billing_cycle'])
+
+                            if subscription_data.get('email_sender'):
+                                query = query.filter(Subscription.email_sender == subscription_data['email_sender'])
+
+                            # Only use custom_label for meaningful distinctions (Twitch channels, specific plans)
+                            # Ignore generic descriptions like "renewal", "payment", "subscription notification"
+                            custom_label = subscription_data.get('custom_label')
+                            if custom_label:
+                                # Check if custom_label is meaningful (contains tier/channel info)
+                                meaningful_keywords = ['tier', 'channel', 'plan', 'premium', 'basic', 'pro', 'plus', 'family', 'individual', 'student']
+                                is_meaningful = any(keyword in custom_label.lower() for keyword in meaningful_keywords)
+
+                                if is_meaningful:
+                                    # Use custom_label for matching (different tiers/channels)
+                                    query = query.filter(Subscription.custom_label == custom_label)
+
+                            existing_sub = query.first()
+
+                            subscription_record = None
+                            if existing_sub:
+                                # Update existing subscription
                                 for key, value in subscription_data.items():
-                                    if isinstance(value, datetime):
-                                        extraction_data_json[key] = value.isoformat()
-                                    else:
-                                        extraction_data_json[key] = value
-
-                                db.execute(
-                                    subscription_emails.insert().values(
-                                        subscription_id=subscription_record.id,
-                                        email_id=email_record.id,
-                                        extraction_role='detection' if not existing_sub else 'update',
-                                        extraction_data=extraction_data_json
-                                    )
+                                    setattr(existing_sub, key, value)
+                                existing_sub.updated_at = datetime.now(timezone.utc)
+                                subscription_record = existing_sub
+                                subscriptions_updated += 1
+                                logger.info(f"Updated subscription: {subscription_data['provider']} - {custom_label or 'No label'}")
+                            else:
+                                # Create new subscription
+                                new_subscription = Subscription(
+                                    user_id=mailbox.user_id,
+                                    mailbox_id=mailbox.id,
+                                    **subscription_data
                                 )
-                                logger.info(f"Linked email to subscription")
+                                db.add(new_subscription)
+                                db.flush()  # Get the ID
+                                subscription_record = new_subscription
+                                subscriptions_found += 1
+                                logger.info(f"Created new subscription: {subscription_data['provider']} - {custom_label or 'No label'}")
 
-                        db.commit()
+                            # Create subscription-email relationship if not exists
+                            if subscription_record and email_record:
+                                # Check if relationship already exists
+                                relationship_exists = db.execute(
+                                    subscription_emails.select().where(
+                                        subscription_emails.c.subscription_id == subscription_record.id,
+                                        subscription_emails.c.email_id == email_record.id
+                                    )
+                                ).first()
 
-            except Exception as e:
-                logger.error(f"Error processing email {email.id}: {str(e)}")
-                db.rollback()
-                continue
-        
+                                if not relationship_exists:
+                                    # Convert datetime objects to ISO strings for JSONB storage
+                                    extraction_data_json = {}
+                                    for key, value in subscription_data.items():
+                                        if isinstance(value, datetime):
+                                            extraction_data_json[key] = value.isoformat()
+                                        else:
+                                            extraction_data_json[key] = value
+
+                                    db.execute(
+                                        subscription_emails.insert().values(
+                                            subscription_id=subscription_record.id,
+                                            email_id=email_record.id,
+                                            extraction_role='detection' if not existing_sub else 'update',
+                                            extraction_data=extraction_data_json
+                                        )
+                                    )
+                                    logger.info(f"Linked email to subscription")
+
+                            db.commit()
+
+                except Exception as e:
+                    logger.error(f"Error processing email {email.id}: {str(e)}")
+                    db.rollback()
+                    continue
+
+            # Update counters after processing batch
+            total_emails_processed += batch_size
+            position += batch_size
+
+            logger.info(f"SYNC DEBUG - Updated position to {position}, total_emails_processed={total_emails_processed}")
+
+            # Update sync progress in database
+            mailbox.last_sync_emails_processed = total_emails_processed
+            mailbox.last_sync_subscriptions_found = subscriptions_found
+            db.commit()
+
+            logger.info(f"Completed batch {batch_num}: {total_emails_processed} total emails processed, {subscriptions_found} subscriptions found")
+            logger.info(f"SYNC DEBUG - Loop state at END of iteration: has_more={has_more}, position={position}, will_continue={has_more}")
+
+            # Continue to next batch if has_more is True
+
         # Close provider connection
         await provider.close()
-        
+
         return {
             "success": True,
-            "total_emails_processed": total_emails,
+            "total_emails_processed": total_emails_processed,
             "subscriptions_found": subscriptions_found,
             "subscriptions_updated": subscriptions_updated
         }
@@ -279,6 +352,10 @@ def sync_mailbox_emails(
             mailbox.last_sync_emails_processed = result.get('total_emails_processed', 0)
             mailbox.last_sync_subscriptions_found = result.get('subscriptions_found', 0) + result.get('subscriptions_updated', 0)
             mailbox.last_sync_error_message = None
+
+            # Update subscription active/inactive status based on last confirmation dates
+            status_update = update_subscription_statuses(db, mailbox.id)
+            logger.info(f"Subscription status update: {status_update['activated']} activated, {status_update['deactivated']} deactivated")
         else:
             # Store error message on failure
             mailbox.last_sync_error_message = result.get('error', 'Unknown error')
@@ -302,18 +379,90 @@ def sync_mailbox_emails(
         return {"success": False, "error": str(e)}
 
 
+def update_subscription_statuses(db: Session, mailbox_id: UUID) -> Dict[str, int]:
+    """
+    Update subscription active status based on last email confirmation.
+
+    Logic:
+    - If last email was received within expected billing cycle + grace period, mark as active
+    - Otherwise, mark as inactive
+
+    Grace periods by billing cycle:
+    - weekly: 2 weeks (14 days)
+    - monthly: 2 months (60 days)
+    - quarterly: 4 months (120 days)
+    - biannual: 7 months (210 days)
+    - yearly/annual: 13 months (395 days)
+
+    Returns:
+        Dict with counts of activated and deactivated subscriptions
+    """
+    # Define grace periods for each billing cycle (in days)
+    GRACE_PERIODS = {
+        'weekly': 14,
+        'monthly': 60,
+        'quarterly': 120,
+        'biannual': 210,
+        'yearly': 395,
+        'annual': 395,
+    }
+
+    now = datetime.now(timezone.utc)
+    activated_count = 0
+    deactivated_count = 0
+
+    # Get all subscriptions for this mailbox
+    subscriptions = db.query(Subscription).filter(
+        Subscription.mailbox_id == mailbox_id
+    ).all()
+
+    for sub in subscriptions:
+        if not sub.billing_cycle:
+            # Skip subscriptions without billing cycle defined
+            continue
+
+        # Get grace period for this billing cycle (default to 60 days if unknown)
+        billing_cycle_lower = sub.billing_cycle.lower()
+        grace_days = GRACE_PERIODS.get(billing_cycle_lower, 60)
+
+        # Calculate cutoff date
+        cutoff_date = now - timedelta(days=grace_days)
+
+        # Check if subscription should be active
+        should_be_active = sub.last_confirmed_at >= cutoff_date
+
+        # Update status if it changed
+        if should_be_active and not sub.is_active:
+            sub.is_active = True
+            activated_count += 1
+            logger.info(f"Activated subscription: {sub.provider} (last confirmed: {sub.last_confirmed_at})")
+        elif not should_be_active and sub.is_active:
+            sub.is_active = False
+            deactivated_count += 1
+            logger.info(f"Deactivated subscription: {sub.provider} (last confirmed: {sub.last_confirmed_at}, cutoff: {cutoff_date})")
+
+    if activated_count > 0 or deactivated_count > 0:
+        db.commit()
+        logger.info(f"Subscription status update: {activated_count} activated, {deactivated_count} deactivated")
+
+    return {
+        "activated": activated_count,
+        "deactivated": deactivated_count
+    }
+
+
 def parse_date_filter(filter_str: str) -> datetime:
     """
     Parse date filter string into datetime.
-    
+
     Supported formats:
-    - '30days', '60days', '90days'
+    - '30days', '60days', '90days', '365days'
     - '1month', '3months', '6months', '12months'
     - '1year', '2years'
     """
     filter_str = filter_str.lower().strip()
     now = datetime.now(timezone.utc)
-    
+
     if 'day' in filter_str:
         days = int(filter_str.replace('days', '').replace('day', ''))
         return now - timedelta(days=days)
@@ -324,4 +473,5 @@ def parse_date_filter(filter_str: str) -> datetime:
         years = int(filter_str.replace('years', '').replace('year', ''))
         return now - timedelta(days=years * 365)
     else:
-        return now - timedelta(days=30)
+        # Use configurable default sync period
+        return now - timedelta(days=settings.DEFAULT_SYNC_PERIOD_DAYS)

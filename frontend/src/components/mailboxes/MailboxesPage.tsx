@@ -27,13 +27,16 @@ import { FiPlus, FiRefreshCw, FiEdit2, FiTrash2, FiCheckCircle, FiXCircle, FiAle
 import { mailboxesAPI } from '../../api/mailboxes'
 import { Mailbox, MailboxSyncStatus } from '../../types'
 import { AddMailboxModal } from './AddMailboxModal'
+import { SyncEmailsModal } from './SyncEmailsModal'
 
 export const MailboxesPage = () => {
   const [selectedMailbox, setSelectedMailbox] = useState<Mailbox | null>(null)
+  const [syncMailbox, setSyncMailbox] = useState<Mailbox | null>(null)
   const [syncingMailboxId, setSyncingMailboxId] = useState<string | null>(null)
   const [syncStatuses, setSyncStatuses] = useState<Map<string, MailboxSyncStatus>>(new Map())
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const { isOpen: isSyncOpen, onOpen: onSyncOpen, onClose: onSyncClose } = useDisclosure()
 
   const queryClient = useQueryClient()
   const toast = useToast()
@@ -188,6 +191,17 @@ export const MailboxesPage = () => {
 
   const handleSync = (id: string, forceFull = false) => {
     syncMutation.mutate({ id, forceFull })
+  }
+
+  const handleOpenSyncModal = (mailbox: Mailbox) => {
+    setSyncMailbox(mailbox)
+    onSyncOpen()
+  }
+
+  const handleSyncStarted = () => {
+    if (syncMailbox) {
+      setSyncingMailboxId(syncMailbox.id)
+    }
   }
 
   const formatDate = (dateString: string | null) => {
@@ -402,29 +416,17 @@ export const MailboxesPage = () => {
                     <Divider />
 
                     {/* Sync Actions */}
-                    <HStack spacing={2}>
-                      <Button
-                        size="sm"
-                        leftIcon={<Icon as={FiRefreshCw} />}
-                        onClick={() => handleSync(mailbox.id)}
-                        isLoading={syncingMailboxId === mailbox.id}
-                        isDisabled={!mailbox.is_active || syncingMailboxId !== null}
-                        flex={1}
-                      >
-                        Quick Sync
-                      </Button>
-                      <Button
-                        size="sm"
-                        leftIcon={<Icon as={FiRefreshCw} />}
-                        variant="outline"
-                        onClick={() => handleSync(mailbox.id, true)}
-                        isLoading={syncingMailboxId === mailbox.id}
-                        isDisabled={!mailbox.is_active || syncingMailboxId !== null}
-                        flex={1}
-                      >
-                        Full Sync
-                      </Button>
-                    </HStack>
+                    <Button
+                      size="sm"
+                      leftIcon={<Icon as={FiRefreshCw} />}
+                      colorScheme="blue"
+                      onClick={() => handleOpenSyncModal(mailbox)}
+                      isLoading={syncingMailboxId === mailbox.id}
+                      isDisabled={!mailbox.is_active || syncingMailboxId !== null}
+                      w="full"
+                    >
+                      Sync Emails
+                    </Button>
                   </VStack>
                 </CardBody>
               </Card>
@@ -438,6 +440,14 @@ export const MailboxesPage = () => {
         isOpen={isOpen}
         onClose={onClose}
         mailbox={selectedMailbox}
+      />
+
+      {/* Sync Modal */}
+      <SyncEmailsModal
+        isOpen={isSyncOpen}
+        onClose={onSyncClose}
+        mailbox={syncMailbox}
+        onSyncStarted={handleSyncStarted}
       />
     </Container>
   )

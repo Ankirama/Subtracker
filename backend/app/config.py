@@ -32,10 +32,20 @@ class Settings(BaseSettings):
     DEFAULT_BATCH_SIZE: int = 100
     DEFAULT_CONFIDENCE_AUTO_ACCEPT: float = 85.0
     DEFAULT_CONFIDENCE_REVIEW_MIN: float = 50.0
+    DEFAULT_SYNC_PERIOD_DAYS: int = 30  # Default email sync period
+
+    # OpenAI Rate Limiting
+    OPENAI_REQUEST_DELAY_SECONDS: float = 1.0  # Delay between OpenAI API calls
+    OPENAI_MAX_REQUESTS_PER_MINUTE: int = 60  # Rate limit for OpenAI API
 
     # Celery
     CELERY_BROKER_URL: str
     CELERY_RESULT_BACKEND: str
+
+    # SendGrid
+    SENDGRID_API_KEY: str = "your_sendgrid_api_key_here"
+    SENDGRID_FROM_EMAIL: str = "noreply@subscriptiontracker.app"
+    SENDGRID_FROM_NAME: str = "Subscription Tracker"
 
     @property
     def cors_origins_list(self) -> List[str]:

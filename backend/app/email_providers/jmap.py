@@ -157,10 +157,14 @@ class JMAPProvider(EmailProviderInterface):
         folder: Optional[str] = None,
         since_date: Optional[datetime] = None,
         limit: int = 100,
-        search_query: Optional[str] = None
-    ) -> List[EmailMessage]:
+        search_query: Optional[str] = None,
+        position: int = 0
+    ) -> tuple[List[EmailMessage], bool]:
         """
         Fetch messages using JMAP Email/query and Email/get.
+
+        Returns:
+            tuple: (list of EmailMessage objects, has_more flag)
         """
         if not self._authenticated:
             await self.authenticate()
@@ -186,7 +190,8 @@ class JMAPProvider(EmailProviderInterface):
                             "accountId": self.account_id,
                             "filter": jmap_filter if jmap_filter else None,
                             "sort": [{"property": "receivedAt", "isAscending": False}],
-                            "limit": limit
+                            "limit": limit,
+                            "position": position
                         },
                         "0"
                     ],
@@ -220,7 +225,53 @@ class JMAPProvider(EmailProviderInterface):
             response.raise_for_status()
 
             data = response.json()
+
+            # Extract query result info (first method response)
+            query_result = data['methodResponses'][0][1]
+            total_emails = query_result.get('total', 0)
+            current_position = query_result.get('position', 0)
+            returned_count = len(query_result.get('ids', []))
+
+            # DEBUG: Log pagination metadata details
+            logger.info(f"JMAP PAGINATION DEBUG - total_emails: {total_emails}, current_position: {current_position}, returned_count: {returned_count}, requested_position: {position}")
+
+            # Extract email data (second method response) - needed for date-based pagination check
             emails_data = data['methodResponses'][1][1]['list']
+
+            # Determine if there are more emails to fetch
+            # NOTE: JMAP servers may return total=0 when using filters (e.g., 'after')
+            # Strategy: Use multiple signals to determine if more emails exist
+
+            # Signal 1: Server-provided total (if reliable)
+            total_indicates_more = total_emails > 0 and (current_position + returned_count) < total_emails
+
+            # Signal 2: Full batch received (may indicate more emails)
+            full_batch_received = returned_count == limit
+
+            # Signal 3: Date-based check (most reliable for filtered queries)
+            # If we have a since_date filter and the last email is still after that date,
+            # there might be more emails in our date range
+            date_indicates_more = False
+            if since_date and emails_data:
+                # Get the date of the last email in this batch
+                last_email = emails_data[-1]
+                last_email_date = datetime.fromisoformat(last_email['receivedAt'].replace('Z', '+00:00'))
+                date_indicates_more = last_email_date >= since_date
+                logger.info(f"JMAP PAGINATION DEBUG - Date check: last_email_date={last_email_date}, since_date={since_date}, still_in_range={date_indicates_more}")
+
+            # Combine signals: continue if ANY signal indicates there might be more
+            if total_emails > 0:
+                # If total is provided and accurate, use it as primary signal
+                has_more = total_indicates_more
+                logger.info(f"JMAP PAGINATION DEBUG - Using total-based: has_more={has_more}")
+            elif since_date:
+                # With date filter, use date-based check as primary, batch-size as fallback
+                has_more = date_indicates_more and full_batch_received
+                logger.info(f"JMAP PAGINATION DEBUG - Using date+batch heuristic: date_indicates_more={date_indicates_more}, full_batch={full_batch_received}, has_more={has_more}")
+            else:
+                # No total, no date filter: use batch-size heuristic
+                has_more = full_batch_received
+                logger.info(f"JMAP PAGINATION DEBUG - Using batch-size heuristic: has_more={has_more}")
 
             messages = []
             for email in emails_data:
@@ -229,8 +280,9 @@ class JMAPProvider(EmailProviderInterface):
                 sender = sender_info.get('email', '')
                 sender_name = sender_info.get('name')
 
-                # Parse recipients
-                recipients = [r.get('email', '') for r in email.get('to', [])]
+                # Parse recipients (handle None case for emails without 'to' field)
+                to_field = email.get('to') or []
+                recipients = [r.get('email', '') for r in to_field]
 
                 # Get body content
                 body_values = email.get('bodyValues', {})
@@ -272,8 +324,8 @@ class JMAPProvider(EmailProviderInterface):
                     folder=folder_name
                 ))
 
-            logger.info(f"Fetched {len(messages)} emails from JMAP")
-            return messages
+            logger.info(f"Fetched {len(messages)} emails from JMAP (position {current_position}, total {total_emails}, has_more={has_more})")
+            return messages, has_more
 
         except Exception as e:
             logger.error(f"Failed to fetch JMAP messages: {str(e)}", exc_info=True)

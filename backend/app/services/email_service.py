@@ -8,9 +8,11 @@ from sendgrid.helpers.mail import Mail, Email, To, Content
 from typing import Optional, List
 from datetime import datetime
 import logging
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.notification import NotificationType
+from app.utils.config_helper import get_config_value
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +20,20 @@ logger = logging.getLogger(__name__)
 class EmailService:
     """Service for sending emails via SendGrid."""
 
-    def __init__(self):
-        """Initialize SendGrid client."""
-        self.client = SendGridAPIClient(settings.SENDGRID_API_KEY)
-        self.from_email = Email(settings.SENDGRID_FROM_EMAIL, settings.SENDGRID_FROM_NAME)
+    def __init__(self, db: Optional[Session] = None):
+        """
+        Initialize SendGrid client.
+
+        Args:
+            db: Optional database session to check admin settings
+        """
+        # Get config values (admin settings override env vars)
+        api_key = get_config_value('sendgrid.api_key', settings.SENDGRID_API_KEY, db)
+        from_email = get_config_value('sendgrid.from_email', settings.SENDGRID_FROM_EMAIL, db)
+        from_name = get_config_value('sendgrid.from_name', settings.SENDGRID_FROM_NAME, db)
+
+        self.client = SendGridAPIClient(api_key)
+        self.from_email = Email(from_email, from_name)
 
     def send_email(
         self,

@@ -12,7 +12,12 @@ celery_app = Celery(
     "subscription_tracker",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.tasks.email_sync", "app.tasks.notifications"]  # Task modules to import
+    include=[
+        "app.tasks.email_sync",
+        "app.tasks.notifications",
+        "app.tasks.renewal_reminders",  # Renewal reminder tasks
+        "app.tasks.summary_tasks"  # Weekly/monthly summary tasks
+    ]
 )
 
 # Celery configuration
@@ -40,8 +45,8 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     # Notification tasks
     "check-renewal-reminders": {
-        "task": "tasks.send_renewal_reminders",
-        "schedule": 3600.0,  # Run every hour
+        "task": "tasks.check_renewal_reminders",
+        "schedule": 86400.0,  # Run daily at midnight UTC
     },
     "send-weekly-summaries": {
         "task": "tasks.send_weekly_summaries",
