@@ -14,6 +14,7 @@ import {
   MenuDivider,
   useColorModeValue,
   Heading,
+  Divider,
 } from '@chakra-ui/react'
 import { Link as RouterLink, useLocation, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
@@ -26,6 +27,9 @@ import {
   FiLogOut,
   FiUser,
   FiTool,
+  FiShield,
+  FiTrendingDown,
+  FiDollarSign,
 } from 'react-icons/fi'
 
 interface NavItem {
@@ -38,7 +42,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', icon: FiHome, path: '/dashboard' },
   { label: 'Subscriptions', icon: FiCreditCard, path: '/subscriptions' },
   { label: 'Mailboxes', icon: FiMail, path: '/mailboxes' },
+  { label: 'Budgets', icon: FiDollarSign, path: '/budgets' },
   { label: 'Analytics', icon: FiBarChart2, path: '/analytics' },
+  { label: 'Optimize', icon: FiTrendingDown, path: '/optimize' },
   { label: 'AI Sandbox', icon: FiTool, path: '/ai-sandbox' },
 ]
 
@@ -86,6 +92,24 @@ export const DashboardLayout = () => {
                 </Button>
               )
             })}
+
+            {/* Admin Panel - Only visible to admin users */}
+            {user?.is_admin && (
+              <>
+                <Divider my={2} />
+                <Button
+                  as={RouterLink}
+                  to="/admin/config"
+                  leftIcon={<Icon as={FiShield} />}
+                  variant={location.pathname.startsWith('/admin') ? 'solid' : 'ghost'}
+                  colorScheme={location.pathname.startsWith('/admin') ? 'red' : 'gray'}
+                  justifyContent="flex-start"
+                  fontWeight={location.pathname.startsWith('/admin') ? 'bold' : 'normal'}
+                >
+                  Admin Panel
+                </Button>
+              </>
+            )}
           </VStack>
 
           {/* User menu */}
