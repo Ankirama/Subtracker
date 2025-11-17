@@ -31,6 +31,7 @@ import {
 } from '@chakra-ui/react'
 import { FiSearch, FiEdit2, FiTrash2, FiPlus, FiEye, FiRefreshCw, FiDownload } from 'react-icons/fi'
 import { subscriptionsAPI } from '../../api/subscriptions'
+import { categoriesAPI } from '../../api/categories'
 import { Subscription } from '../../types'
 import { SubscriptionModal } from './SubscriptionModal'
 import { SubscriptionFeedbackModal } from './SubscriptionFeedbackModal'
@@ -57,6 +58,11 @@ export const SubscriptionsPage = () => {
         category: categoryFilter || undefined,
         status: activeFilter || undefined,
       }),
+  })
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: categoriesAPI.getAll,
   })
 
   const deleteMutation = useMutation({
@@ -223,12 +229,11 @@ export const SubscriptionsPage = () => {
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
           >
-            <option value="streaming">Streaming</option>
-            <option value="software">Software</option>
-            <option value="storage">Storage</option>
-            <option value="productivity">Productivity</option>
-            <option value="entertainment">Entertainment</option>
-            <option value="other">Other</option>
+            {categoriesData?.categories.map((category) => (
+              <option key={category.name} value={category.name}>
+                {category.display_name}
+              </option>
+            ))}
           </Select>
 
           <Select
@@ -285,8 +290,11 @@ export const SubscriptionsPage = () => {
                       </Badge>
                     </Td>
                     <Td>
-                      <Badge textTransform="capitalize">
-                        {subscription.category}
+                      <Badge
+                        colorScheme={categoriesData?.categories.find(c => c.name === subscription.category)?.color || 'gray'}
+                        textTransform="capitalize"
+                      >
+                        {categoriesData?.categories.find(c => c.name === subscription.category)?.display_name || subscription.category}
                       </Badge>
                     </Td>
                     <Td>

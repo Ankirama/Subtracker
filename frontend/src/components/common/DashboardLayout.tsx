@@ -30,6 +30,7 @@ import {
   FiShield,
   FiTrendingDown,
   FiDollarSign,
+  FiTag,
 } from 'react-icons/fi'
 
 interface NavItem {
@@ -41,6 +42,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', icon: FiHome, path: '/dashboard' },
   { label: 'Subscriptions', icon: FiCreditCard, path: '/subscriptions' },
+  { label: 'Categories', icon: FiTag, path: '/categories' },
   { label: 'Mailboxes', icon: FiMail, path: '/mailboxes' },
   { label: 'Budgets', icon: FiDollarSign, path: '/budgets' },
   { label: 'Analytics', icon: FiBarChart2, path: '/analytics' },
