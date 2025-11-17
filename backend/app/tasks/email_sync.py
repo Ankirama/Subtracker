@@ -14,6 +14,7 @@ from app.database import SessionLocal
 from app.models.mailbox import Mailbox
 from app.models.subscription import Subscription
 from app.models.email_message import EmailMessage, subscription_emails
+from app.models.price_history import PriceHistory
 from app.email_providers import JMAPProvider
 from app.security.encryption import decrypt_credentials
 from app.config import settings
@@ -181,7 +182,8 @@ async def _sync_mailbox_async(
 
                         if subscription_data:
                             # Check if subscription already exists using composite key
-                            # Strategy: Match on stable fields (provider, amount, billing_cycle, email_sender)
+                            # Strategy: Match on stable fields (provider, billing_cycle, email_sender)
+                            # Note: Amount is NOT used for matching since prices can change over time
                             # Only use custom_label for genuinely different subscriptions (Twitch channels, specific tiers)
 
                             # Start with base query: mailbox + provider
@@ -191,8 +193,7 @@ async def _sync_mailbox_async(
                             )
 
                             # Add stable matching fields to prevent AI-description-based duplicates
-                            if subscription_data.get('amount') is not None:
-                                query = query.filter(Subscription.amount == subscription_data['amount'])
+                            # Note: We removed amount matching to handle price changes gracefully
 
                             if subscription_data.get('billing_cycle'):
                                 query = query.filter(Subscription.billing_cycle == subscription_data['billing_cycle'])
@@ -216,13 +217,41 @@ async def _sync_mailbox_async(
 
                             subscription_record = None
                             if existing_sub:
+                                # Check if price has changed before updating
+                                old_amount = existing_sub.amount
+                                new_amount = subscription_data.get('amount')
+                                price_changed = (
+                                    old_amount is not None and
+                                    new_amount is not None and
+                                    float(old_amount) != float(new_amount)
+                                )
+
                                 # Update existing subscription
                                 for key, value in subscription_data.items():
                                     setattr(existing_sub, key, value)
                                 existing_sub.updated_at = datetime.now(timezone.utc)
                                 subscription_record = existing_sub
                                 subscriptions_updated += 1
-                                logger.info(f"Updated subscription: {subscription_data['provider']} - {custom_label or 'No label'}")
+
+                                # Create price history record if price changed
+                                if price_changed:
+                                    change_percentage = ((float(new_amount) - float(old_amount)) / float(old_amount)) * 100
+                                    change_type = 'increase' if float(new_amount) > float(old_amount) else 'decrease'
+
+                                    price_history_record = PriceHistory(
+                                        subscription_id=existing_sub.id,
+                                        old_amount=old_amount,
+                                        new_amount=new_amount,
+                                        currency=subscription_data.get('currency', 'EUR'),
+                                        change_type=change_type,
+                                        change_percentage=round(change_percentage, 2),
+                                        detected_from='email',
+                                        notes=f"Price change detected from email: {email.subject}"
+                                    )
+                                    db.add(price_history_record)
+                                    logger.info(f"Price change detected for {subscription_data['provider']}: €{old_amount} -> €{new_amount} ({change_type} of {abs(change_percentage):.1f}%)")
+                                else:
+                                    logger.info(f"Updated subscription: {subscription_data['provider']} - {custom_label or 'No label'}")
                             else:
                                 # Create new subscription
                                 new_subscription = Subscription(
@@ -235,6 +264,21 @@ async def _sync_mailbox_async(
                                 subscription_record = new_subscription
                                 subscriptions_found += 1
                                 logger.info(f"Created new subscription: {subscription_data['provider']} - {custom_label or 'No label'}")
+
+                                # Create initial price history record
+                                if subscription_data.get('amount') is not None:
+                                    initial_price_history = PriceHistory(
+                                        subscription_id=new_subscription.id,
+                                        old_amount=None,  # No previous price for initial record
+                                        new_amount=subscription_data['amount'],
+                                        currency=subscription_data.get('currency', 'EUR'),
+                                        change_type='initial',
+                                        change_percentage=None,  # No percentage for initial record
+                                        detected_from='email',
+                                        notes=f"Initial price detected from email: {email.subject}"
+                                    )
+                                    db.add(initial_price_history)
+                                    logger.info(f"Created initial price history for {subscription_data['provider']}: €{subscription_data['amount']}")
 
                             # Create subscription-email relationship if not exists
                             if subscription_record and email_record:
@@ -419,6 +463,10 @@ def update_subscription_statuses(db: Session, mailbox_id: UUID) -> Dict[str, int
     for sub in subscriptions:
         if not sub.billing_cycle:
             # Skip subscriptions without billing cycle defined
+            continue
+
+        if sub.manual_status_override:
+            # Skip subscriptions with manual status override - user has manually set the status
             continue
 
         # Get grace period for this billing cycle (default to 60 days if unknown)
