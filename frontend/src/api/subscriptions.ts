@@ -6,6 +6,8 @@ import {
   SubscriptionStats,
   SubscriptionCreate,
   SubscriptionUpdate,
+  PriceHistory,
+  PriceStatistics,
 } from '../types'
 
 export const subscriptionsAPI = {
@@ -31,6 +33,13 @@ export const subscriptionsAPI = {
     return response.data
   },
 
+  getAnalytics: async (months: number = 12): Promise<any> => {
+    const response = await apiClient.get('/subscriptions/analytics/trends', {
+      params: { months }
+    })
+    return response.data
+  },
+
   create: async (data: SubscriptionCreate): Promise<Subscription> => {
     const response = await apiClient.post<Subscription>('/subscriptions', data)
     return response.data
@@ -43,5 +52,35 @@ export const subscriptionsAPI = {
 
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/subscriptions/${id}`)
+  },
+
+  updateStatus: async (mailboxId?: string): Promise<{
+    success: boolean
+    total_activated: number
+    total_deactivated: number
+    mailboxes_updated: number
+    message: string
+  }> => {
+    const params = mailboxId ? { mailbox_id: mailboxId } : {}
+    const response = await apiClient.post('/subscriptions/update-status', {}, { params })
+    return response.data
+  },
+
+  submitFeedback: async (data: {
+    subscription_id: string
+    feedback_type: 'not_subscription' | 'duplicate' | 'wrong_amount' | 'wrong_provider' | 'wrong_category' | 'wrong_billing_cycle' | 'other'
+    feedback_text?: string
+  }): Promise<void> => {
+    await apiClient.post('/subscriptions/feedback', data)
+  },
+
+  getPriceHistory: async (subscriptionId: string): Promise<PriceHistory[]> => {
+    const response = await apiClient.get<PriceHistory[]>(`/subscriptions/${subscriptionId}/price-history`)
+    return response.data
+  },
+
+  getPriceStatistics: async (subscriptionId: string): Promise<PriceStatistics> => {
+    const response = await apiClient.get<PriceStatistics>(`/subscriptions/${subscriptionId}/price-statistics`)
+    return response.data
   },
 }

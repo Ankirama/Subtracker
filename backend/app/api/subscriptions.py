@@ -7,12 +7,16 @@ from sqlalchemy import func
 from typing import List
 from uuid import UUID
 from datetime import datetime, timedelta
+from collections import defaultdict
+from dateutil.relativedelta import relativedelta
 
 from app.database import get_db
 from app.models.user import User
 from app.models.mailbox import Mailbox
 from app.models.subscription import Subscription
 from app.models.email_message import EmailMessage, subscription_emails
+from app.models.subscription_feedback import SubscriptionFeedback
+from app.models.price_history import PriceHistory
 from app.schemas.subscription import (
     SubscriptionCreate,
     SubscriptionUpdate,
@@ -21,8 +25,18 @@ from app.schemas.subscription import (
     SubscriptionStats,
     SubscriptionDetailResponse,
     SubscriptionEmailLink,
-    EmailMessageResponse
+    EmailMessageResponse,
+    AnalyticsResponse,
+    MonthlySpendingData,
+    CategorySpendingTrend,
+    FeedbackCreate,
+    FeedbackResponse
 )
+from app.schemas.price_history import (
+    PriceHistoryResponse,
+    PriceStatisticsResponse
+)
+from app.services.price_history_service import PriceHistoryService
 from app.security.dependencies import get_current_user
 import logging
 
@@ -201,14 +215,14 @@ async def get_subscription_stats(
         cycle = sub.billing_cycle or 'unknown'
         by_billing_cycle[cycle] = by_billing_cycle.get(cycle, 0) + 1
     
-    # Upcoming renewals (next 30 days)
+    # Upcoming renewals (next 30 days) - use computed next_renewal_date
     today = datetime.now().date()
     thirty_days = today + timedelta(days=30)
     upcoming = [
         s for s in subscriptions
-        if s.renewal_date and s.renewal_date <= thirty_days
+        if s.next_renewal_date and today <= s.next_renewal_date <= thirty_days
     ]
-    upcoming.sort(key=lambda x: x.renewal_date if x.renewal_date else datetime.max.date())
+    upcoming.sort(key=lambda x: x.next_renewal_date if x.next_renewal_date else datetime.max.date())
     
     return SubscriptionStats(
         total_subscriptions=total_subscriptions,
@@ -218,6 +232,161 @@ async def get_subscription_stats(
         by_category=by_category,
         by_billing_cycle=by_billing_cycle,
         upcoming_renewals=[SubscriptionResponse.model_validate(s) for s in upcoming[:5]]
+    )
+
+
+@router.get("/analytics/trends", response_model=AnalyticsResponse)
+async def get_analytics_trends(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    months: int = Query(12, ge=3, le=24, description="Number of months to analyze")
+):
+    """
+    Get detailed analytics and spending trends over time.
+
+    Analyzes subscription history to provide:
+    - Monthly spending trends
+    - Subscription count changes over time
+    - Category spending patterns
+    - Peak spending periods
+    """
+    # Get all subscriptions (active and inactive) for the user
+    all_subscriptions = db.query(Subscription).join(Mailbox).filter(
+        Mailbox.user_id == current_user.id
+    ).all()
+
+    # Calculate date range
+    today = datetime.now().date()
+    start_date = today - relativedelta(months=months)
+
+    # Initialize monthly data structure
+    monthly_data = {}
+    current_month = start_date.replace(day=1)
+
+    while current_month <= today:
+        month_key = f"{current_month.year}-{current_month.month:02d}"
+        monthly_data[month_key] = {
+            'year': current_month.year,
+            'month_num': current_month.month,
+            'month': current_month.strftime('%b %Y'),
+            'total_cost': 0.0,
+            'subscription_count': 0,
+            'new_subscriptions': 0,
+            'cancelled_subscriptions': 0,
+            'active_subs': set(),
+            'categories': defaultdict(float)
+        }
+        current_month += relativedelta(months=1)
+
+    # Process each subscription
+    for sub in all_subscriptions:
+        first_detected = sub.first_detected_at.date() if sub.first_detected_at else None
+        last_confirmed = sub.last_confirmed_at.date() if sub.last_confirmed_at else None
+
+        if not first_detected:
+            continue
+
+        # Calculate monthly cost for this subscription
+        monthly_cost = 0.0
+        if sub.amount and sub.billing_cycle:
+            amount = float(sub.amount)
+            if sub.billing_cycle == 'monthly':
+                monthly_cost = amount
+            elif sub.billing_cycle == 'yearly':
+                monthly_cost = amount / 12
+            elif sub.billing_cycle == 'weekly':
+                monthly_cost = amount * 4.33
+            elif sub.billing_cycle == 'quarterly':
+                monthly_cost = amount / 3
+            elif sub.billing_cycle == 'biannual':
+                monthly_cost = amount / 6
+
+        # Track subscription across months it was active
+        sub_start = max(first_detected.replace(day=1), start_date.replace(day=1))
+        sub_end = last_confirmed.replace(day=1) if last_confirmed else today.replace(day=1)
+
+        current = sub_start
+        while current <= sub_end and current <= today.replace(day=1):
+            month_key = f"{current.year}-{current.month:02d}"
+
+            if month_key in monthly_data:
+                # Add to monthly cost
+                monthly_data[month_key]['total_cost'] += monthly_cost
+                monthly_data[month_key]['active_subs'].add(sub.id)
+
+                # Track category spending
+                category = sub.category or 'other'
+                monthly_data[month_key]['categories'][category] += monthly_cost
+
+                # Track new subscriptions
+                if current == sub_start:
+                    monthly_data[month_key]['new_subscriptions'] += 1
+
+                # Track cancelled subscriptions
+                if last_confirmed and current == sub_end and not sub.is_active:
+                    monthly_data[month_key]['cancelled_subscriptions'] += 1
+
+            current += relativedelta(months=1)
+
+    # Convert to response format
+    monthly_spending = []
+    total_spent = 0.0
+    peak_month = None
+    peak_cost = 0.0
+
+    for month_key in sorted(monthly_data.keys()):
+        data = monthly_data[month_key]
+        data['subscription_count'] = len(data['active_subs'])
+
+        monthly_spending.append(MonthlySpendingData(
+            month=data['month'],
+            year=data['year'],
+            month_num=data['month_num'],
+            total_cost=round(data['total_cost'], 2),
+            subscription_count=data['subscription_count'],
+            new_subscriptions=data['new_subscriptions'],
+            cancelled_subscriptions=data['cancelled_subscriptions']
+        ))
+
+        total_spent += data['total_cost']
+
+        if data['total_cost'] > peak_cost:
+            peak_cost = data['total_cost']
+            peak_month = data['month']
+
+    # Calculate category trends
+    category_trends = []
+    all_categories = set()
+
+    for data in monthly_data.values():
+        all_categories.update(data['categories'].keys())
+
+    for category in all_categories:
+        monthly_category_data = []
+        for month_key in sorted(monthly_data.keys()):
+            data = monthly_data[month_key]
+            monthly_category_data.append({
+                'month': data['month'],
+                'amount': round(data['categories'].get(category, 0.0), 2)
+            })
+
+        category_trends.append(CategorySpendingTrend(
+            category=category,
+            monthly_data=monthly_category_data
+        ))
+
+    # Calculate average monthly cost
+    avg_monthly = total_spent / len(monthly_data) if monthly_data else 0.0
+
+    logger.info(f"Generated analytics for user {current_user.id}: {len(monthly_spending)} months, {len(category_trends)} categories")
+
+    return AnalyticsResponse(
+        monthly_spending=monthly_spending,
+        category_trends=category_trends,
+        total_spent=round(total_spent, 2),
+        average_monthly_cost=round(avg_monthly, 2),
+        peak_month=peak_month,
+        peak_month_cost=round(peak_cost, 2) if peak_cost > 0 else None
     )
 
 
@@ -331,6 +500,224 @@ async def delete_subscription(
     
     db.delete(subscription)
     db.commit()
-    
+
     logger.info(f"Deleted subscription: {subscription_id}")
     return None
+
+
+@router.post("/update-status")
+async def update_subscription_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    mailbox_id: UUID = None
+):
+    """
+    Manually update subscription active/inactive status based on last email confirmation.
+
+    This runs the same logic that executes automatically after email sync:
+    - Checks last_confirmed_at against billing cycle + grace period
+    - Marks subscriptions as active if recently confirmed
+    - Marks subscriptions as inactive if no recent confirmation
+
+    If mailbox_id is provided, updates only that mailbox's subscriptions.
+    Otherwise, updates all mailboxes for the current user.
+    """
+    from app.tasks.email_sync import update_subscription_statuses
+
+    try:
+        # Get mailboxes to update
+        mailboxes_query = db.query(Mailbox).filter(Mailbox.user_id == current_user.id)
+
+        if mailbox_id:
+            verify_mailbox_ownership(mailbox_id, current_user.id, db)
+            mailboxes_query = mailboxes_query.filter(Mailbox.id == mailbox_id)
+
+        mailboxes = mailboxes_query.all()
+
+        if not mailboxes:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No mailboxes found"
+            )
+
+        # Update status for each mailbox
+        total_activated = 0
+        total_deactivated = 0
+        mailbox_results = []
+
+        for mailbox in mailboxes:
+            result = update_subscription_statuses(db, mailbox.id)
+            total_activated += result['activated']
+            total_deactivated += result['deactivated']
+
+            mailbox_results.append({
+                'mailbox_id': str(mailbox.id),
+                'mailbox_email': mailbox.email_address,
+                'activated': result['activated'],
+                'deactivated': result['deactivated']
+            })
+
+        logger.info(f"Manual status update for user {current_user.id}: {total_activated} activated, {total_deactivated} deactivated")
+
+        return {
+            'success': True,
+            'total_activated': total_activated,
+            'total_deactivated': total_deactivated,
+            'mailboxes_updated': len(mailboxes),
+            'details': mailbox_results,
+            'message': f'Updated {total_activated + total_deactivated} subscription statuses'
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update subscription status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update subscription status: {str(e)}"
+        )
+
+
+@router.post("/feedback", response_model=FeedbackResponse, status_code=status.HTTP_201_CREATED)
+async def create_subscription_feedback(
+    feedback_data: FeedbackCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Create feedback for an AI-detected subscription that user is rejecting.
+
+    This captures:
+    - Why the user is rejecting the subscription
+    - Full snapshot of subscription data before deletion
+    - AI classification metadata for analysis
+    - Related email IDs that led to the detection
+
+    Used to improve future AI classification accuracy.
+    """
+    try:
+        # Get the subscription to verify ownership and capture snapshot
+        subscription = db.query(Subscription).join(Mailbox).filter(
+            Subscription.id == feedback_data.subscription_id,
+            Mailbox.user_id == current_user.id
+        ).first()
+
+        if not subscription:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Subscription not found or not authorized"
+            )
+
+        # Create subscription snapshot
+        subscription_snapshot = {
+            'provider': subscription.provider,
+            'amount': float(subscription.amount) if subscription.amount else None,
+            'currency': subscription.currency,
+            'billing_cycle': subscription.billing_cycle,
+            'category': subscription.category,
+            'custom_label': subscription.custom_label,
+            'email_sender': subscription.email_sender,
+            'renewal_date': subscription.renewal_date.isoformat() if subscription.renewal_date else None,
+            'is_active': subscription.is_active,
+            'confidence_score': float(subscription.confidence_score) if subscription.confidence_score else None,
+            'extraction_method': subscription.extraction_method,
+            'first_detected_at': subscription.first_detected_at.isoformat() if subscription.first_detected_at else None,
+            'last_confirmed_at': subscription.last_confirmed_at.isoformat() if subscription.last_confirmed_at else None
+        }
+
+        # Get AI classification data if available
+        ai_classification_data = None
+        if subscription.extraction_metadata:
+            ai_classification_data = subscription.extraction_metadata
+
+        # Get source email IDs
+        source_email_ids = [email.id for email in subscription.source_emails]
+
+        # Create feedback record
+        feedback = SubscriptionFeedback(
+            user_id=current_user.id,
+            subscription_id=feedback_data.subscription_id,
+            feedback_type=feedback_data.feedback_type,
+            feedback_text=feedback_data.feedback_text,
+            subscription_snapshot=subscription_snapshot,
+            ai_classification_data=ai_classification_data,
+            source_email_ids=source_email_ids
+        )
+
+        db.add(feedback)
+        db.commit()
+        db.refresh(feedback)
+
+        logger.info(
+            f"Feedback created for subscription {feedback_data.subscription_id} "
+            f"by user {current_user.id}: {feedback_data.feedback_type}"
+        )
+
+        return feedback
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to create feedback: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create feedback: {str(e)}"
+        )
+
+
+# Price History Endpoints
+
+@router.get("/{subscription_id}/price-history", response_model=List[PriceHistoryResponse])
+async def get_subscription_price_history(
+    subscription_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get price change history for a subscription.
+
+    Returns all recorded price changes ordered by most recent first.
+    """
+    # Verify subscription ownership
+    subscription = db.query(Subscription).join(Mailbox).filter(
+        Subscription.id == subscription_id,
+        Mailbox.user_id == current_user.id
+    ).first()
+
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Subscription not found"
+        )
+
+    history = PriceHistoryService.get_subscription_price_history(db, str(subscription_id))
+    return history
+
+
+@router.get("/{subscription_id}/price-statistics", response_model=PriceStatisticsResponse)
+async def get_subscription_price_statistics(
+    subscription_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get price change statistics for a subscription.
+
+    Returns summary of all price changes including total increases/decreases,
+    average change percentage, and current vs original price.
+    """
+    # Verify subscription ownership
+    subscription = db.query(Subscription).join(Mailbox).filter(
+        Subscription.id == subscription_id,
+        Mailbox.user_id == current_user.id
+    ).first()
+
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Subscription not found"
+        )
+
+    stats = PriceHistoryService.get_price_statistics(db, str(subscription_id))
+    return stats

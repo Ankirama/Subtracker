@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Box,
   Container,
@@ -35,21 +36,31 @@ import {
   Tab,
   TabPanels,
   TabPanel,
+  useDisclosure,
 } from '@chakra-ui/react'
-import { FiArrowLeft, FiMail, FiCalendar, FiClock, FiInfo } from 'react-icons/fi'
+import { FiArrowLeft, FiMail, FiCalendar, FiClock, FiInfo, FiEdit2 } from 'react-icons/fi'
 import DOMPurify from 'dompurify'
 import { subscriptionsAPI } from '../../api/subscriptions'
 import { SubscriptionEmailLink } from '../../types'
+import { SubscriptionModal } from './SubscriptionModal'
+import { PriceHistoryCard } from './PriceHistoryCard'
 
 export const SubscriptionDetailPage = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure()
 
   const { data: subscription, isLoading, error } = useQuery({
     queryKey: ['subscription', id],
     queryFn: () => subscriptionsAPI.getById(id!),
     enabled: !!id,
   })
+
+  const handleEditClose = () => {
+    onEditClose()
+    queryClient.invalidateQueries({ queryKey: ['subscription', id] })
+  }
 
   const formatCurrency = (amount: number | null | undefined) => {
     if (!amount) return 'N/A'
@@ -147,15 +158,23 @@ export const SubscriptionDetailPage = () => {
   return (
     <Container maxW="container.xl" py={8}>
       <VStack align="stretch" spacing={6}>
-        {/* Back Button */}
-        <Button
-          leftIcon={<Icon as={FiArrowLeft} />}
-          variant="ghost"
-          alignSelf="flex-start"
-          onClick={() => navigate('/subscriptions')}
-        >
-          Back to Subscriptions
-        </Button>
+        {/* Navigation Bar */}
+        <HStack justify="space-between">
+          <Button
+            leftIcon={<Icon as={FiArrowLeft} />}
+            variant="ghost"
+            onClick={() => navigate('/subscriptions')}
+          >
+            Back to Subscriptions
+          </Button>
+          <Button
+            leftIcon={<Icon as={FiEdit2} />}
+            colorScheme="blue"
+            onClick={onEditOpen}
+          >
+            Edit Subscription
+          </Button>
+        </HStack>
 
         {/* Header */}
         <Box>
@@ -205,7 +224,7 @@ export const SubscriptionDetailPage = () => {
 
                 <Stat>
                   <StatLabel>Next Renewal</StatLabel>
-                  <StatNumber fontSize="lg">{formatDate(subscription.renewal_date)}</StatNumber>
+                  <StatNumber fontSize="lg">{formatDate(subscription.next_renewal_date || subscription.renewal_date)}</StatNumber>
                 </Stat>
               </Flex>
 
@@ -252,6 +271,9 @@ export const SubscriptionDetailPage = () => {
             </Stack>
           </CardBody>
         </Card>
+
+        {/* Price History */}
+        <PriceHistoryCard subscriptionId={subscription.id} />
 
         {/* Source Emails */}
         <Card>
@@ -361,6 +383,13 @@ export const SubscriptionDetailPage = () => {
           </CardBody>
         </Card>
       </VStack>
+
+      {/* Edit Subscription Modal */}
+      <SubscriptionModal
+        isOpen={isEditOpen}
+        onClose={handleEditClose}
+        subscription={subscription}
+      />
     </Container>
   )
 }

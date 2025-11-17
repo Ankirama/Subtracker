@@ -34,6 +34,7 @@ export interface Subscription {
   currency: string
   billing_cycle: string
   renewal_date: string | null
+  next_renewal_date: string | null  // Computed next future renewal date
   next_billing_date: string | null
   is_active: boolean
   category: string
@@ -87,6 +88,31 @@ export interface SubscriptionUpdate {
   category?: string
   custom_label?: string | null
   notes?: string | null
+}
+
+// Price History types
+export interface PriceHistory {
+  id: string
+  subscription_id: string
+  old_amount: number | null
+  new_amount: number
+  currency: string
+  change_type: 'increase' | 'decrease' | 'initial'
+  change_percentage: number | null
+  detected_from: string | null
+  notes: string | null
+  detected_at: string
+}
+
+export interface PriceStatistics {
+  total_changes: number
+  increases: number
+  decreases: number
+  total_increase_amount: number
+  total_decrease_amount: number
+  average_change_percentage: number
+  latest_price: number | null
+  original_price: number | null
 }
 
 // Email types
