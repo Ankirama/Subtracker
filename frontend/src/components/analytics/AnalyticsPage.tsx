@@ -20,6 +20,7 @@ import {
   StatHelpText,
   Icon,
   useColorModeValue,
+  Button,
 } from '@chakra-ui/react'
 import {
   LineChart,
@@ -36,7 +37,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
-import { FiTrendingUp, FiPieChart, FiDollarSign, FiCalendar } from 'react-icons/fi'
+import { FiTrendingUp, FiPieChart, FiDollarSign, FiCalendar, FiDownload } from 'react-icons/fi'
 import { subscriptionsAPI } from '../../api/subscriptions'
 import { useState } from 'react'
 
@@ -53,6 +54,13 @@ export const AnalyticsPage = () => {
   const { data: subscriptions } = useQuery({
     queryKey: ['subscriptions'],
     queryFn: () => subscriptionsAPI.getAll({}),
+  })
+
+  // Get analytics data based on selected time range
+  const monthsMap = { '3m': 3, '6m': 6, '1y': 12 }
+  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+    queryKey: ['subscriptionAnalytics', timeRange],
+    queryFn: () => subscriptionsAPI.getAnalytics(monthsMap[timeRange]),
   })
 
   const formatCurrency = (amount: number | undefined) => {
@@ -80,19 +88,12 @@ export const AnalyticsPage = () => {
       }))
     : []
 
-  // Generate monthly spending trend data (mock data for demonstration)
-  const generateMonthlyTrend = () => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
-    const monthlyCost = stats?.total_monthly_cost || 0
-
-    return months.map((month, index) => ({
-      month,
-      cost: monthlyCost * (0.8 + Math.random() * 0.4), // Simulate variation
-      subscriptions: (stats?.active_subscriptions || 0) + Math.floor(Math.random() * 3 - 1),
-    }))
-  }
-
-  const monthlyTrendData = generateMonthlyTrend()
+  // Use real analytics data instead of mock data
+  const monthlyTrendData = analytics?.monthly_spending.map(data => ({
+    month: data.month.split(' ')[0], // "Jan 2024" -> "Jan"
+    cost: data.total_cost,
+    subscriptions: data.subscription_count,
+  })) || []
 
   // Calculate average subscription cost
   const averageSubscriptionCost =
@@ -107,7 +108,75 @@ export const AnalyticsPage = () => {
 
   const bgColor = useColorModeValue('white', 'gray.800')
 
-  if (isLoading) {
+  // CSV Export functionality
+  const exportToCSV = () => {
+    if (!analytics || !stats) return
+
+    // Prepare CSV data
+    const csvRows: string[] = []
+
+    // Header
+    csvRows.push('Subscription Analytics Export')
+    csvRows.push(`Export Date: ${new Date().toLocaleDateString()}`)
+    csvRows.push(`Time Range: ${timeRange}`)
+    csvRows.push('')
+
+    // Summary statistics
+    csvRows.push('Summary Statistics')
+    csvRows.push('Metric,Value')
+    csvRows.push(`Total Subscriptions,${stats.total_subscriptions}`)
+    csvRows.push(`Active Subscriptions,${stats.active_subscriptions}`)
+    csvRows.push(`Total Monthly Cost,${stats.total_monthly_cost}`)
+    csvRows.push(`Total Yearly Cost,${stats.total_yearly_cost}`)
+    csvRows.push(`Average Monthly Cost,${analytics.average_monthly_cost}`)
+    csvRows.push(`Total Spent (Period),${analytics.total_spent}`)
+    csvRows.push(`Peak Month,${analytics.peak_month || 'N/A'}`)
+    csvRows.push(`Peak Month Cost,${analytics.peak_month_cost || 0}`)
+    csvRows.push('')
+
+    // Monthly spending trend
+    csvRows.push('Monthly Spending Trend')
+    csvRows.push('Month,Total Cost,Subscription Count,New Subscriptions,Cancelled Subscriptions')
+    analytics.monthly_spending.forEach(month => {
+      csvRows.push(
+        `${month.month},${month.total_cost},${month.subscription_count},${month.new_subscriptions},${month.cancelled_subscriptions}`
+      )
+    })
+    csvRows.push('')
+
+    // Category breakdown
+    csvRows.push('Category Breakdown')
+    csvRows.push('Category,Monthly Cost,Subscription Count')
+    Object.entries(stats.by_category).forEach(([category, data]) => {
+      csvRows.push(`${category},${data.total},${data.count}`)
+    })
+    csvRows.push('')
+
+    // Billing cycle distribution
+    csvRows.push('Billing Cycle Distribution')
+    csvRows.push('Billing Cycle,Count')
+    Object.entries(stats.by_billing_cycle).forEach(([cycle, count]) => {
+      csvRows.push(`${cycle},${count}`)
+    })
+
+    // Create CSV string
+    const csvContent = csvRows.join('\n')
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+
+    link.setAttribute('href', url)
+    link.setAttribute('download', `subscription-analytics-${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = 'hidden'
+
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  if (isLoading || analyticsLoading) {
     return (
       <Center h="100vh">
         <Spinner size="xl" color="blue.500" />
@@ -135,15 +204,26 @@ export const AnalyticsPage = () => {
             <Heading size="lg">Analytics & Insights</Heading>
             <Text color="gray.600">Visualize your subscription spending patterns</Text>
           </Box>
-          <Select
-            maxW="150px"
-            value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value as '3m' | '6m' | '1y')}
-          >
-            <option value="3m">Last 3 months</option>
-            <option value="6m">Last 6 months</option>
-            <option value="1y">Last year</option>
-          </Select>
+          <HStack spacing={4}>
+            <Select
+              maxW="150px"
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value as '3m' | '6m' | '1y')}
+            >
+              <option value="3m">Last 3 months</option>
+              <option value="6m">Last 6 months</option>
+              <option value="1y">Last year</option>
+            </Select>
+            <Button
+              leftIcon={<Icon as={FiDownload} />}
+              colorScheme="blue"
+              variant="outline"
+              onClick={exportToCSV}
+              isDisabled={!analytics || !stats}
+            >
+              Export CSV
+            </Button>
+          </HStack>
         </HStack>
 
         {/* Key Metrics */}
@@ -378,6 +458,20 @@ export const AnalyticsPage = () => {
                         {categoryData[0].name}
                       </Text>{' '}
                       at {formatCurrency(categoryData[0].value)}/month
+                    </Text>
+                  )}
+                  {analytics && analytics.peak_month && (
+                    <Text>
+                      • Your highest spending month was{' '}
+                      <Text as="span" fontWeight="bold">
+                        {analytics.peak_month}
+                      </Text>{' '}
+                      at {formatCurrency(analytics.peak_month_cost || 0)}
+                    </Text>
+                  )}
+                  {analytics && analytics.monthly_spending.length > 1 && (
+                    <Text>
+                      • Average monthly spending: {formatCurrency(analytics.average_monthly_cost)}
                     </Text>
                   )}
                 </>
