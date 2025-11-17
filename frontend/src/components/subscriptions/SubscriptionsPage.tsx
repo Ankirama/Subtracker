@@ -29,10 +29,12 @@ import {
   InputLeftElement,
   Icon,
 } from '@chakra-ui/react'
-import { FiSearch, FiEdit2, FiTrash2, FiPlus, FiEye } from 'react-icons/fi'
+import { FiSearch, FiEdit2, FiTrash2, FiPlus, FiEye, FiRefreshCw, FiDownload } from 'react-icons/fi'
 import { subscriptionsAPI } from '../../api/subscriptions'
 import { Subscription } from '../../types'
 import { SubscriptionModal } from './SubscriptionModal'
+import { SubscriptionFeedbackModal } from './SubscriptionFeedbackModal'
+import { ExportModal } from './ExportModal'
 
 export const SubscriptionsPage = () => {
   const navigate = useNavigate()
@@ -40,7 +42,10 @@ export const SubscriptionsPage = () => {
   const [categoryFilter, setCategoryFilter] = useState('')
   const [activeFilter, setActiveFilter] = useState<string>('')
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null)
+  const [feedbackSubscription, setFeedbackSubscription] = useState<Subscription | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const { isOpen: isFeedbackOpen, onOpen: onFeedbackOpen, onClose: onFeedbackClose } = useDisclosure()
+  const { isOpen: isExportOpen, onOpen: onExportOpen, onClose: onExportClose } = useDisclosure()
 
   const queryClient = useQueryClient()
   const toast = useToast()
@@ -50,7 +55,7 @@ export const SubscriptionsPage = () => {
     queryFn: () =>
       subscriptionsAPI.getAll({
         category: categoryFilter || undefined,
-        is_active: activeFilter ? activeFilter === 'true' : undefined,
+        status: activeFilter || undefined,
       }),
   })
 
@@ -74,14 +79,53 @@ export const SubscriptionsPage = () => {
     },
   })
 
+  const updateStatusMutation = useMutation({
+    mutationFn: () => subscriptionsAPI.updateStatus(),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['subscriptions'] })
+      queryClient.invalidateQueries({ queryKey: ['subscriptionStats'] })
+      toast({
+        title: 'Subscription statuses updated',
+        description: `${data.total_activated} activated, ${data.total_deactivated} deactivated`,
+        status: 'success',
+        duration: 5000,
+      })
+    },
+    onError: () => {
+      toast({
+        title: 'Failed to update subscription statuses',
+        status: 'error',
+        duration: 3000,
+      })
+    },
+  })
+
   const handleEdit = (subscription: Subscription) => {
     setSelectedSubscription(subscription)
     onOpen()
   }
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this subscription?')) {
-      deleteMutation.mutate(id)
+  const handleDelete = async (subscription: Subscription) => {
+    // Check if subscription was manually created or AI-detected
+    const isManuallyCreated = subscription.extraction_method === 'manual'
+
+    if (isManuallyCreated) {
+      // For manually created subscriptions, delete directly
+      if (window.confirm('Are you sure you want to delete this subscription?')) {
+        deleteMutation.mutate(subscription.id)
+      }
+    } else {
+      // For AI-detected subscriptions, show feedback modal first
+      setFeedbackSubscription(subscription)
+      onFeedbackOpen()
+    }
+  }
+
+  const handleFeedbackSubmitted = () => {
+    // After feedback is submitted, delete the subscription
+    if (feedbackSubscription) {
+      deleteMutation.mutate(feedbackSubscription.id)
+      setFeedbackSubscription(null)
     }
   }
 
@@ -131,13 +175,33 @@ export const SubscriptionsPage = () => {
             <Heading size="lg">Subscriptions</Heading>
             <Text color="gray.600">{data?.total || 0} total subscriptions</Text>
           </Box>
-          <Button
-            leftIcon={<Icon as={FiPlus} />}
-            colorScheme="blue"
-            onClick={handleNewSubscription}
-          >
-            Add Subscription
-          </Button>
+          <HStack spacing={3}>
+            <Button
+              leftIcon={<Icon as={FiDownload} />}
+              colorScheme="purple"
+              variant="outline"
+              onClick={onExportOpen}
+            >
+              Export
+            </Button>
+            <Button
+              leftIcon={<Icon as={FiRefreshCw} />}
+              colorScheme="green"
+              variant="outline"
+              onClick={() => updateStatusMutation.mutate()}
+              isLoading={updateStatusMutation.isPending}
+              loadingText="Updating..."
+            >
+              Refresh Status
+            </Button>
+            <Button
+              leftIcon={<Icon as={FiPlus} />}
+              colorScheme="blue"
+              onClick={handleNewSubscription}
+            >
+              Add Subscription
+            </Button>
+          </HStack>
         </HStack>
 
         {/* Filters */}
@@ -173,8 +237,8 @@ export const SubscriptionsPage = () => {
             value={activeFilter}
             onChange={(e) => setActiveFilter(e.target.value)}
           >
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
           </Select>
         </HStack>
 
@@ -257,7 +321,7 @@ export const SubscriptionsPage = () => {
                           size="sm"
                           colorScheme="red"
                           variant="ghost"
-                          onClick={() => handleDelete(subscription.id)}
+                          onClick={() => handleDelete(subscription)}
                           isLoading={deleteMutation.isPending}
                         />
                       </HStack>
@@ -275,6 +339,22 @@ export const SubscriptionsPage = () => {
         isOpen={isOpen}
         onClose={onClose}
         subscription={selectedSubscription}
+      />
+
+      {/* Feedback Modal */}
+      {feedbackSubscription && (
+        <SubscriptionFeedbackModal
+          isOpen={isFeedbackOpen}
+          onClose={onFeedbackClose}
+          subscription={feedbackSubscription}
+          onFeedbackSubmitted={handleFeedbackSubmitted}
+        />
+      )}
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={isExportOpen}
+        onClose={onExportClose}
       />
     </Container>
   )

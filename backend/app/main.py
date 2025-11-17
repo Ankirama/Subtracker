@@ -54,7 +54,7 @@ async def root():
 
 
 # Import and include routers
-from app.api import auth, mailboxes, subscriptions, ai_sandbox, notifications
+from app.api import auth, mailboxes, subscriptions, ai_sandbox, notifications, optimize, export, budgets
 from app.api.admin import config as admin_config
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -62,6 +62,9 @@ app.include_router(mailboxes.router, prefix="/api/mailboxes", tags=["Mailboxes"]
 app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["Subscriptions"])
 app.include_router(ai_sandbox.router, prefix="/api/ai-sandbox", tags=["AI Sandbox"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
+app.include_router(optimize.router, prefix="/api/optimize", tags=["Optimization"])
+app.include_router(export.router, prefix="/api/export", tags=["Export"])
+app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])
 app.include_router(admin_config.router, prefix="/api/admin", tags=["Admin"])
 
 # Additional routers (will be added as we create them)
