@@ -117,4 +117,22 @@ export const notificationsApi = {
     const response = await apiClient.put(`/notifications/preferences/${notificationType}`, updates)
     return response.data
   },
+
+  /**
+   * Get upcoming subscription renewals
+   */
+  async getUpcomingRenewals(daysAhead: number = 30): Promise<Array<{
+    subscription_id: string
+    provider: string
+    amount: number
+    currency: string
+    billing_cycle: string
+    renewal_date: string
+    days_until_renewal: number
+  }>> {
+    const response = await apiClient.get('/notifications/upcoming-renewals', {
+      params: { days_ahead: daysAhead }
+    })
+    return response.data
+  },
 }

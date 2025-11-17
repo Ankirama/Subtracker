@@ -3,12 +3,15 @@ Notification API endpoints for managing user notifications and preferences.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
 from typing import Optional, List
 from uuid import UUID
+from datetime import date, timedelta
 
 from app.database import get_db
 from app.models.user import User
 from app.models.notification import Notification, NotificationPreference, NotificationType
+from app.models.subscription import Subscription
 from app.schemas.notification import (
     NotificationResponse,
     NotificationListResponse,
@@ -19,6 +22,7 @@ from app.schemas.notification import (
 )
 from app.security.dependencies import get_current_user
 from app.services.notification_service import NotificationService
+from app.services.summary_service import SummaryService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -198,3 +202,92 @@ async def update_notification_preference(
 
     logger.info(f"Updated notification preference for user {current_user.id}, type {notification_type}")
     return NotificationPreferenceResponse.model_validate(preference)
+
+
+@router.get("/upcoming-renewals", response_model=List[dict])
+async def get_upcoming_renewals(
+    days_ahead: int = Query(30, ge=1, le=90),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get upcoming subscription renewals.
+
+    Args:
+        days_ahead: Number of days ahead to check (default 30, max 90)
+
+    Returns:
+        List of subscriptions with upcoming renewals
+    """
+    today = date.today()
+    future_date = today + timedelta(days=days_ahead)
+
+    subscriptions = db.query(Subscription).filter(
+        and_(
+            Subscription.user_id == current_user.id,
+            Subscription.is_active == True,
+            or_(
+                and_(
+                    Subscription.next_billing_date.isnot(None),
+                    Subscription.next_billing_date >= today,
+                    Subscription.next_billing_date <= future_date
+                ),
+                and_(
+                    Subscription.renewal_date.isnot(None),
+                    Subscription.renewal_date >= today,
+                    Subscription.renewal_date <= future_date
+                )
+            )
+        )
+    ).order_by(Subscription.next_billing_date, Subscription.renewal_date).all()
+
+    # Calculate days until renewal for each
+    result = []
+    for sub in subscriptions:
+        renewal_date = sub.next_billing_date or sub.renewal_date
+        if renewal_date:
+            days_until = (renewal_date - today).days
+            result.append({
+                "subscription_id": str(sub.id),
+                "provider": sub.provider,
+                "amount": float(sub.amount) if sub.amount else 0,
+                "currency": sub.currency,
+                "billing_cycle": sub.billing_cycle,
+                "renewal_date": renewal_date.isoformat(),
+                "days_until_renewal": days_until
+            })
+
+    logger.info(f"Found {len(result)} upcoming renewals for user {current_user.id}")
+    return result
+
+
+@router.get("/summary/preview", response_model=dict)
+async def preview_summary(
+    period_type: str = Query("weekly", regex="^(weekly|monthly)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Preview a subscription summary (weekly or monthly).
+
+    Args:
+        period_type: Type of summary to preview ('weekly' or 'monthly')
+
+    Returns:
+        Summary data that would be sent in the email
+    """
+    try:
+        if period_type == "weekly":
+            summary_data = SummaryService.generate_weekly_summary(db, current_user)
+        else:
+            summary_data = SummaryService.generate_monthly_summary(db, current_user)
+
+        logger.info(f"Generated {period_type} summary preview for user {current_user.id}")
+        return summary_data
+
+    except Exception as e:
+        logger.error(f"Failed to generate summary preview for user {current_user.id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate summary preview: {str(e)}"
+        )
