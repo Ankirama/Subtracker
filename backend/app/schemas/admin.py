@@ -206,3 +206,31 @@ class ApplicationLogListResponse(PaginatedResponse):
 class SecurityEventListResponse(PaginatedResponse):
     """Paginated list of security events"""
     items: list[SecurityEventResponse]
+
+
+# System Announcement Schemas
+class SystemAnnouncementCreate(BaseModel):
+    """Schema for creating a system announcement"""
+    title: str = Field(..., min_length=1, max_length=255, description="Announcement title")
+    message: str = Field(..., min_length=1, description="Announcement message")
+    priority: str = Field(default="medium", description="Priority: 'low', 'medium', 'high'")
+    target_all_users: bool = Field(default=True, description="Send to all users")
+    target_user_ids: Optional[list[UUID]] = Field(None, description="Specific user IDs to target (if not all users)")
+
+    @field_validator('priority')
+    @classmethod
+    def validate_priority(cls, v: str) -> str:
+        """Validate priority level"""
+        allowed_priorities = ['low', 'medium', 'high']
+        if v not in allowed_priorities:
+            raise ValueError(f"priority must be one of {allowed_priorities}")
+        return v
+
+
+class SystemAnnouncementResponse(BaseModel):
+    """Schema for system announcement response"""
+    success: bool
+    announcement_id: UUID
+    notifications_created: int
+    emails_sent: int
+    message: str

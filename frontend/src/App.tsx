@@ -15,8 +15,10 @@ import { MailboxesPage } from './components/mailboxes/MailboxesPage'
 import { AnalyticsPage } from './components/analytics/AnalyticsPage'
 import { AISandboxPage } from './components/ai-sandbox/AISandboxPage'
 import { NotificationSettingsPage } from './components/notifications/NotificationSettingsPage'
+import { NotificationListPage } from './components/notifications/NotificationListPage'
 import { OptimizePage } from './components/optimize/OptimizePage'
 import { BudgetsPage } from './components/budgets/BudgetsPage'
+import { CategoriesPage } from './components/categories'
 import { ConfigPage } from './pages/admin/ConfigPage'
 
 const queryClient = new QueryClient({
@@ -45,11 +47,13 @@ function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/subscriptions" element={<SubscriptionsPage />} />
                   <Route path="/subscriptions/:id" element={<SubscriptionDetailPage />} />
+                  <Route path="/categories" element={<CategoriesPage />} />
                   <Route path="/mailboxes" element={<MailboxesPage />} />
                   <Route path="/budgets" element={<BudgetsPage />} />
                   <Route path="/analytics" element={<AnalyticsPage />} />
                   <Route path="/optimize" element={<OptimizePage />} />
                   <Route path="/ai-sandbox" element={<AISandboxPage />} />
+                  <Route path="/notifications" element={<NotificationListPage />} />
                   <Route path="/notifications/settings" element={<NotificationSettingsPage />} />
                 </Route>
               </Route>

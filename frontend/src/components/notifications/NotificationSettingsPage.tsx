@@ -34,6 +34,13 @@ import { FiBell, FiMail, FiCheck } from 'react-icons/fi'
 
 const NOTIFICATION_TYPES = [
   {
+    type: 'trial_ending',
+    label: 'Trial Ending Reminders',
+    description: 'Get notified before free trials end to avoid charges',
+    icon: '⚠️',
+    hasSettings: false,
+  },
+  {
     type: 'renewal_reminder',
     label: 'Renewal Reminders',
     description: 'Get notified before your subscriptions renew',

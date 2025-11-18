@@ -156,6 +156,8 @@ export const NotificationBell = () => {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
+      case 'trial_ending':
+        return '⚠️'
       case 'renewal_reminder':
         return '🔔'
       case 'weekly_summary':
