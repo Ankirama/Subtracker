@@ -3,7 +3,7 @@ import apiClient from './client'
 export interface Notification {
   id: string
   user_id: string
-  type: 'renewal_reminder' | 'weekly_summary' | 'monthly_summary' | 'inactive_subscription' | 'price_change' | 'system_announcement'
+  type: 'trial_ending' | 'renewal_reminder' | 'weekly_summary' | 'monthly_summary' | 'inactive_subscription' | 'price_change' | 'system_announcement'
   priority: 'low' | 'medium' | 'high'
   title: string
   message: string

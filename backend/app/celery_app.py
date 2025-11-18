@@ -16,7 +16,10 @@ celery_app = Celery(
         "app.tasks.email_sync",
         "app.tasks.notifications",
         "app.tasks.renewal_reminders",  # Renewal reminder tasks
-        "app.tasks.summary_tasks"  # Weekly/monthly summary tasks
+        "app.tasks.trial_reminders",  # Trial ending reminder tasks
+        "app.tasks.summary_tasks",  # Weekly/monthly summary tasks
+        "app.tasks.price_change_monitor",  # Price change monitoring
+        "app.tasks.system_announcements"  # System announcements
     ]
 )
 
@@ -48,6 +51,10 @@ celery_app.conf.beat_schedule = {
         "task": "tasks.check_renewal_reminders",
         "schedule": 86400.0,  # Run daily at midnight UTC
     },
+    "check-trial-reminders": {
+        "task": "tasks.check_trial_reminders",
+        "schedule": 86400.0,  # Run daily to check trial endings (3 days, 1 day, same day)
+    },
     "send-weekly-summaries": {
         "task": "tasks.send_weekly_summaries",
         "schedule": 86400.0,  # Run daily (will check if it's the right day)
@@ -59,6 +66,10 @@ celery_app.conf.beat_schedule = {
     "check-inactive-subscriptions": {
         "task": "tasks.check_inactive_subscriptions",
         "schedule": 604800.0,  # Run weekly (every 7 days)
+    },
+    "check-price-changes": {
+        "task": "tasks.check_price_changes",
+        "schedule": 86400.0,  # Run daily to monitor subscription price changes
     },
 }
 

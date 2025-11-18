@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.config import settings
 import logging
 
@@ -11,13 +12,29 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager for startup and shutdown events"""
+    # Startup
+    logger.info(f"Starting {settings.APP_NAME}...")
+    logger.info(f"Debug mode: {settings.DEBUG}")
+    logger.info(f"CORS origins: {settings.cors_origins_list}")
+
+    yield
+
+    # Shutdown
+    logger.info(f"Shutting down {settings.APP_NAME}...")
+
+
 # Create FastAPI app
 app = FastAPI(
     title=settings.APP_NAME,
     description="Intelligent subscription management platform",
     version="0.1.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # CORS middleware
@@ -54,35 +71,23 @@ async def root():
 
 
 # Import and include routers
-from app.api import auth, mailboxes, subscriptions, ai_sandbox, notifications, optimize, export, budgets
-from app.api.admin import config as admin_config
+from app.api import auth, mailboxes, subscriptions, ai_sandbox, notifications, optimize, export, budgets, categories
+from app.api.admin import config as admin_config, announcements as admin_announcements
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(mailboxes.router, prefix="/api/mailboxes", tags=["Mailboxes"])
 app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["Subscriptions"])
+app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
 app.include_router(ai_sandbox.router, prefix="/api/ai-sandbox", tags=["AI Sandbox"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(optimize.router, prefix="/api/optimize", tags=["Optimization"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
 app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])
 app.include_router(admin_config.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(admin_announcements.router, prefix="/api/admin", tags=["Admin"])
 
 # Additional routers (will be added as we create them)
 # from app.api import reviews, analytics, budgets
 # app.include_router(reviews.router, prefix="/api/email-reviews", tags=["Email Reviews"])
 # app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 # app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Run on application startup"""
-    logger.info(f"Starting {settings.APP_NAME}...")
-    logger.info(f"Debug mode: {settings.DEBUG}")
-    logger.info(f"CORS origins: {settings.cors_origins_list}")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Run on application shutdown"""
-    logger.info(f"Shutting down {settings.APP_NAME}...")
