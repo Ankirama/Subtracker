@@ -1,7 +1,7 @@
 """
 Pydantic schemas for Price History API requests and responses.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
@@ -20,9 +20,9 @@ class PriceHistoryResponse(BaseModel):
     notes: Optional[str]
     detected_at: datetime
 
-    class Config:
-        from_attributes = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "subscription_id": "123e4567-e89b-12d3-a456-426614174001",
@@ -36,6 +36,7 @@ class PriceHistoryResponse(BaseModel):
                 "detected_at": "2025-01-15T10:00:00Z"
             }
         }
+    )
 
 
 class PriceStatisticsResponse(BaseModel):
@@ -49,8 +50,8 @@ class PriceStatisticsResponse(BaseModel):
     latest_price: Optional[float]
     original_price: Optional[float]
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "total_changes": 3,
                 "increases": 2,
@@ -62,3 +63,4 @@ class PriceStatisticsResponse(BaseModel):
                 "original_price": 9.99
             }
         }
+    )

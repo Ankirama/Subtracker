@@ -1,7 +1,7 @@
 """
 Pydantic schemas for authentication endpoints.
 """
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
@@ -40,11 +40,7 @@ class UserResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True  # For SQLAlchemy models
-        json_encoders = {
-            UUID: str  # Serialize UUID as string in JSON
-        }
+    model_config = ConfigDict(from_attributes=True)  # For SQLAlchemy models
 
 
 class TokenResponse(BaseModel):
