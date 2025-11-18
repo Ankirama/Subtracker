@@ -1,7 +1,7 @@
 """
 Pydantic schemas for subscription endpoints.
 """
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, Literal
 from datetime import datetime
 from decimal import Decimal
@@ -15,8 +15,8 @@ class SubscriptionBase(BaseModel):
     currency: Optional[str] = Field(None, max_length=3, description="Currency code (USD, EUR, etc.)")
     billing_cycle: Optional[Literal['monthly', 'yearly', 'weekly', 'quarterly', 'biannual', 'one-time', 'none']] = None
     renewal_date: Optional[datetime] = None
-    description: Optional[str] = Field(None, max_length=500)
-    category: Literal['streaming', 'software', 'storage', 'productivity', 'entertainment', 'fitness', 'gaming', 'news', 'education', 'communication', 'finance', 'shopping', 'music', 'other'] = 'other'
+    notes: Optional[str] = Field(None, max_length=500, description="Optional notes about the subscription")
+    category: str = Field(default='other', max_length=100, description="Subscription category (default or custom)")
     custom_label: Optional[str] = Field(None, max_length=255, description="Custom label to differentiate multiple accounts")
     is_active: bool = Field(default=True, description="Whether the subscription is currently active")
 
@@ -44,8 +44,9 @@ class SubscriptionUpdate(BaseModel):
     category: Optional[Literal['streaming', 'software', 'storage', 'productivity', 'entertainment', 'fitness', 'gaming', 'news', 'education', 'communication', 'finance', 'shopping', 'music', 'other']] = None
     custom_label: Optional[str] = Field(None, max_length=255)
     is_active: Optional[bool] = None
+    manual_status_override: Optional[bool] = None
     notes: Optional[str] = None
-    
+
     @field_validator('currency')
     @classmethod
     def validate_currency(cls, v: Optional[str]) -> Optional[str]:
@@ -68,12 +69,7 @@ class SubscriptionResponse(SubscriptionBase):
     updated_at: datetime
     next_renewal_date: Optional[datetime] = Field(None, description="Computed next future renewal date")
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            UUID: str,
-            Decimal: float
-        }
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SubscriptionListResponse(BaseModel):
@@ -119,8 +115,7 @@ class EmailMessageResponse(BaseModel):
     classification_reasoning: Optional[dict] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SubscriptionEmailLink(BaseModel):
@@ -130,16 +125,14 @@ class SubscriptionEmailLink(BaseModel):
     extraction_data: Optional[dict] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SubscriptionDetailResponse(SubscriptionResponse):
     """Extended subscription response with source emails and metadata."""
     source_emails: list[SubscriptionEmailLink] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MonthlySpendingData(BaseModel):
@@ -196,8 +189,4 @@ class FeedbackResponse(BaseModel):
     source_email_ids: list[UUID] = []
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            UUID: str
-        }
+    model_config = ConfigDict(from_attributes=True)

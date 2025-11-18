@@ -1,7 +1,7 @@
 """
 Pydantic schemas for admin functionality
 """
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from datetime import datetime
 from typing import Optional, Any
 from uuid import UUID
@@ -59,8 +59,7 @@ class AdminSettingResponse(AdminSettingBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Admin Audit Log Schemas
@@ -97,8 +96,7 @@ class AdminAuditLogResponse(AdminAuditLogBase):
     user_id: Optional[UUID] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Application Log Schemas
@@ -135,8 +133,7 @@ class ApplicationLogResponse(ApplicationLogBase):
     id: UUID
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Security Event Schemas
@@ -179,8 +176,7 @@ class SecurityEventResponse(SecurityEventBase):
     resolved_at: Optional[datetime] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # List response schemas

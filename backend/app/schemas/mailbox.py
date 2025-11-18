@@ -1,7 +1,7 @@
 """
 Pydantic schemas for mailbox endpoints.
 """
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, ConfigDict
 from typing import Optional, Literal
 from datetime import datetime
 from uuid import UUID
@@ -71,11 +71,7 @@ class MailboxResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            UUID: str  # Serialize UUID as string in JSON
-        }
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MailboxSyncRequest(BaseModel):
@@ -93,10 +89,7 @@ class MailboxSyncStatus(BaseModel):
     subscriptions_found: Optional[int] = None
     error_message: Optional[str] = None
 
-    class Config:
-        json_encoders = {
-            UUID: str
-        }
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MailboxTestConnection(BaseModel):

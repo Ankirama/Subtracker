@@ -1,7 +1,7 @@
 """
 Pydantic schemas for Budget API requests and responses.
 """
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
@@ -17,19 +17,21 @@ class BudgetCreate(BaseModel):
     alert_threshold: int = Field(80, ge=0, le=100, description="Alert threshold percentage (0-100)")
     alert_enabled: bool = Field(True, description="Enable budget alerts")
 
-    @validator('period')
+    @field_validator('period')
+    @classmethod
     def validate_period(cls, v):
         allowed = ['monthly', 'quarterly', 'yearly']
         if v not in allowed:
             raise ValueError(f'period must be one of: {", ".join(allowed)}')
         return v
 
-    @validator('currency')
+    @field_validator('currency')
+    @classmethod
     def validate_currency(cls, v):
         return v.upper()
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "Entertainment Budget",
                 "category": "entertainment",
@@ -40,6 +42,7 @@ class BudgetCreate(BaseModel):
                 "alert_enabled": True
             }
         }
+    )
 
 
 class BudgetUpdate(BaseModel):
@@ -52,7 +55,8 @@ class BudgetUpdate(BaseModel):
     alert_threshold: Optional[int] = Field(None, ge=0, le=100)
     alert_enabled: Optional[bool] = None
 
-    @validator('period')
+    @field_validator('period')
+    @classmethod
     def validate_period(cls, v):
         if v is not None:
             allowed = ['monthly', 'quarterly', 'yearly']
@@ -60,20 +64,22 @@ class BudgetUpdate(BaseModel):
                 raise ValueError(f'period must be one of: {", ".join(allowed)}')
         return v
 
-    @validator('currency')
+    @field_validator('currency')
+    @classmethod
     def validate_currency(cls, v):
         if v is not None:
             return v.upper()
         return v
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "name": "Updated Budget Name",
                 "limit_amount": 75.00,
                 "alert_threshold": 85
             }
         }
+    )
 
 
 class BudgetResponse(BaseModel):
@@ -90,9 +96,9 @@ class BudgetResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-        schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "user_id": "123e4567-e89b-12d3-a456-426614174001",
@@ -107,6 +113,7 @@ class BudgetResponse(BaseModel):
                 "updated_at": "2025-01-15T10:00:00Z"
             }
         }
+    )
 
 
 class BudgetStatusResponse(BaseModel):
@@ -126,8 +133,8 @@ class BudgetStatusResponse(BaseModel):
     period_end: str  # ISO date
     currency: str
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "budget_id": "123e4567-e89b-12d3-a456-426614174000",
                 "name": "Entertainment Budget",
@@ -145,6 +152,7 @@ class BudgetStatusResponse(BaseModel):
                 "currency": "EUR"
             }
         }
+    )
 
 
 class BudgetAlertResponse(BaseModel):
@@ -153,8 +161,8 @@ class BudgetAlertResponse(BaseModel):
     alert_type: str  # 'warning' or 'exceeded'
     message: str
 
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "budget": {
                     "budget_id": "123e4567-e89b-12d3-a456-426614174000",
@@ -169,3 +177,4 @@ class BudgetAlertResponse(BaseModel):
                 "message": "Budget 'Entertainment Budget' is at 110.0% (55.00/50.00 EUR)"
             }
         }
+    )

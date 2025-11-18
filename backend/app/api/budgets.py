@@ -191,7 +191,7 @@ async def update_budget(
             )
 
     # Update fields
-    update_data = budget_data.dict(exclude_unset=True)
+    update_data = budget_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         if field == 'alert_enabled':
             setattr(budget, field, 'true' if value else 'false')

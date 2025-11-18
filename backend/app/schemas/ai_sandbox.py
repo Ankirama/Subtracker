@@ -1,7 +1,7 @@
 """
 Pydantic schemas for AI Sandbox API endpoints.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
@@ -50,8 +50,7 @@ class UncertainEmail(BaseModel):
     has_linked_subscription: bool
     preview: str = Field(..., description="First 200 chars of email body")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UncertainEmailsResponse(BaseModel):
@@ -78,8 +77,7 @@ class EmailDetailResponse(BaseModel):
     has_linked_subscription: bool
     linked_subscription_id: Optional[str]
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ManualSubscriptionCreate(BaseModel):
