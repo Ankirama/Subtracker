@@ -63,12 +63,27 @@ class ConfigHelper:
                 # Fall through to env var
 
         # Fall back to environment variables
+        # Admin-configurable settings (can be overridden in database)
         env_mapping = {
+            # SendGrid configuration
             'sendgrid.api_key': settings.SENDGRID_API_KEY,
             'sendgrid.from_email': settings.SENDGRID_FROM_EMAIL,
             'sendgrid.from_name': settings.SENDGRID_FROM_NAME,
+
+            # OpenAI configuration
             'openai.api_key': settings.OPENAI_API_KEY,
             'openai.assistant_id': settings.OPENAI_ASSISTANT_ID,
+            'openai.request_delay_seconds': settings.OPENAI_REQUEST_DELAY_SECONDS,
+            'openai.max_requests_per_minute': settings.OPENAI_MAX_REQUESTS_PER_MINUTE,
+
+            # Email processing configuration
+            'email.default_batch_size': settings.DEFAULT_BATCH_SIZE,
+            'email.confidence_auto_accept': settings.DEFAULT_CONFIDENCE_AUTO_ACCEPT,
+            'email.confidence_review_min': settings.DEFAULT_CONFIDENCE_REVIEW_MIN,
+            'email.default_sync_period_days': settings.DEFAULT_SYNC_PERIOD_DAYS,
+
+            # Frontend configuration
+            'frontend.url': settings.FRONTEND_URL,
         }
 
         env_value = env_mapping.get(key)

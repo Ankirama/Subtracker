@@ -32,7 +32,7 @@ class AdminSettingBase(BaseModel):
         """Validate that category is one of the allowed categories"""
         if v is None:
             return v
-        allowed_categories = ['api_keys', 'openai', 'email', 'features', 'system']
+        allowed_categories = ['email', 'ai', 'processing', 'application', 'system', 'api_keys', 'openai', 'features']
         if v not in allowed_categories:
             raise ValueError(f"category must be one of {allowed_categories}")
         return v
@@ -201,6 +201,36 @@ class AdminAuditLogListResponse(PaginatedResponse):
 class ApplicationLogListResponse(PaginatedResponse):
     """Paginated list of application logs"""
     items: list[ApplicationLogResponse]
+
+
+# Configuration Status Schemas
+class ConfigIssueItem(BaseModel):
+    """Schema for a configuration issue"""
+    key: str
+    category: str
+    issues: Optional[list[str]] = None
+    required: Optional[bool] = None
+    description: Optional[str] = None
+    current_value: Optional[Any] = None
+    env_value: Optional[Any] = None
+
+
+class ConfigStatusResponse(BaseModel):
+    """Schema for configuration status response"""
+    total_expected: int = Field(..., description="Total number of expected settings")
+    total_found: int = Field(..., description="Total number of settings found in database")
+    valid_count: int = Field(..., description="Number of valid settings")
+    incomplete_count: int = Field(..., description="Number of incomplete settings")
+    missing_count: int = Field(..., description="Number of missing settings")
+    extra_count: int = Field(..., description="Number of extra settings")
+
+    missing: list[ConfigIssueItem] = Field(default_factory=list, description="Missing required settings")
+    incomplete: list[ConfigIssueItem] = Field(default_factory=list, description="Incomplete settings")
+    valid: list[dict] = Field(default_factory=list, description="Valid settings")
+    extra: list[dict] = Field(default_factory=list, description="Extra settings not in config_helper")
+
+    is_healthy: bool = Field(..., description="Whether all configuration is properly set")
+    recommendations: list[str] = Field(default_factory=list, description="Recommendations for fixing issues")
 
 
 class SecurityEventListResponse(PaginatedResponse):

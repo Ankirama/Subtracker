@@ -176,6 +176,32 @@ export interface IPWhitelistListResponse {
   total_pages: number
 }
 
+// Configuration Status Types
+export interface ConfigIssueItem {
+  key: string
+  category: string
+  issues?: string[]
+  required?: boolean
+  description?: string
+  current_value?: any
+  env_value?: any
+}
+
+export interface ConfigStatusResponse {
+  total_expected: number
+  total_found: number
+  valid_count: number
+  incomplete_count: number
+  missing_count: number
+  extra_count: number
+  missing: ConfigIssueItem[]
+  incomplete: ConfigIssueItem[]
+  valid: Array<{ key: string; category: string }>
+  extra: Array<{ key: string; category: string; value_type: string }>
+  is_healthy: boolean
+  recommendations: string[]
+}
+
 export const adminApi = {
   // Admin Settings
   async listSettings(params?: {
@@ -210,6 +236,11 @@ export const adminApi = {
 
   async deleteSetting(key: string): Promise<void> {
     await apiClient.delete(`/admin/config/${key}`)
+  },
+
+  async getConfigStatus(): Promise<ConfigStatusResponse> {
+    const response = await apiClient.get('/admin/config/status')
+    return response.data
   },
 
   // System Announcements
