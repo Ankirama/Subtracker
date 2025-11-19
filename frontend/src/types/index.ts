@@ -15,12 +15,79 @@ export interface LoginRequest {
 export interface RegisterRequest {
   email: string
   password: string
+  display_name?: string  // Optional display name for personalization
 }
 
 export interface TokenResponse {
   access_token: string
   refresh_token: string
   token_type: string
+}
+
+// Email Verification types
+export interface EmailVerificationResponse {
+  message: string
+  email: string
+}
+
+export interface EmailVerificationRequest {
+  token: string
+}
+
+export interface ResendVerificationRequest {
+  email: string
+}
+
+// Two-Factor Authentication types
+export interface TwoFactorRequiredResponse {
+  requires_2fa: boolean
+  method: 'totp' | 'email'
+  message: string
+}
+
+export interface TwoFactorSetupRequest {
+  method: 'totp' | 'email'
+}
+
+export interface TwoFactorSetupResponse {
+  method: 'totp' | 'email'
+  secret?: string  // TOTP secret (only for TOTP method)
+  qr_code?: string  // Base64 QR code data URI (only for TOTP method)
+  message: string
+}
+
+export interface TwoFactorEnableRequest {
+  method: 'totp' | 'email'
+  secret?: string  // Required for TOTP
+  verification_code: string  // 6-digit code or 8-char backup code
+}
+
+export interface TwoFactorEnableResponse {
+  success: boolean
+  message: string
+  backup_codes: string[]  // List of backup codes (only shown once)
+}
+
+export interface TwoFactorDisableRequest {
+  password: string  // User's password for confirmation
+}
+
+export interface TwoFactorVerifyRequest {
+  email: string
+  code: string  // 6-digit OTP or 8-char backup code (XXXX-XXXX)
+  is_backup_code?: boolean
+}
+
+export interface TwoFactorStatusResponse {
+  enabled: boolean
+  method?: 'totp' | 'email'
+  backup_codes_remaining: number
+}
+
+export interface BackupCodesRegenerateResponse {
+  success: boolean
+  message: string
+  backup_codes: string[]
 }
 
 // Subscription types

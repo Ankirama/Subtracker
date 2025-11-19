@@ -263,7 +263,7 @@ async def get_upcoming_renewals(
 
 @router.get("/summary/preview", response_model=dict)
 async def preview_summary(
-    period_type: str = Query("weekly", regex="^(weekly|monthly)$"),
+    period_type: str = Query("weekly", pattern="^(weekly|monthly)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

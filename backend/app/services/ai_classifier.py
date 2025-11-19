@@ -2,14 +2,16 @@
 AI-powered email classification service.
 Uses OpenAI GPT to determine if an email is subscription-related.
 """
-from openai import AsyncOpenAI
-from typing import Dict, Any, Optional
+from openai import AsyncOpenAI, RateLimitError, APIError
+from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.email_providers.base import EmailMessage
 from app.utils.config_helper import get_config_value
+from app.utils.email_cleaner import get_optimized_email_body
 import logging
 import json
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -158,9 +160,12 @@ async def classify_email(email: EmailMessage, db: Optional[Session] = None) -> D
         # Get OpenAI client with admin settings support
         client = get_openai_client(db)
 
-        # Prepare email content
-        body = email.body_text or email.body_html or ""
-        body = body[:1000]  # Limit to first 1000 chars
+        # Prepare email content with smart cleaning and truncation
+        body = get_optimized_email_body(
+            body_text=email.body_text,
+            body_html=email.body_html,
+            mode="classification"  # Uses 1000 char limit with key info extraction
+        )
 
         prompt = CLASSIFICATION_PROMPT.format(
             subject=email.subject,
@@ -218,3 +223,182 @@ async def classify_email(email: EmailMessage, db: Optional[Session] = None) -> D
             "reasoning": f"Classification error: {str(e)}",
             "category": "not_subscription"
         }
+
+
+async def classify_email_with_retry(
+    email: EmailMessage,
+    db: Optional[Session] = None,
+    max_retries: int = 3,
+    base_delay: float = 2.0
+) -> Dict[str, Any]:
+    """
+    Classify email with exponential backoff retry on failures.
+
+    Args:
+        email: EmailMessage to classify
+        db: Database session
+        max_retries: Maximum retry attempts (default 3)
+        base_delay: Base delay in seconds for exponential backoff
+
+    Returns:
+        Classification result or conservative default on permanent failure
+    """
+    last_exception = None
+
+    for attempt in range(max_retries):
+        try:
+            # Attempt classification
+            result = await classify_email(email, db)
+            return result
+
+        except RateLimitError as e:
+            # 429 Rate Limit - need to back off
+            last_exception = e
+            if attempt < max_retries - 1:
+                # Exponential backoff: 2s, 4s, 8s
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    f"Rate limit hit for email '{email.subject}'. "
+                    f"Retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
+                )
+                await asyncio.sleep(delay)
+            else:
+                logger.error(
+                    f"Rate limit exceeded after {max_retries} retries for '{email.subject}'"
+                )
+
+        except APIError as e:
+            # Other API errors (500, 503, etc.)
+            last_exception = e
+            if attempt < max_retries - 1:
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    f"API error for email '{email.subject}': {e}. "
+                    f"Retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
+                )
+                await asyncio.sleep(delay)
+            else:
+                logger.error(
+                    f"API error after {max_retries} retries for '{email.subject}': {e}"
+                )
+
+        except Exception as e:
+            # Unexpected errors - log and return default
+            logger.error(f"Unexpected error classifying '{email.subject}': {e}")
+            last_exception = e
+            break
+
+    # If all retries failed, return conservative default
+    return {
+        "is_subscription": False,
+        "confidence": 0.0,
+        "reasoning": f"Classification failed after {max_retries} retries: {str(last_exception)}",
+        "category": "not_subscription"
+    }
+
+
+async def classify_emails_batch(
+    emails: List[EmailMessage],
+    db: Optional[Session] = None,
+    initial_batch_size: int = 10,
+    min_batch_size: int = 2
+) -> List[Dict[str, Any]]:
+    """
+    Classify emails with adaptive batch sizing based on rate limit detection.
+
+    Processes emails in parallel batches with automatic rate limit handling
+    and adaptive batch size adjustment.
+
+    Args:
+        emails: List of EmailMessage objects to classify
+        db: Database session
+        initial_batch_size: Starting batch size for parallel processing
+        min_batch_size: Minimum batch size when rate limited
+
+    Returns:
+        List of classification results matching input email order
+    """
+    all_results = []
+    current_batch_size = initial_batch_size
+    consecutive_rate_limits = 0
+
+    i = 0
+    while i < len(emails):
+        # Get current batch
+        batch = emails[i:i + current_batch_size]
+
+        logger.info(
+            f"Classifying batch: {len(batch)} emails "
+            f"(position {i}/{len(emails)}, batch_size={current_batch_size})"
+        )
+
+        # Process batch in parallel with retry logic
+        tasks = [
+            classify_email_with_retry(email, db)
+            for email in batch
+        ]
+
+        try:
+            # Execute all tasks concurrently
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Check for rate limit errors in results
+            rate_limit_count = sum(
+                1 for r in batch_results
+                if isinstance(r, Exception) or
+                (isinstance(r, dict) and "Rate limit" in r.get("reasoning", ""))
+            )
+
+            # Process results
+            for email, result in zip(batch, batch_results):
+                if isinstance(result, Exception):
+                    logger.error(f"Failed to classify '{email.subject}': {result}")
+                    all_results.append({
+                        "is_subscription": False,
+                        "confidence": 0.0,
+                        "reasoning": f"Error: {str(result)}",
+                        "category": "not_subscription"
+                    })
+                else:
+                    all_results.append(result)
+
+            # Adaptive batch size adjustment
+            if rate_limit_count > 0:
+                consecutive_rate_limits += 1
+
+                # Reduce batch size if hitting rate limits frequently
+                if consecutive_rate_limits >= 2 and current_batch_size > min_batch_size:
+                    current_batch_size = max(min_batch_size, current_batch_size // 2)
+                    logger.warning(
+                        f"Rate limits detected. Reducing batch size to {current_batch_size}"
+                    )
+
+                # Longer sleep after rate limits
+                await asyncio.sleep(5.0)
+            else:
+                # No rate limits - can try increasing batch size
+                consecutive_rate_limits = 0
+
+                if current_batch_size < initial_batch_size:
+                    current_batch_size = min(initial_batch_size, current_batch_size + 2)
+                    logger.info(f"Increasing batch size to {current_batch_size}")
+
+                # Normal sleep between batches
+                await asyncio.sleep(1.0)
+
+            # Move to next batch
+            i += len(batch)
+
+        except Exception as e:
+            logger.error(f"Batch processing error: {e}")
+            # On catastrophic batch failure, process emails one-by-one
+            logger.warning("Falling back to sequential processing for this batch")
+            for email in batch:
+                result = await classify_email_with_retry(email, db)
+                all_results.append(result)
+                await asyncio.sleep(2.0)
+
+            i += len(batch)
+
+    logger.info(f"Classified {len(all_results)} emails in total")
+    return all_results

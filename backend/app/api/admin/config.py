@@ -14,6 +14,7 @@ from app.schemas.admin import (
     AdminSettingUpdate,
     AdminSettingResponse,
     AdminSettingListResponse,
+    ConfigStatusResponse,
 )
 from app.services.admin.config_service import ConfigService
 
@@ -202,3 +203,112 @@ async def delete_setting(
         )
 
     return None
+
+
+@router.get("/config/status", response_model=ConfigStatusResponse)
+async def get_config_status(
+    current_user: User = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get configuration status showing missing, incomplete, and valid settings.
+
+    This endpoint checks which settings from config_helper are properly configured
+    in the database and identifies any issues that need attention.
+
+    Args:
+        current_user: Current admin user
+        db: Database session
+
+    Returns:
+        Configuration status with lists of missing, incomplete, and valid settings
+    """
+    from app.models.admin import AdminSetting
+    from app.config import settings as app_settings
+
+    # Define expected settings (matches config_helper mappings)
+    EXPECTED_SETTINGS = {
+        'sendgrid.api_key': {'category': 'email', 'value_type': 'string', 'is_secret': True, 'required': True},
+        'sendgrid.from_email': {'category': 'email', 'value_type': 'string', 'is_secret': False, 'required': True},
+        'sendgrid.from_name': {'category': 'email', 'value_type': 'string', 'is_secret': False, 'required': True},
+        'openai.api_key': {'category': 'ai', 'value_type': 'string', 'is_secret': True, 'required': True},
+        'openai.assistant_id': {'category': 'ai', 'value_type': 'string', 'is_secret': False, 'required': False},
+        'openai.request_delay_seconds': {'category': 'ai', 'value_type': 'number', 'is_secret': False, 'required': True},
+        'openai.max_requests_per_minute': {'category': 'ai', 'value_type': 'number', 'is_secret': False, 'required': True},
+        'email.default_batch_size': {'category': 'processing', 'value_type': 'number', 'is_secret': False, 'required': True},
+        'email.confidence_auto_accept': {'category': 'processing', 'value_type': 'number', 'is_secret': False, 'required': True},
+        'email.confidence_review_min': {'category': 'processing', 'value_type': 'number', 'is_secret': False, 'required': True},
+        'email.default_sync_period_days': {'category': 'processing', 'value_type': 'number', 'is_secret': False, 'required': True},
+        'frontend.url': {'category': 'application', 'value_type': 'string', 'is_secret': False, 'required': True},
+    }
+
+    # Get all existing admin settings
+    existing_settings = {s.key: s for s in db.query(AdminSetting).all()}
+
+    missing = []
+    incomplete = []
+    valid = []
+    extra = []
+
+    # Check expected settings
+    for key, expected in EXPECTED_SETTINGS.items():
+        if key not in existing_settings:
+            missing.append({
+                'key': key,
+                'category': expected['category'],
+                'required': expected['required'],
+                'description': f"Setting {key} is missing from database"
+            })
+        else:
+            setting = existing_settings[key]
+            issues = []
+
+            # Check if value is missing for required settings
+            if expected['required'] and not setting.value:
+                issues.append('missing_value')
+
+            # Check type mismatch
+            if setting.value_type != expected['value_type']:
+                issues.append(f"type_mismatch")
+
+            if issues:
+                incomplete.append({
+                    'key': key,
+                    'category': expected['category'],
+                    'issues': issues
+                })
+            else:
+                valid.append({'key': key, 'category': expected['category']})
+
+    # Check for extra settings
+    for key in existing_settings:
+        if key not in EXPECTED_SETTINGS:
+            extra.append({
+                'key': key,
+                'category': existing_settings[key].category,
+                'value_type': existing_settings[key].value_type
+            })
+
+    # Generate recommendations
+    recommendations = []
+    if missing:
+        recommendations.append("Run seed script to create missing settings: python -m scripts.seed_admin_settings")
+    if incomplete:
+        recommendations.append("Update incomplete settings via Admin Panel or re-run seed with --overwrite")
+
+    is_healthy = len(missing) == 0 and len(incomplete) == 0
+
+    return ConfigStatusResponse(
+        total_expected=len(EXPECTED_SETTINGS),
+        total_found=len(existing_settings),
+        valid_count=len(valid),
+        incomplete_count=len(incomplete),
+        missing_count=len(missing),
+        extra_count=len(extra),
+        missing=missing,
+        incomplete=incomplete,
+        valid=valid,
+        extra=extra,
+        is_healthy=is_healthy,
+        recommendations=recommendations
+    )

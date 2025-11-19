@@ -1,14 +1,17 @@
 """
 Mailbox API endpoints for managing email account connections.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import func
+from typing import List, Optional
 from uuid import UUID
+from datetime import datetime, timezone
 
 from app.database import get_db
 from app.models.user import User
 from app.models.mailbox import Mailbox
+from app.models.sync_history import SyncHistory
 from app.schemas.mailbox import (
     MailboxCreate,
     MailboxUpdate,
@@ -17,6 +20,12 @@ from app.schemas.mailbox import (
     MailboxTestResult,
     MailboxSyncRequest,
     MailboxSyncStatus
+)
+from app.schemas.sync_history import (
+    SyncHistoryResponse,
+    SyncHistoryList,
+    SyncStatistics,
+    SyncProgressResponse
 )
 from app.security.dependencies import get_current_user
 from app.security.encryption import encrypt_credentials, decrypt_credentials
@@ -383,3 +392,339 @@ async def trigger_mailbox_sync(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to queue sync task: {str(e)}"
         )
+
+
+@router.post("/{mailbox_id}/sync/cancel", response_model=MailboxSyncStatus)
+async def cancel_mailbox_sync(
+    mailbox_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Request cancellation of a running sync for a mailbox.
+
+    The sync will stop gracefully after completing the current batch.
+    Progress is saved so the sync can be resumed later.
+    """
+    mailbox = db.query(Mailbox).filter(
+        Mailbox.id == mailbox_id,
+        Mailbox.user_id == current_user.id
+    ).first()
+
+    if not mailbox:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mailbox not found"
+        )
+
+    # Check if there's a sync in progress
+    if mailbox.last_sync_status != 'in_progress':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel sync: mailbox is not currently syncing (status: {mailbox.last_sync_status})"
+        )
+
+    # Set the cancellation flag
+    mailbox.sync_cancellation_requested = True
+    db.commit()
+
+    logger.info(f"Sync cancellation requested for mailbox {mailbox_id}")
+
+    return MailboxSyncStatus(
+        mailbox_id=mailbox_id,
+        status='cancelling',
+        last_sync_at=mailbox.last_sync_at,
+        total_emails_processed=mailbox.last_sync_emails_processed,
+        subscriptions_found=mailbox.last_sync_subscriptions_found,
+        error_message=None
+    )
+
+
+@router.post("/{mailbox_id}/sync/resume", response_model=MailboxSyncStatus)
+async def resume_mailbox_sync(
+    mailbox_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Resume a cancelled or interrupted sync for a mailbox.
+
+    The sync will automatically resume from where it left off if the cancellation
+    was recent (< 1 hour). Otherwise, it will start from the beginning.
+    """
+    mailbox = db.query(Mailbox).filter(
+        Mailbox.id == mailbox_id,
+        Mailbox.user_id == current_user.id
+    ).first()
+
+    if not mailbox:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mailbox not found"
+        )
+
+    if not mailbox.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot resume sync: mailbox is not active"
+        )
+
+    # Check if there's already a sync in progress
+    if mailbox.last_sync_status == 'in_progress':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot resume sync: a sync is already in progress"
+        )
+
+    # Clear cancellation flag if it was set
+    if mailbox.sync_cancellation_requested:
+        mailbox.sync_cancellation_requested = False
+        db.commit()
+
+    # Queue Celery task - it will automatically resume from last position if possible
+    from app.tasks.email_sync import sync_mailbox_emails
+
+    try:
+        # Set status to 'queued'
+        mailbox.last_sync_status = 'queued'
+        mailbox.last_sync_error_message = None
+        db.commit()
+
+        task = sync_mailbox_emails.delay(
+            mailbox_id=str(mailbox_id),
+            force_full_sync=False,  # Let the task decide whether to resume or restart
+            date_filter=mailbox.import_date_filter
+        )
+
+        logger.info(f"Sync resume task queued for mailbox {mailbox_id}, task_id: {task.id}")
+
+        return MailboxSyncStatus(
+            mailbox_id=mailbox_id,
+            status='queued',
+            last_sync_at=mailbox.last_sync_at,
+            total_emails_processed=mailbox.last_sync_emails_processed,
+            subscriptions_found=mailbox.last_sync_subscriptions_found,
+            error_message=None
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to queue resume task for mailbox {mailbox_id}: {str(e)}")
+        mailbox.last_sync_status = 'failed'
+        mailbox.last_sync_error_message = str(e)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to queue resume task: {str(e)}"
+        )
+
+
+@router.get("/{mailbox_id}/sync-progress", response_model=SyncProgressResponse)
+async def get_sync_progress(
+    mailbox_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get real-time sync progress for a mailbox (Issue #10).
+
+    Returns current progress information including batch number, percentage,
+    and estimated completion time.
+    """
+    mailbox = db.query(Mailbox).filter(
+        Mailbox.id == mailbox_id,
+        Mailbox.user_id == current_user.id
+    ).first()
+
+    if not mailbox:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mailbox not found"
+        )
+
+    # Calculate elapsed time if sync is in progress
+    elapsed_seconds = None
+    if mailbox.last_sync_status == 'in_progress' and mailbox.last_sync_started_at:
+        elapsed_time = datetime.now(timezone.utc) - mailbox.last_sync_started_at.replace(tzinfo=timezone.utc)
+        elapsed_seconds = int(elapsed_time.total_seconds())
+
+    return SyncProgressResponse(
+        mailbox_id=mailbox_id,
+        status=mailbox.last_sync_status or 'never_synced',
+        current_batch_number=mailbox.current_batch_number,
+        total_batches_estimate=mailbox.total_batches_estimate,
+        progress_percentage=mailbox.progress_percentage,
+        estimated_completion_time=mailbox.estimated_completion_time,
+        emails_processed=mailbox.last_sync_emails_processed,
+        subscriptions_found=mailbox.last_sync_subscriptions_found,
+        started_at=mailbox.last_sync_started_at,
+        elapsed_seconds=elapsed_seconds
+    )
+
+
+@router.get("/{mailbox_id}/sync-history", response_model=SyncHistoryList)
+async def get_sync_history(
+    mailbox_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    status: Optional[str] = Query(default=None, description="Filter by status")
+):
+    """
+    Get paginated sync history for a mailbox (Issue #11).
+
+    Returns historical records of all sync operations with metrics and status.
+    """
+    # Verify mailbox ownership
+    mailbox = db.query(Mailbox).filter(
+        Mailbox.id == mailbox_id,
+        Mailbox.user_id == current_user.id
+    ).first()
+
+    if not mailbox:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mailbox not found"
+        )
+
+    # Build query
+    query = db.query(SyncHistory).filter(SyncHistory.mailbox_id == mailbox_id)
+
+    # Apply status filter if provided
+    if status:
+        query = query.filter(SyncHistory.status == status)
+
+    # Get total count
+    total = query.count()
+
+    # Get paginated results
+    history_items = query.order_by(SyncHistory.started_at.desc()).offset(offset).limit(limit).all()
+
+    return SyncHistoryList(
+        items=[SyncHistoryResponse.model_validate(item) for item in history_items],
+        total=total,
+        limit=limit,
+        offset=offset
+    )
+
+
+@router.get("/{mailbox_id}/sync-history/{history_id}", response_model=SyncHistoryResponse)
+async def get_sync_history_detail(
+    mailbox_id: UUID,
+    history_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get detailed information about a specific sync history entry (Issue #11).
+    """
+    # Verify mailbox ownership
+    mailbox = db.query(Mailbox).filter(
+        Mailbox.id == mailbox_id,
+        Mailbox.user_id == current_user.id
+    ).first()
+
+    if not mailbox:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mailbox not found"
+        )
+
+    # Get history entry
+    history_entry = db.query(SyncHistory).filter(
+        SyncHistory.id == history_id,
+        SyncHistory.mailbox_id == mailbox_id
+    ).first()
+
+    if not history_entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Sync history entry not found"
+        )
+
+    return SyncHistoryResponse.model_validate(history_entry)
+
+
+@router.get("/{mailbox_id}/sync-statistics", response_model=SyncStatistics)
+async def get_sync_statistics(
+    mailbox_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get sync statistics summary for a mailbox (Issue #11).
+
+    Returns aggregated statistics including total syncs, success rate,
+    and processing metrics.
+    """
+    # Verify mailbox ownership
+    mailbox = db.query(Mailbox).filter(
+        Mailbox.id == mailbox_id,
+        Mailbox.user_id == current_user.id
+    ).first()
+
+    if not mailbox:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mailbox not found"
+        )
+
+    # Calculate statistics
+    total_syncs = db.query(SyncHistory).filter(SyncHistory.mailbox_id == mailbox_id).count()
+
+    successful_syncs = db.query(SyncHistory).filter(
+        SyncHistory.mailbox_id == mailbox_id,
+        SyncHistory.status == 'completed'
+    ).count()
+
+    failed_syncs = db.query(SyncHistory).filter(
+        SyncHistory.mailbox_id == mailbox_id,
+        SyncHistory.status == 'failed'
+    ).count()
+
+    cancelled_syncs = db.query(SyncHistory).filter(
+        SyncHistory.mailbox_id == mailbox_id,
+        SyncHistory.status == 'cancelled'
+    ).count()
+
+    # Sum of emails processed
+    total_emails_result = db.query(func.sum(SyncHistory.total_emails_processed)).filter(
+        SyncHistory.mailbox_id == mailbox_id
+    ).scalar()
+    total_emails_processed = int(total_emails_result) if total_emails_result else 0
+
+    # Sum of subscriptions found
+    total_subs_result = db.query(func.sum(SyncHistory.subscriptions_found)).filter(
+        SyncHistory.mailbox_id == mailbox_id
+    ).scalar()
+    total_subscriptions_found = int(total_subs_result) if total_subs_result else 0
+
+    # Average duration
+    avg_duration_result = db.query(func.avg(SyncHistory.duration_seconds)).filter(
+        SyncHistory.mailbox_id == mailbox_id,
+        SyncHistory.status == 'completed'
+    ).scalar()
+    average_duration_seconds = float(avg_duration_result) if avg_duration_result else None
+
+    # Last successful and failed sync times
+    last_successful = db.query(SyncHistory).filter(
+        SyncHistory.mailbox_id == mailbox_id,
+        SyncHistory.status == 'completed'
+    ).order_by(SyncHistory.completed_at.desc()).first()
+
+    last_failed = db.query(SyncHistory).filter(
+        SyncHistory.mailbox_id == mailbox_id,
+        SyncHistory.status == 'failed'
+    ).order_by(SyncHistory.completed_at.desc()).first()
+
+    return SyncStatistics(
+        total_syncs=total_syncs,
+        successful_syncs=successful_syncs,
+        failed_syncs=failed_syncs,
+        cancelled_syncs=cancelled_syncs,
+        total_emails_processed=total_emails_processed,
+        total_subscriptions_found=total_subscriptions_found,
+        average_duration_seconds=average_duration_seconds,
+        last_successful_sync=last_successful.completed_at if last_successful else None,
+        last_failed_sync=last_failed.completed_at if last_failed else None
+    )

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from decimal import Decimal
 import logging
 import uuid
+import markdown
 
 from app.celery_app import celery_app
 from app.database import SessionLocal
@@ -105,6 +106,10 @@ async def send_announcement_email(
     # Extract title (remove emoji prefix)
     title = notification.title.replace("📢 ", "")
 
+    # Convert markdown to HTML
+    md = markdown.Markdown(extensions=['extra', 'nl2br', 'sane_lists'])
+    message_html = md.convert(notification.message)
+
     # Build email content
     subject = f"📢 System Announcement: {title}"
 
@@ -125,7 +130,7 @@ async def send_announcement_email(
         <div style="background-color: #fff; border: 2px solid {banner_color}; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
             <h2 style="color: #2c3e50; margin-top: 0;">{title}</h2>
             <div style="font-size: 16px; color: #34495e; line-height: 1.6;">
-                {notification.message.replace(chr(10), '<br>')}
+                {message_html}
             </div>
         </div>
 

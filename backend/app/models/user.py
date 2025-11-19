@@ -17,6 +17,19 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False, index=True)
 
+    # Email Verification
+    email_verified = Column(Boolean, default=False, nullable=False, index=True)
+    email_verification_token = Column(String(255), nullable=True, unique=True, index=True)
+    email_verification_sent_at = Column(DateTime(timezone=True), nullable=True)
+    email_verified_at = Column(DateTime(timezone=True), nullable=True)
+    display_name = Column(String(255), nullable=True)  # Optional personalized name
+
+    # Two-Factor Authentication
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)
+    two_factor_method = Column(String(20), nullable=True)  # 'totp' or 'email'
+    two_factor_secret = Column(String(255), nullable=True)  # Encrypted TOTP secret
+    backup_codes = Column(JSON, default=[], nullable=False)  # Hashed backup codes
+
     # User settings stored as JSON
     settings = Column(JSON, default={}, nullable=False)
 

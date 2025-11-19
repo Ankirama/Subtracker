@@ -25,6 +25,7 @@ import { FiBell, FiCheck, FiX, FiSettings, FiFilter, FiChevronLeft, FiChevronRig
 import { Link as RouterLink } from 'react-router-dom'
 import { notificationsApi, Notification } from '../../api/notifications'
 import { formatDistanceToNow } from '../../utils/timeFormat'
+import { MarkdownRenderer } from '../common/MarkdownRenderer'
 
 export const NotificationListPage = () => {
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -359,7 +360,7 @@ export const NotificationListPage = () => {
                         </HStack>
                       </HStack>
 
-                      <Text color="gray.700">{notification.message}</Text>
+                      <MarkdownRenderer content={notification.message} color="gray.700" />
 
                       <HStack spacing={4} fontSize="sm" color="gray.500">
                         <Text>{formatDistanceToNow(new Date(notification.created_at))}</Text>

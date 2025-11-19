@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (credentials: LoginRequest) => Promise<void>
   register: (data: RegisterRequest) => Promise<void>
   logout: () => Promise<void>
+  completeLogin: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -82,6 +83,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
+  const completeLogin = async () => {
+    // This is called after 2FA verification when tokens are already in localStorage
+    const currentUser = await authAPI.getCurrentUser()
+    setUser(currentUser)
+    navigate('/dashboard')
+  }
+
   const value = {
     user,
     isLoading,
@@ -89,6 +97,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
+    completeLogin,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

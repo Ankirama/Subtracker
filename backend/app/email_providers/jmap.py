@@ -238,7 +238,7 @@ class JMAPProvider(EmailProviderInterface):
             # Extract email data (second method response) - needed for date-based pagination check
             emails_data = data['methodResponses'][1][1]['list']
 
-            # Determine if there are more emails to fetch
+            # Determine if there are more emails to fetch (Issue #9: Pagination Edge Case Fix)
             # NOTE: JMAP servers may return total=0 when using filters (e.g., 'after')
             # Strategy: Use multiple signals to determine if more emails exist
 
@@ -259,13 +259,21 @@ class JMAPProvider(EmailProviderInterface):
                 date_indicates_more = last_email_date >= since_date
                 logger.info(f"JMAP PAGINATION DEBUG - Date check: last_email_date={last_email_date}, since_date={since_date}, still_in_range={date_indicates_more}")
 
-            # Combine signals: continue if ANY signal indicates there might be more
+            # Signal 4: Position-based check (Issue #9 fix - most reliable when total is available)
+            position_at_end = False
             if total_emails > 0:
-                # If total is provided and accurate, use it as primary signal
-                has_more = total_indicates_more
-                logger.info(f"JMAP PAGINATION DEBUG - Using total-based: has_more={has_more}")
+                position_at_end = (current_position + returned_count) >= total_emails
+                logger.info(f"JMAP PAGINATION DEBUG - Position check: current_position={current_position}, returned_count={returned_count}, total_emails={total_emails}, at_end={position_at_end}")
+
+            # Combine signals: prioritize most reliable signal for each scenario
+            if total_emails > 0:
+                # If total is provided and accurate, use position-based check (most reliable)
+                # This fixes Issue #9: prevents fetching empty batch when exactly at boundary
+                has_more = total_indicates_more and not position_at_end
+                logger.info(f"JMAP PAGINATION DEBUG - Using position-based (Issue #9 fix): total_indicates_more={total_indicates_more}, position_at_end={position_at_end}, has_more={has_more}")
             elif since_date:
-                # With date filter, use date-based check as primary, batch-size as fallback
+                # With date filter but no total, use date+batch heuristic
+                # Note: This can still trigger Issue #9 edge case, but it's caught by empty batch check in sync loop
                 has_more = date_indicates_more and full_batch_received
                 logger.info(f"JMAP PAGINATION DEBUG - Using date+batch heuristic: date_indicates_more={date_indicates_more}, full_batch={full_batch_received}, has_more={has_more}")
             else:

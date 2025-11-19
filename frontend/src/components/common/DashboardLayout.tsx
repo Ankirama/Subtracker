@@ -31,6 +31,7 @@ import {
   FiTrendingDown,
   FiDollarSign,
   FiTag,
+  FiLock,
 } from 'react-icons/fi'
 
 interface NavItem {
@@ -129,6 +130,9 @@ export const DashboardLayout = () => {
             </MenuButton>
             <MenuList>
               <MenuItem icon={<Icon as={FiUser} />}>Profile</MenuItem>
+              <MenuItem icon={<Icon as={FiLock} />} as={RouterLink} to="/settings/2fa">
+                Two-Factor Auth
+              </MenuItem>
               <MenuDivider />
               <MenuItem icon={<Icon as={FiLogOut} />} onClick={logout}>
                 Logout

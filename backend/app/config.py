@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "http://localhost:5173"
 
+    # Frontend
+    FRONTEND_URL: str = "http://localhost:5173"
+
     # Email Processing
     DEFAULT_BATCH_SIZE: int = 100
     DEFAULT_CONFIDENCE_AUTO_ACCEPT: float = 85.0

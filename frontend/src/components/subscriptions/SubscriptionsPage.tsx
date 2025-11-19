@@ -28,6 +28,7 @@ import {
   InputGroup,
   InputLeftElement,
   Icon,
+  Checkbox,
 } from '@chakra-ui/react'
 import { FiSearch, FiEdit2, FiTrash2, FiPlus, FiEye, FiRefreshCw, FiDownload } from 'react-icons/fi'
 import { subscriptionsAPI } from '../../api/subscriptions'
@@ -42,6 +43,7 @@ export const SubscriptionsPage = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [activeFilter, setActiveFilter] = useState<string>('')
+  const [excludeTrials, setExcludeTrials] = useState(true)
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null)
   const [feedbackSubscription, setFeedbackSubscription] = useState<Subscription | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -52,11 +54,12 @@ export const SubscriptionsPage = () => {
   const toast = useToast()
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['subscriptions', categoryFilter, activeFilter],
+    queryKey: ['subscriptions', categoryFilter, activeFilter, excludeTrials],
     queryFn: () =>
       subscriptionsAPI.getAll({
         category: categoryFilter || undefined,
         status: activeFilter || undefined,
+        exclude_trials: excludeTrials,
       }),
   })
 
@@ -211,7 +214,7 @@ export const SubscriptionsPage = () => {
         </HStack>
 
         {/* Filters */}
-        <HStack spacing={4}>
+        <HStack spacing={4} flexWrap="wrap">
           <InputGroup maxW="300px">
             <InputLeftElement>
               <Icon as={FiSearch} color="gray.400" />
@@ -245,6 +248,14 @@ export const SubscriptionsPage = () => {
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </Select>
+
+          <Checkbox
+            isChecked={excludeTrials}
+            onChange={(e) => setExcludeTrials(e.target.checked)}
+            colorScheme="blue"
+          >
+            Hide trial subscriptions
+          </Checkbox>
         </HStack>
 
         {/* Table */}

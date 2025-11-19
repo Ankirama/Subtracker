@@ -18,6 +18,7 @@ export const subscriptionsAPI = {
     is_active?: boolean
     search?: string
     sort_by?: string
+    exclude_trials?: boolean
   }): Promise<SubscriptionListResponse> => {
     const response = await apiClient.get<SubscriptionListResponse>('/subscriptions', { params })
     return response.data
@@ -28,8 +29,8 @@ export const subscriptionsAPI = {
     return response.data
   },
 
-  getStats: async (): Promise<SubscriptionStats> => {
-    const response = await apiClient.get<SubscriptionStats>('/subscriptions/stats')
+  getStats: async (params?: { exclude_trials?: boolean }): Promise<SubscriptionStats> => {
+    const response = await apiClient.get<SubscriptionStats>('/subscriptions/stats', { params })
     return response.data
   },
 

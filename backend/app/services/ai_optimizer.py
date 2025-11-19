@@ -10,7 +10,7 @@ Analyzes user subscriptions and generates personalized recommendations for:
 """
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 import openai
 import json
@@ -90,7 +90,7 @@ class AIOptimizer:
             'potential_savings': round(total_savings, 2),
             'recommendations': recommendations,
             'insights': insights,
-            'analyzed_at': datetime.now().isoformat()
+            'analyzed_at': datetime.now(timezone.utc).isoformat()
         }
 
     @staticmethod
@@ -186,11 +186,11 @@ class AIOptimizer:
     def _detect_unused(subscriptions: List[Subscription]) -> List[Dict[str, Any]]:
         """Detect potentially unused subscriptions based on last confirmation."""
         recommendations = []
-        ninety_days_ago = datetime.now() - timedelta(days=90)
+        ninety_days_ago = datetime.now(timezone.utc) - timedelta(days=90)
 
         for sub in subscriptions:
             if sub.last_confirmed_at and sub.last_confirmed_at < ninety_days_ago:
-                days_inactive = (datetime.now() - sub.last_confirmed_at).days
+                days_inactive = (datetime.now(timezone.utc) - sub.last_confirmed_at).days
                 monthly_cost = AIOptimizer._get_monthly_cost(sub)
 
                 recommendations.append({
@@ -332,7 +332,11 @@ Respond in JSON format:
                                 'type': 'alternative_provider',
                                 'category': 'cost_reduction',
                                 'title': f"Consider {result['alternative_name']} Instead of {sub_data['provider']}",
-                                'description': f"{result.get('reason', 'Similar features at lower cost')} - Save €{savings:.2f}/month",
+                                'description': f"{result.get('reason', 'Similar features at lower cost')}. Current: €{current_cost:.2f}/mo → Alternative: €{alt_price:.2f}/mo (Save €{savings:.2f}/month)",
+                                'current_provider': sub_data['provider'],
+                                'current_cost': current_cost,
+                                'alternative_provider': result['alternative_name'],
+                                'alternative_cost': alt_price,
                                 'potential_savings': savings,
                                 'action': 'research_alternative',
                                 'affected_subscriptions': [sub_data['id']],

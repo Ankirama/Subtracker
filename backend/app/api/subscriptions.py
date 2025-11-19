@@ -90,6 +90,7 @@ async def create_subscription(
     # Create subscription
     new_subscription = Subscription(
         **subscription_data.model_dump(),
+        user_id=current_user.id,
         confidence_score=1.0,  # Manual entry has perfect confidence
         extraction_method='manual'
     )
@@ -109,31 +110,37 @@ async def list_subscriptions(
     mailbox_id: UUID = None,
     status_filter: str = Query(None, alias="status"),
     category: str = None,
+    exclude_trials: bool = Query(True, description="Exclude trial-only subscriptions (default: true)"),
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100)
 ):
     """
     List all subscriptions for the current user.
-    
-    Supports filtering by mailbox, status, and category.
+
+    Supports filtering by mailbox, status, category, and trial exclusion.
+    By default, excludes trial-only subscriptions that were never converted.
     """
     # Base query: all subscriptions from user's mailboxes
     query = db.query(Subscription).join(Mailbox).filter(
         Mailbox.user_id == current_user.id
     )
-    
+
+    # Apply trial filter (default: exclude trials)
+    if exclude_trials:
+        query = query.filter(Subscription.is_confirmed == True)
+
     # Apply filters
     if mailbox_id:
         verify_mailbox_ownership(mailbox_id, current_user.id, db)
         query = query.filter(Subscription.mailbox_id == mailbox_id)
-    
+
     if status_filter:
         # Convert status filter to boolean for is_active field
         if status_filter.lower() == 'active':
             query = query.filter(Subscription.is_active == True)
         elif status_filter.lower() == 'inactive':
             query = query.filter(Subscription.is_active == False)
-    
+
     if category:
         query = query.filter(Subscription.category == category)
     
@@ -157,18 +164,26 @@ async def list_subscriptions(
 @router.get("/stats", response_model=SubscriptionStats)
 async def get_subscription_stats(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    exclude_trials: bool = Query(True, description="Exclude trial-only subscriptions (default: true)")
 ):
     """
     Get subscription statistics for the current user.
-    
+
     Includes total costs, category breakdown, and upcoming renewals.
+    By default, excludes trial-only subscriptions that were never converted.
     """
-    # Get all active subscriptions
-    subscriptions = db.query(Subscription).join(Mailbox).filter(
+    # Get all active subscriptions (excluding trials by default)
+    query = db.query(Subscription).join(Mailbox).filter(
         Mailbox.user_id == current_user.id,
         Subscription.is_active == True
-    ).all()
+    )
+
+    # Apply trial filter
+    if exclude_trials:
+        query = query.filter(Subscription.is_confirmed == True)
+
+    subscriptions = query.all()
     
     total_subscriptions = len(subscriptions)
     active_subscriptions = len([s for s in subscriptions if s.is_active])
@@ -465,9 +480,14 @@ async def update_subscription(
     
     # Update fields
     update_dict = update_data.model_dump(exclude_unset=True)
+
+    # If user is manually changing is_active status, set manual_status_override flag
+    if 'is_active' in update_dict and update_dict['is_active'] != subscription.is_active:
+        update_dict['manual_status_override'] = True
+
     for field, value in update_dict.items():
         setattr(subscription, field, value)
-    
+
     subscription.updated_at = datetime.now()
     db.commit()
     db.refresh(subscription)
@@ -721,3 +741,103 @@ async def get_subscription_price_statistics(
 
     stats = PriceHistoryService.get_price_statistics(db, str(subscription_id))
     return stats
+
+
+@router.post("/update-status")
+async def update_subscription_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update renewal dates and active status for all user's subscriptions.
+
+    Uses the RenewalCalculator service to:
+    - Extract renewal dates from email content (provider-specific patterns)
+    - Calculate renewal dates based on billing cycles
+    - Detect inactive subscriptions (>2 billing cycles without emails)
+    - Update is_active status accordingly
+
+    Returns counts of total, activated, and deactivated subscriptions.
+    """
+    from app.services.renewal_calculator import RenewalCalculator, get_subscription_emails
+
+    # Get all user's subscriptions
+    subscriptions = db.query(Subscription).join(Mailbox).filter(
+        Mailbox.user_id == current_user.id
+    ).all()
+
+    renewal_calc = RenewalCalculator(db)
+
+    total_processed = 0
+    total_activated = 0
+    total_deactivated = 0
+    errors = []
+
+    for subscription in subscriptions:
+        try:
+            # Get all emails for this subscription
+            subscription_emails_data = get_subscription_emails(db, subscription.id)
+
+            if not subscription_emails_data:
+                logger.warning(f"No emails found for subscription {subscription.id}")
+                continue
+
+            # Extract dates and contents
+            email_dates = [e['date'] for e in subscription_emails_data]
+            email_contents = [
+                e['body_html'] or e['body_text'] or ''
+                for e in subscription_emails_data
+            ]
+
+            # Store old status for comparison
+            old_active = subscription.is_active
+            old_renewal = subscription.renewal_date
+
+            # Calculate renewal date, active status, trial status, and confirmation
+            renewal_date, is_active, trial_status, is_confirmed = renewal_calc.calculate_renewal_info(
+                provider=subscription.provider,
+                billing_cycle=subscription.billing_cycle,
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=subscription.extraction_metadata
+            )
+
+            # Update subscription
+            if renewal_date:
+                subscription.renewal_date = renewal_date
+                logger.info(f"Updated renewal date for {subscription.provider}: {renewal_date.strftime('%Y-%m-%d')}")
+
+            subscription.is_active = is_active
+            subscription.trial_status = trial_status
+            subscription.is_confirmed = is_confirmed
+
+            # Track status changes
+            if old_active and not is_active:
+                total_deactivated += 1
+                logger.info(f"Deactivated {subscription.provider}")
+            elif not old_active and is_active:
+                total_activated += 1
+                logger.info(f"Activated {subscription.provider}")
+
+            total_processed += 1
+
+        except Exception as e:
+            error_msg = f"Error updating {subscription.provider}: {str(e)}"
+            logger.error(error_msg)
+            errors.append(error_msg)
+            continue
+
+    db.commit()
+
+    response = {
+        "success": True,
+        "total_processed": total_processed,
+        "total_activated": total_activated,
+        "total_deactivated": total_deactivated,
+        "message": f"Updated {total_processed} subscriptions: {total_activated} activated, {total_deactivated} deactivated"
+    }
+
+    if errors:
+        response["errors"] = errors
+
+    return response

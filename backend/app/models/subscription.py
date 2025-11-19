@@ -38,6 +38,12 @@ class Subscription(Base):
     next_billing_date = Column(Date, nullable=True)
 
     is_active = Column(Boolean, default=True, nullable=False, index=True)
+    manual_status_override = Column(Boolean, default=False, nullable=False)  # True if user manually changed is_active
+
+    # Trial tracking
+    trial_status = Column(String(50), nullable=True, index=True)  # 'none', 'trial', 'trial_ended', 'trial_cancelled', 'converted'
+    trial_end_date = Column(Date, nullable=True)
+    is_confirmed = Column(Boolean, default=True, nullable=False, index=True)  # True if 2+ emails OR no trial detected
 
     # Categorization
     category = Column(String(100), nullable=True, index=True)
@@ -46,6 +52,17 @@ class Subscription(Base):
     # Custom differentiation field
     custom_label = Column(String(255), nullable=True)
     notes = Column(Text, nullable=True)
+
+    # Cancellation tracking
+    cancellation_status = Column(
+        String(50),
+        nullable=False,
+        default='active',
+        index=True
+    )  # 'active', 'pending_cancellation', 'paused', 'cancelled'
+    cancellation_requested_at = Column(DateTime(timezone=True), nullable=True)
+    cancellation_confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    cancellation_notes = Column(Text, nullable=True)
 
     # Tracking
     first_detected_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

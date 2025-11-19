@@ -2,7 +2,7 @@
 SQLAlchemy model for mailboxes (email accounts).
 """
 from sqlalchemy import (
-    Column, String, Boolean, DateTime, Integer, ForeignKey, Text, UniqueConstraint
+    Column, String, Boolean, DateTime, Integer, ForeignKey, Text, Float, UniqueConstraint
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
@@ -43,6 +43,21 @@ class Mailbox(Base):
     last_sync_subscriptions_found = Column(Integer, nullable=True)
     last_sync_error_message = Column(Text, nullable=True)
 
+    # Sync resume capability (Issue #7)
+    last_sync_started_at = Column(DateTime(timezone=True), nullable=True)  # When current sync started
+    last_sync_position = Column(Integer, nullable=True, default=0)  # Current position in pagination
+    last_sync_batch_num = Column(Integer, nullable=True, default=0)  # Current batch number
+
+    # User-initiated sync control (cancellation)
+    sync_cancellation_requested = Column(Boolean, default=False, nullable=False)  # User requested to stop sync
+    sync_cancelled_at = Column(DateTime(timezone=True), nullable=True)  # When sync was cancelled by user
+
+    # Real-time progress tracking (Issue #10)
+    current_batch_number = Column(Integer, nullable=True)  # Current batch being processed
+    total_batches_estimate = Column(Integer, nullable=True)  # Estimated total batches
+    progress_percentage = Column(Float, nullable=True)  # Progress percentage (0-100)
+    estimated_completion_time = Column(DateTime(timezone=True), nullable=True)  # Estimated completion time
+
     # Sync configuration
     sync_frequency = Column(String(50), default='weekly', nullable=False)  # 'manual', 'daily', 'weekly'
     batch_size = Column(Integer, default=100, nullable=False)
@@ -56,6 +71,7 @@ class Mailbox(Base):
     user = relationship("User", back_populates="mailboxes")
     subscriptions = relationship("Subscription", back_populates="mailbox", cascade="all, delete-orphan")
     email_messages = relationship("EmailMessage", back_populates="mailbox", cascade="all, delete-orphan")
+    sync_history = relationship("SyncHistory", back_populates="mailbox", cascade="all, delete-orphan")
 
     # Constraints
     __table_args__ = (

@@ -34,6 +34,7 @@ sendgrid==6.11.0  # SendGrid for transactional emails
 # Utilities
 python-dotenv==1.0.1
 email-validator==2.1.0
+markdown==3.10
 
 # Testing
 pytest==7.4.4
@@ -45,3 +46,5 @@ pytest-httpx==0.30.0
 black==24.1.1
 flake8==7.0.0
 mypy==1.8.0
+pyotp==2.9.0
+qrcode[pil]==7.4.2

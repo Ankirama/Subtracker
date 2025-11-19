@@ -1,0 +1,464 @@
+"""
+Tests for the SubscriptionExtractor service.
+
+Tests cover:
+- AI extraction logic with mocked OpenAI responses
+- Data cleaning and validation
+- Trial detection
+- Confidence scoring
+- Edge cases and error handling
+"""
+import pytest
+from unittest.mock import Mock, AsyncMock, patch
+from decimal import Decimal
+from datetime import datetime, timezone
+
+from app.services.subscription_extractor import SubscriptionExtractor
+from app.email_providers.base import EmailMessage
+
+
+@pytest.fixture
+def mock_openai_client():
+    """Mock OpenAI client for testing."""
+    mock_client = Mock()
+    mock_client.chat = Mock()
+    mock_client.chat.completions = Mock()
+    return mock_client
+
+
+@pytest.fixture
+def sample_subscription_email():
+    """Sample subscription email for testing."""
+    return EmailMessage(
+        id="test-123",
+        message_id="msg-123",
+        subject="Your Netflix subscription",
+        sender="netflix@netflix.com",
+        sender_name="Netflix",
+        received_date=datetime.now(timezone.utc),
+        body_text="Your Netflix subscription: $15.99 per month. Renews on December 5, 2025.",
+        body_html="<html>Your Netflix subscription: $15.99 per month.</html>",
+        headers={}
+    )
+
+
+@pytest.fixture
+def sample_trial_email():
+    """Sample trial subscription email."""
+    return EmailMessage(
+        id="test-trial-456",
+        message_id="msg-trial-456",
+        subject="Start your free trial",
+        sender="service@example.com",
+        sender_name="Example Service",
+        received_date=datetime.now(timezone.utc),
+        body_text="Your free trial starts today! Trial ends on January 15, 2026. After trial: $9.99/month",
+        body_html="<html>Your free trial starts today!</html>",
+        headers={}
+    )
+
+
+@pytest.fixture
+def sample_non_subscription_email():
+    """Sample non-subscription email (security alert)."""
+    return EmailMessage(
+        id="test-nonsub-789",
+        message_id="msg-nonsub-789",
+        subject="Security alert: New device login",
+        sender="security@example.com",
+        sender_name="Example Service",
+        received_date=datetime.now(timezone.utc),
+        body_text="We detected a new device login to your account.",
+        body_html="<html>Security alert</html>",
+        headers={}
+    )
+
+
+class TestSubscriptionExtractorBasicExtraction:
+    """Test basic subscription extraction functionality."""
+
+    @pytest.mark.asyncio
+    async def test_extract_valid_subscription(self, db_session, sample_subscription_email, mock_openai_client):
+        """Extract data from valid subscription email."""
+        # Mock OpenAI response
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = '''
+        {
+            "provider": "Netflix",
+            "amount": 15.99,
+            "currency": "USD",
+            "billing_cycle": "monthly",
+            "renewal_date": "2025-12-05",
+            "description": "Netflix Premium subscription",
+            "category": "streaming",
+            "payment_method_last4": null,
+            "confidence_score": 0.95,
+            "extraction_method": "gpt-4o-mini",
+            "trial_detected": false,
+            "trial_end_date": null,
+            "trial_keywords_found": [],
+            "raw_email_data": {
+                "subject": "Your Netflix subscription",
+                "sender": "netflix@netflix.com",
+                "date": "2025-11-17"
+            }
+        }
+        '''
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        # Create extractor with mocked client
+        with patch('app.services.subscription_extractor.get_openai_client', return_value=mock_openai_client):
+            extractor = SubscriptionExtractor(db_session)
+            result = await extractor.extract_subscription(sample_subscription_email)
+
+        assert result is not None
+        assert result['provider'] == 'Netflix'
+        assert float(result['amount']) == 15.99
+        assert result['currency'] == 'USD'
+        assert result['billing_cycle'] == 'monthly'
+        assert result['category'] == 'streaming'
+        assert result['confidence_score'] >= 0.9
+
+    @pytest.mark.asyncio
+    async def test_extract_trial_subscription(self, db_session, sample_trial_email, mock_openai_client):
+        """Extract trial subscription with trial detection."""
+        # Mock OpenAI response with trial detected
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = '''
+        {
+            "provider": "Example Service",
+            "amount": 9.99,
+            "currency": "USD",
+            "billing_cycle": "monthly",
+            "renewal_date": null,
+            "description": "Free trial subscription",
+            "category": "software",
+            "payment_method_last4": null,
+            "confidence_score": 0.85,
+            "extraction_method": "gpt-4o-mini",
+            "trial_detected": true,
+            "trial_end_date": "2026-01-15",
+            "trial_keywords_found": ["free trial", "trial ends"],
+            "raw_email_data": {
+                "subject": "Start your free trial",
+                "sender": "service@example.com",
+                "date": "2025-11-17"
+            }
+        }
+        '''
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        with patch('app.services.subscription_extractor.get_openai_client', return_value=mock_openai_client):
+            extractor = SubscriptionExtractor(db_session)
+            result = await extractor.extract_subscription(sample_trial_email)
+
+        assert result is not None
+        assert result['extraction_metadata']['trial_detected'] is True
+        assert 'trial_keywords' in result['extraction_metadata']
+        assert result.get('trial_end_date') is not None
+
+    @pytest.mark.asyncio
+    async def test_reject_non_subscription_email(self, db_session, sample_non_subscription_email, mock_openai_client):
+        """Reject email without subscription evidence (low confidence)."""
+        # Mock OpenAI response with low confidence
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = '''
+        {
+            "provider": null,
+            "amount": null,
+            "currency": null,
+            "billing_cycle": null,
+            "renewal_date": null,
+            "description": "Security alert - not a subscription",
+            "category": "other",
+            "payment_method_last4": null,
+            "confidence_score": 0.0,
+            "extraction_method": "gpt-4o-mini",
+            "trial_detected": false,
+            "trial_end_date": null,
+            "trial_keywords_found": [],
+            "raw_email_data": {
+                "subject": "Security alert",
+                "sender": "security@example.com",
+                "date": "2025-11-17"
+            }
+        }
+        '''
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        with patch('app.services.subscription_extractor.get_openai_client', return_value=mock_openai_client):
+            extractor = SubscriptionExtractor(db_session)
+            result = await extractor.extract_subscription(sample_non_subscription_email)
+
+        # Should return None due to low confidence
+        assert result is None
+
+
+class TestSubscriptionExtractorDataCleaning:
+    """Test data cleaning and validation logic."""
+
+    def test_clean_extracted_data_basic(self):
+        """Clean basic extracted data."""
+        from app.services.subscription_extractor import SubscriptionExtractor
+
+        raw_data = {
+            'provider': 'Netflix',
+            'amount': 15.99,
+            'currency': 'USD',
+            'billing_cycle': 'monthly',
+            'category': 'streaming',
+            'confidence_score': 0.95,
+            'extraction_method': 'gpt-4o-mini',
+            'trial_detected': False
+        }
+
+        cleaned = SubscriptionExtractor._clean_extracted_data(raw_data)
+
+        assert cleaned['provider'] == 'Netflix'
+        assert cleaned['amount'] == Decimal('15.99')
+        assert cleaned['currency'] == 'USD'
+        assert cleaned['billing_cycle'] == 'monthly'
+        assert cleaned['confidence_score'] == 0.95
+
+    def test_clean_extracted_data_with_trial(self):
+        """Clean data with trial information."""
+        from app.services.subscription_extractor import SubscriptionExtractor
+
+        raw_data = {
+            'provider': 'Service',
+            'amount': 9.99,
+            'currency': 'EUR',
+            'billing_cycle': 'monthly',
+            'category': 'software',
+            'confidence_score': 0.85,
+            'extraction_method': 'gpt-4o-mini',
+            'trial_detected': True,
+            'trial_end_date': '2026-01-15',
+            'trial_keywords_found': ['free trial', 'trial period']
+        }
+
+        cleaned = SubscriptionExtractor._clean_extracted_data(raw_data)
+
+        assert 'extraction_metadata' in cleaned
+        assert cleaned['extraction_metadata']['trial_detected'] is True
+        assert 'trial_keywords' in cleaned['extraction_metadata']
+        assert cleaned.get('trial_end_date') is not None
+
+    def test_clean_extracted_data_null_values(self):
+        """Clean data with null/missing values."""
+        from app.services.subscription_extractor import SubscriptionExtractor
+
+        raw_data = {
+            'provider': 'Service',
+            'amount': None,
+            'currency': None,
+            'billing_cycle': None,
+            'renewal_date': None,
+            'category': 'other',
+            'confidence_score': 0.6,
+            'extraction_method': 'gpt-4o-mini',
+            'trial_detected': False
+        }
+
+        cleaned = SubscriptionExtractor._clean_extracted_data(raw_data)
+
+        assert cleaned['provider'] == 'Service'
+        assert cleaned['amount'] is None
+        assert cleaned['currency'] is None
+        assert 'renewal_date' not in cleaned  # Nulls are excluded
+
+    def test_clean_extracted_data_invalid_amount(self):
+        """Handle invalid amount values."""
+        from app.services.subscription_extractor import SubscriptionExtractor
+
+        raw_data = {
+            'provider': 'Service',
+            'amount': 'invalid',
+            'currency': 'USD',
+            'billing_cycle': 'monthly',
+            'category': 'other',
+            'confidence_score': 0.7,
+            'extraction_method': 'gpt-4o-mini',
+            'trial_detected': False
+        }
+
+        cleaned = SubscriptionExtractor._clean_extracted_data(raw_data)
+
+        # Invalid amount should be set to None
+        assert cleaned['amount'] is None
+
+
+class TestSubscriptionExtractorConfidenceThresholds:
+    """Test confidence score filtering."""
+
+    @pytest.mark.asyncio
+    async def test_low_confidence_rejection(self, db_session, sample_subscription_email, mock_openai_client):
+        """Reject extraction with confidence below threshold."""
+        # Mock response with low confidence
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = '''
+        {
+            "provider": "Unknown Service",
+            "amount": null,
+            "currency": null,
+            "billing_cycle": null,
+            "category": "other",
+            "confidence_score": 0.3,
+            "extraction_method": "gpt-4o-mini",
+            "trial_detected": false,
+            "trial_keywords_found": []
+        }
+        '''
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        with patch('app.services.subscription_extractor.get_openai_client', return_value=mock_openai_client):
+            extractor = SubscriptionExtractor(db_session)
+            result = await extractor.extract_subscription(sample_subscription_email)
+
+        # Should return None due to low confidence or missing provider
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_missing_provider_rejection(self, db_session, sample_subscription_email, mock_openai_client):
+        """Reject extraction with missing provider."""
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = '''
+        {
+            "provider": null,
+            "amount": 15.99,
+            "currency": "USD",
+            "billing_cycle": "monthly",
+            "category": "other",
+            "confidence_score": 0.9,
+            "extraction_method": "gpt-4o-mini",
+            "trial_detected": false,
+            "trial_keywords_found": []
+        }
+        '''
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        with patch('app.services.subscription_extractor.get_openai_client', return_value=mock_openai_client):
+            extractor = SubscriptionExtractor(db_session)
+            result = await extractor.extract_subscription(sample_subscription_email)
+
+        # Should return None due to missing provider
+        assert result is None
+
+
+class TestSubscriptionExtractorErrorHandling:
+    """Test error handling and edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_invalid_json_response(self, db_session, sample_subscription_email, mock_openai_client):
+        """Handle invalid JSON in OpenAI response."""
+        # Mock response with invalid JSON
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = "This is not JSON"
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        with patch('app.services.subscription_extractor.get_openai_client', return_value=mock_openai_client):
+            extractor = SubscriptionExtractor(db_session)
+            result = await extractor.extract_subscription(sample_subscription_email)
+
+        # Should handle gracefully and return None
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_openai_api_error(self, db_session, sample_subscription_email, mock_openai_client):
+        """Handle OpenAI API errors."""
+        # Mock API error
+        mock_openai_client.chat.completions.create = AsyncMock(
+            side_effect=Exception("API Error")
+        )
+
+        with patch('app.services.subscription_extractor.get_openai_client', return_value=mock_openai_client):
+            extractor = SubscriptionExtractor(db_session)
+            result = await extractor.extract_subscription(sample_subscription_email)
+
+        # Should handle error and return None
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_empty_email_body(self, db_session, mock_openai_client):
+        """Handle email with empty body."""
+        empty_email = EmailMessage(
+            id="empty-test",
+            message_id="msg-empty",
+            subject="Subject only",
+            sender="test@example.com",
+            sender_name="Test",
+            received_date=datetime.now(timezone.utc),
+            body_text="",
+            body_html="",
+            headers={}
+        )
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = '''
+        {
+            "provider": null,
+            "amount": null,
+            "currency": null,
+            "confidence_score": 0.0,
+            "extraction_method": "gpt-4o-mini",
+            "trial_detected": false,
+            "trial_keywords_found": []
+        }
+        '''
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        with patch('app.services.subscription_extractor.get_openai_client', return_value=mock_openai_client):
+            extractor = SubscriptionExtractor(db_session)
+            result = await extractor.extract_subscription(empty_email)
+
+        assert result is None
+
+
+class TestSubscriptionExtractorCategories:
+    """Test category assignment logic."""
+
+    @pytest.mark.asyncio
+    async def test_streaming_category(self, db_session, mock_openai_client):
+        """Test streaming service categorization."""
+        email = EmailMessage(
+            id="streaming-test",
+            message_id="msg-streaming",
+            subject="Netflix subscription",
+            sender="netflix@netflix.com",
+            sender_name="Netflix",
+            received_date=datetime.now(timezone.utc),
+            body_text="Your Netflix subscription: $15.99/month",
+            body_html="<html>Netflix subscription</html>",
+            headers={}
+        )
+
+        mock_response = Mock()
+        mock_response.choices = [Mock()]
+        mock_response.choices[0].message.content = '''
+        {
+            "provider": "Netflix",
+            "amount": 15.99,
+            "currency": "USD",
+            "billing_cycle": "monthly",
+            "category": "streaming",
+            "confidence_score": 0.95,
+            "extraction_method": "gpt-4o-mini",
+            "trial_detected": false,
+            "trial_keywords_found": []
+        }
+        '''
+        mock_openai_client.chat.completions.create = AsyncMock(return_value=mock_response)
+
+        with patch('app.services.subscription_extractor.get_openai_client', return_value=mock_openai_client):
+            extractor = SubscriptionExtractor(db_session)
+            result = await extractor.extract_subscription(email)
+
+        assert result is not None
+        assert result['category'] == 'streaming'

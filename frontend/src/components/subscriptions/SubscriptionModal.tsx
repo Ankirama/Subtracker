@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import {
   Modal,
   ModalOverlay,
@@ -22,6 +22,7 @@ import {
   NumberInputField,
 } from '@chakra-ui/react'
 import { subscriptionsAPI } from '../../api/subscriptions'
+import { categoriesAPI } from '../../api/categories'
 import { Subscription, SubscriptionCreate, SubscriptionUpdate } from '../../types'
 
 interface SubscriptionModalProps {
@@ -49,6 +50,11 @@ export const SubscriptionModal = ({
 
   const queryClient = useQueryClient()
   const toast = useToast()
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ['categories'],
+    queryFn: categoriesAPI.getAll,
+  })
 
   useEffect(() => {
     if (subscription) {
@@ -229,12 +235,11 @@ export const SubscriptionModal = ({
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 >
-                  <option value="streaming">Streaming</option>
-                  <option value="software">Software</option>
-                  <option value="storage">Storage</option>
-                  <option value="productivity">Productivity</option>
-                  <option value="entertainment">Entertainment</option>
-                  <option value="other">Other</option>
+                  {categoriesData?.categories.map((category) => (
+                    <option key={category.name} value={category.name}>
+                      {category.display_name}
+                    </option>
+                  ))}
                 </Select>
               </FormControl>
             </HStack>

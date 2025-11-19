@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.notification import NotificationType
 from app.utils.config_helper import get_config_value
+from app.services.email_templates import EmailTemplates
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +183,97 @@ Total Spent This Month: {currency} {total_spent:.2f}
 Active Subscriptions: {len(subscriptions)}
 
 Log in to your Subscription Tracker account to view detailed analytics.
+
+Best regards,
+Subscription Tracker Team
+        """.strip()
+
+        return self.send_email(to_email, subject, html_content, plain_content)
+
+    def send_2fa_otp_email(
+        self,
+        to_email: str,
+        user_name: str,
+        otp_code: str,
+        expires_in_minutes: int = 10
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Send 2FA OTP code email.
+
+        Args:
+            to_email: Recipient email address
+            user_name: User's name
+            otp_code: 6-digit OTP code
+            expires_in_minutes: Code expiration time in minutes
+
+        Returns:
+            Tuple of (success: bool, error_message: Optional[str])
+        """
+        subject = f"Your Two-Factor Authentication Code - {otp_code}"
+
+        html_content = EmailTemplates.generate_2fa_otp_email(
+            user_name=user_name,
+            otp_code=otp_code,
+            expires_in_minutes=expires_in_minutes
+        )
+
+        plain_content = f"""
+Hi {user_name},
+
+You're receiving this email because someone attempted to log in to your Subscription Tracker account.
+
+Your verification code is: {otp_code}
+
+This code will expire in {expires_in_minutes} minutes.
+
+SECURITY NOTICE:
+If you didn't attempt to log in, please ignore this email and consider changing your password immediately.
+Never share this code with anyone.
+
+Subscription Tracker Team
+        """.strip()
+
+        return self.send_email(to_email, subject, html_content, plain_content)
+
+    def send_email_verification(
+        self,
+        to_email: str,
+        user_name: str,
+        verification_url: str
+    ) -> tuple[bool, Optional[str]]:
+        """
+        Send email verification email.
+
+        Args:
+            to_email: Recipient email address
+            user_name: User's display name or email
+            verification_url: Complete URL for email verification
+
+        Returns:
+            Tuple of (success: bool, error_message: Optional[str])
+        """
+        subject = "Complete Your Registration - Subscription Tracker"
+
+        html_content = EmailTemplates.generate_email_verification_email(
+            user_name=user_name,
+            verification_url=verification_url
+        )
+
+        plain_content = f"""
+Hi {user_name}!
+
+Thank you for signing up for Subscription Tracker!
+
+To complete your registration and start managing your subscriptions, please verify your email address by clicking the link below:
+
+{verification_url}
+
+Important:
+• This verification link expires in 24 hours
+• The link can only be used once
+• You won't be able to log in until you verify your email
+
+If you didn't create an account, you can safely ignore this email.
 
 Best regards,
 Subscription Tracker Team
