@@ -44,9 +44,9 @@ class ProviderCancellationInfo(Base):
     # Cancellation information
     cancellation_url = Column(Text, nullable=True)  # Direct link to cancellation page
     difficulty_rating = Column(
-        SQLEnum(DifficultyRating, name="difficulty_rating_enum"),
+        SQLEnum(DifficultyRating, name="difficulty_rating_enum", values_callable=lambda x: [e.value for e in x]),
         nullable=False,
-        default=DifficultyRating.MEDIUM,
+        default=DifficultyRating.MEDIUM.value,
         index=True
     )
 
@@ -56,9 +56,9 @@ class ProviderCancellationInfo(Base):
 
     # Source tracking
     instructions_source = Column(
-        SQLEnum(InstructionsSource, name="instructions_source_enum"),
+        SQLEnum(InstructionsSource, name="instructions_source_enum", values_callable=lambda x: [e.value for e in x]),
         nullable=False,
-        default=InstructionsSource.AI_GENERATED,
+        default=InstructionsSource.AI_GENERATED.value,
         index=True
     )
 
