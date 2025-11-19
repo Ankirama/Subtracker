@@ -132,26 +132,41 @@ This document tracks planned features and improvements for the Subscription Trac
 ---
 
 ### Cancellation Workflows ✂️
-**Status:** Partially Complete
-**Priority:** Medium
-**Estimated Effort:** Medium
+**Status:** 🚀 In Progress (Starting Phase 1)
+**Priority:** High (User-requested killer feature)
+**Estimated Effort:** Large (8 phases)
 
-**Features:**
+**Completed Features:**
 - ✅ Reminders to cancel before trial ends (3-day, 1-day, same-day alerts)
 - ✅ Trial period tracking (trial_status, trial_end_date fields)
-- [ ] Links to cancellation pages for each provider
-- [ ] Track cancellation attempts and confirmations
-- [ ] "Pause subscription" status
-- [ ] Cancellation difficulty ratings
-- [ ] Cancellation instructions per provider
-- [ ] "Subscriptions to review" suggestions
 
-**Technical Requirements:**
-- ✅ Trial period tracking (database model)
-- ✅ Trial ending reminders (Celery scheduled tasks)
-- [ ] Provider cancellation link database
-- [ ] Cancellation status tracking
-- [ ] Provider-specific instructions storage
+**Features to Implement:**
+- [ ] **Phase 1:** Database schema & migrations (provider_cancellation_info table, subscription status fields)
+- [ ] **Phase 2:** AI cancellation research service (OpenAI-powered research for unknown providers)
+- [ ] **Phase 3:** Backend API endpoints (cancellation info, status updates, review suggestions)
+- [ ] **Phase 4:** Review suggestions algorithm (smart recommendations: trials ending, unused, price increases)
+- [ ] **Phase 5:** Frontend cancellation tab (instructions display, difficulty ratings, status tracking)
+- [ ] **Phase 6:** Frontend review dashboard (proactive suggestions widget with dismiss/snooze)
+- [ ] **Phase 7:** Testing & refinement (unit tests, integration tests, performance optimization)
+- [ ] **Phase 8:** Documentation & deployment (API docs, user guides, production deployment)
+
+**Key Innovations:**
+- 🤖 AI-powered cancellation research for any provider (not just pre-built database)
+- 🎯 Smart "subscriptions to review" suggestions (trials ending, unused, price increases)
+- 📊 Difficulty ratings (easy/medium/hard) with step-by-step instructions
+- ⏸️ Pause option support (for services that allow pausing)
+- 🔗 Direct cancellation links when available
+
+**Technical Stack:**
+- AI Research: OpenAI GPT-4o-mini with structured JSON output
+- Caching: Store research results (90-day refresh cycle)
+- Database: PostgreSQL with provider_cancellation_info table
+- Frontend: React + Chakra UI with cancellation tab component
+
+**Implementation Plan:**
+See detailed plan: `backend/claudedocs/cancellation_workflows_implementation_plan.md` (stored in memory)
+
+**Current Phase:** Phase 1 - Database Schema & Migrations
 
 ---
 
