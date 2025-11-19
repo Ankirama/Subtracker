@@ -15,28 +15,30 @@ This document tracks planned features and improvements for the Subscription Trac
 - ✅ Subscriptions list with filters (category, status)
 - ✅ Custom labels for multiple accounts (e.g., different Twitch accounts)
 - ✅ Search functionality across subscriptions
+- ✅ Budget management API (create, update, track spending)
+- ✅ Category management (custom categories with icons/colors)
+- ✅ Price change history tracking
+- ✅ Data export to CSV
+- ✅ Email notifications & alerts system (complete with all 7 types)
+  - Trial ending reminders (3 days, 1 day, same day alerts)
+  - Renewal reminders (configurable days before renewal)
+  - Weekly/monthly spending summary emails
+  - Inactive subscription detection alerts
+  - Price change notifications with daily monitoring
+  - System announcements (admin-initiated broadcasts)
+  - Full notification preferences (per-type opt-in/opt-out, in-app + email)
+- ✅ Notification center UI (list page with pagination/filters, settings, bell component)
+- ✅ Budget Management Frontend (enhanced visualizations & alerts)
+  - Budget summary dashboard with 4 stat cards (total limit, spending, remaining, budgets at risk)
+  - Spending distribution pie chart
+  - Budget usage comparison bar chart
+  - Budget alert notifications (daily monitoring with email alerts)
 
 ---
 
 ## 🚀 In Progress
 
-### Email Notifications & Alerts 🔔
-**Status:** In Progress
-**Priority:** High
-**Description:** Alert users about important subscription events
-
-**Features:**
-- [ ] Alert X days before renewal (configurable per subscription)
-- [ ] Weekly/monthly spending summary emails
-- [ ] Notifications when inactive subscriptions are detected
-- [ ] Alerts on unusual charges or price changes
-- [ ] Email preferences management (frequency, types of alerts)
-
-**Technical Requirements:**
-- Email service integration (SendGrid, AWS SES, or similar)
-- Notification scheduling system (Celery periodic tasks)
-- User notification preferences table
-- Email templates (HTML + plain text)
+*Currently no features in progress - ready for next feature implementation!*
 
 ---
 
@@ -75,53 +77,63 @@ This document tracks planned features and improvements for the Subscription Trac
 ---
 
 ### Budget Management 💰
+**Status:** ✅ Complete
 **Priority:** High
-**Estimated Effort:** Medium
+**Completed:** 2025-11-19
 
 **Features:**
-- [ ] Set monthly/yearly spending limits
-- [ ] Budget alerts when approaching limit
-- [ ] Track spending trends over time
-- [ ] Compare actual vs. budgeted spending
-- [ ] Budget categories and allocation
-- [ ] Visual budget progress indicators
+- ✅ Set monthly/yearly spending limits (API implemented)
+- ✅ Track spending against budget (calculation logic ready)
+- ✅ Budget categories and allocation (per-category budgets)
+- ✅ Compare actual vs. budgeted spending (API endpoints)
+- ✅ Budget alerts when approaching limit (integrated with notification system)
+- ✅ Visual budget progress indicators (frontend charts - pie & bar)
+- ✅ Budget dashboard summary UI (4 stat cards)
 
 **Technical Requirements:**
-- Budget model (user budgets, category budgets)
-- Budget tracking service
-- Alert system integration
-- Charts and visualizations
+- ✅ Budget model (user budgets, category budgets)
+- ✅ Budget tracking service with statistics
+- ✅ Budget API endpoints (CRUD + statistics)
+- ✅ Alert system integration (daily Celery task with email notifications)
+- ✅ Charts and visualizations (Recharts - pie chart for spending distribution, bar chart for usage comparison)
+- ✅ Budget dashboard UI (BudgetSummary and BudgetCharts components)
 
 ---
 
 ### Subscription Insights & Analytics 📊
+**Status:** Partially Complete
 **Priority:** High
-**Estimated Effort:** Medium-Large
+**Estimated Effort:** Medium
 
 **Features:**
-- [ ] Price change history tracking
-- [ ] Usage recommendations (suggest cancellations)
+- ✅ Price change history tracking (API + database model)
+- ✅ Basic spending statistics (total, by category, by period)
+- [ ] Usage recommendations (suggest cancellations based on patterns)
 - [ ] Cost comparisons (family plan vs individual)
-- [ ] Spending breakdown by category over time
+- [ ] Advanced spending breakdown visualizations
 - [ ] Year-over-year cost analysis
 - [ ] Subscription lifecycle analytics
 - [ ] ROI calculations for subscriptions
+- [ ] Predictive spending forecasts
 
 **Technical Requirements:**
-- Historical data tracking (price changes)
-- Analytics engine
-- Data visualization components
-- Machine learning for usage predictions (optional)
+- ✅ Historical data tracking (price changes model)
+- ✅ Basic analytics engine (statistics API)
+- [ ] Advanced data visualization components
+- [ ] Machine learning for usage predictions (optional)
+- [ ] Trend analysis algorithms
 
 ---
 
 ### Cancellation Workflows ✂️
+**Status:** Partially Complete
 **Priority:** Medium
 **Estimated Effort:** Medium
 
 **Features:**
+- ✅ Reminders to cancel before trial ends (3-day, 1-day, same-day alerts)
+- ✅ Trial period tracking (trial_status, trial_end_date fields)
 - [ ] Links to cancellation pages for each provider
-- [ ] Reminders to cancel before trial ends
 - [ ] Track cancellation attempts and confirmations
 - [ ] "Pause subscription" status
 - [ ] Cancellation difficulty ratings
@@ -129,19 +141,22 @@ This document tracks planned features and improvements for the Subscription Trac
 - [ ] "Subscriptions to review" suggestions
 
 **Technical Requirements:**
-- Provider cancellation link database
-- Trial period tracking
-- Cancellation status tracking
-- Provider-specific instructions storage
+- ✅ Trial period tracking (database model)
+- ✅ Trial ending reminders (Celery scheduled tasks)
+- [ ] Provider cancellation link database
+- [ ] Cancellation status tracking
+- [ ] Provider-specific instructions storage
 
 ---
 
 ### Data Export & Sharing 📤
+**Status:** Partially Complete
 **Priority:** Medium
-**Estimated Effort:** Small-Medium
+**Estimated Effort:** Small
 
 **Features:**
-- [ ] Export to CSV/Excel for tax purposes
+- ✅ Export to CSV (subscriptions data)
+- [ ] Export to Excel with formatting
 - [ ] Share costs with roommates/family (split bills)
 - [ ] Integration with budgeting apps (YNAB, Mint)
 - [ ] Yearly financial reports (PDF)
@@ -149,10 +164,11 @@ This document tracks planned features and improvements for the Subscription Trac
 - [ ] Scheduled automated exports
 
 **Technical Requirements:**
-- CSV/Excel export functionality
-- PDF generation for reports
-- Sharing/collaboration system
-- API integrations for third-party apps
+- ✅ CSV export functionality (API endpoint)
+- [ ] Excel export with formatting
+- [ ] PDF generation for reports
+- [ ] Sharing/collaboration system
+- [ ] API integrations for third-party apps
 
 ---
 
@@ -276,13 +292,42 @@ This document tracks planned features and improvements for the Subscription Trac
 **Decision Log:**
 - 2024-11: Started with email notifications as first priority feature
 - Schema bug fix: Changed Pydantic schema from `status` to `is_active` to match database model
+- 2025-11-18: Completed trial ending reminder system (backend)
+  - Implemented multi-day reminder logic (3 days, 1 day, same day)
+  - Created urgency-based email templates with HTML styling
+  - Integrated with Celery Beat for daily scheduled checks
+  - User preference support for notification opt-in/opt-out
+  - SendGrid API key configuration needed for production use
+- 2025-11-18: Updated roadmap to reflect actual implementation status
+  - Many backend features already complete: budgets, categories, price history, notifications infrastructure
+  - Focus shifting to frontend UI for existing backend functionality
+  - Trial tracking complete on backend, needs frontend UI integration
+- 2025-11-18: Completed full notification system (all 7 types)
+  - ✅ Trial ending reminders (3, 1, same day alerts)
+  - ✅ Renewal reminders (configurable days before)
+  - ✅ Weekly/monthly spending summaries
+  - ✅ Inactive subscription detection
+  - ✅ Price change monitoring (daily Celery task with 7-day duplicate prevention)
+  - ✅ System announcements (admin-initiated broadcasts with user targeting)
+  - ✅ Full notification center UI (list page, settings, bell component)
+  - Frontend and backend fully integrated with SendGrid email delivery
+  - Merged to main (commit 99ebd59)
+- 2025-11-19: Completed Budget Management frontend enhancements
+  - ✅ Added visual analytics (pie chart for spending distribution, bar chart for usage comparison)
+  - ✅ Created summary dashboard with 4 stat cards (total limit, current spending, remaining budget, budgets at risk)
+  - ✅ Integrated budget alert notifications with Celery Beat (daily scheduled task)
+  - ✅ Budget alerts create in-app notifications and send emails via SendGrid
+  - ✅ Database migration for budget alert support (added BUDGET_ALERT notification type)
+  - Components: BudgetSummary.tsx, BudgetCharts.tsx, budget_alerts.py task
+  - Fully integrated into existing BudgetsPage.tsx with Recharts library
 
 **Ideas for Discussion:**
 - Should we integrate with bank APIs for automatic transaction matching?
 - Consider building a browser extension for automatic subscription detection
 - Explore partnership opportunities with subscription services
 - Gamification elements (savings goals, achievements)
+- Real-time notifications via WebSocket/SSE for better UX
 
 ---
 
-*Last Updated: 2024-11-16*
+*Last Updated: 2025-11-19* (Budget Management frontend complete with visual analytics and alert notifications)

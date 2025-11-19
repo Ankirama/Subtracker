@@ -6,5 +6,7 @@ from app.models.email_message import EmailMessage, subscription_emails
 from app.models.subscription_feedback import SubscriptionFeedback
 from app.models.ip_block import IPBlock
 from app.models.ip_whitelist import IPWhitelist
+from app.models.budget import Budget
+from app.models.notification import Notification, NotificationPreference
 
-__all__ = ["User", "Mailbox", "Subscription", "EmailMessage", "subscription_emails", "SubscriptionFeedback", "IPBlock", "IPWhitelist"]
+__all__ = ["User", "Mailbox", "Subscription", "EmailMessage", "subscription_emails", "SubscriptionFeedback", "IPBlock", "IPWhitelist", "Budget", "Notification", "NotificationPreference"]

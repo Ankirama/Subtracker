@@ -19,7 +19,9 @@ celery_app = Celery(
         "app.tasks.trial_reminders",  # Trial ending reminder tasks
         "app.tasks.summary_tasks",  # Weekly/monthly summary tasks
         "app.tasks.price_change_monitor",  # Price change monitoring
-        "app.tasks.system_announcements"  # System announcements
+        "app.tasks.system_announcements",  # System announcements
+        "app.tasks.email_verification",  # Email verification cleanup tasks
+        "app.tasks.budget_alerts"  # Budget alert monitoring
     ]
 )
 
@@ -70,6 +72,16 @@ celery_app.conf.beat_schedule = {
     "check-price-changes": {
         "task": "tasks.check_price_changes",
         "schedule": 86400.0,  # Run daily to monitor subscription price changes
+    },
+    # Email verification cleanup
+    "cleanup-unverified-users": {
+        "task": "tasks.cleanup_unverified_users",
+        "schedule": 86400.0,  # Run daily at 2 AM UTC to delete unverified accounts older than 7 days
+    },
+    # Budget monitoring
+    "check-budget-alerts": {
+        "task": "app.tasks.budget_alerts.check_budget_alerts",
+        "schedule": 86400.0,  # Run daily to check budgets and send alerts
     },
 }
 

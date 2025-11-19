@@ -18,10 +18,12 @@ from app.database import Base
 class NotificationType(str, enum.Enum):
     """Types of notifications."""
     RENEWAL_REMINDER = "renewal_reminder"
+    TRIAL_ENDING = "trial_ending"
     WEEKLY_SUMMARY = "weekly_summary"
     MONTHLY_SUMMARY = "monthly_summary"
     INACTIVE_SUBSCRIPTION = "inactive_subscription"
     PRICE_CHANGE = "price_change"
+    BUDGET_ALERT = "budget_alert"
     SYSTEM_ANNOUNCEMENT = "system_announcement"
 
 
@@ -52,6 +54,7 @@ class Notification(Base):
 
     # Optional link to related entity
     related_subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id", ondelete="CASCADE"), nullable=True)
+    related_budget_id = Column(UUID(as_uuid=True), ForeignKey("budgets.id", ondelete="CASCADE"), nullable=True)
 
     # Additional data (e.g., spending amounts, subscription details)
     notification_metadata = Column(JSONB, nullable=True)

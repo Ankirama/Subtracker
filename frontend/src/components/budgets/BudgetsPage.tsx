@@ -17,12 +17,15 @@ import {
   Center,
   useDisclosure,
   useToast,
+  Divider,
 } from '@chakra-ui/react'
 import { FiPlus, FiAlertTriangle } from 'react-icons/fi'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { budgetsAPI, Budget, BudgetStatus } from '../../api/budgets'
 import { BudgetCard } from './BudgetCard'
 import { BudgetModal } from './BudgetModal'
+import { BudgetSummary } from './BudgetSummary'
+import { BudgetCharts } from './BudgetCharts'
 
 export const BudgetsPage = () => {
   const toast = useToast()
@@ -139,6 +142,16 @@ export const BudgetsPage = () => {
               </Alert>
             ))}
           </VStack>
+        )}
+
+        {/* Budget Summary Dashboard */}
+        {budgetStatuses && budgetStatuses.length > 0 && (
+          <>
+            <BudgetSummary budgetStatuses={budgetStatuses} />
+            <Divider />
+            <BudgetCharts budgetStatuses={budgetStatuses} />
+            <Divider />
+          </>
         )}
 
         {/* Budgets Grid */}
