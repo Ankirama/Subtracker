@@ -38,6 +38,144 @@ export interface AdminSettingListResponse {
   total_pages: number
 }
 
+export interface SystemAnnouncementCreate {
+  title: string
+  message: string
+  priority: 'low' | 'medium' | 'high'
+  target_all_users: boolean
+  target_user_ids?: string[]
+}
+
+export interface SystemAnnouncementResponse {
+  success: boolean
+  announcement_id: string
+  notifications_created: number
+  emails_sent: number
+  message: string
+}
+
+// User Management Types
+export interface User {
+  id: string
+  email: string
+  is_active: boolean
+  is_admin: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface UserDetail extends User {
+  settings: Record<string, any>
+  subscription_count: number
+  mailbox_count: number
+}
+
+export interface UserStats {
+  total_users: number
+  active_users: number
+  inactive_users: number
+  admin_users: number
+  new_users_30d: number
+}
+
+export interface UserListResponse {
+  users: User[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export interface UserUpdateRequest {
+  is_active?: boolean
+  is_admin?: boolean
+}
+
+// Log Management Types
+export interface LogEntry {
+  id: string
+  timestamp: string
+  level: string
+  module: string
+  message: string
+  source: string
+}
+
+export interface LogListResponse {
+  logs: LogEntry[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+// Security Event Management Types
+export interface SecurityEvent {
+  id: string
+  event_type: string
+  user_id?: string
+  ip_address?: string
+  user_agent?: string
+  details?: Record<string, any>
+  severity?: 'low' | 'medium' | 'high' | 'critical'
+  is_resolved: boolean
+  resolved_at?: string
+  created_at: string
+}
+
+export interface SecurityEventUpdate {
+  is_resolved?: boolean
+  resolved_at?: string
+}
+
+export interface SecurityEventListResponse {
+  items: SecurityEvent[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export interface SecurityStats {
+  total_events: number
+  unresolved_events: number
+  events_24h: number
+  critical_unresolved: number
+  by_severity: {
+    low: number
+    medium: number
+    high: number
+    critical: number
+  }
+}
+
+// IP Whitelist Management Types
+export interface IPWhitelistEntry {
+  ip_address: string
+  description?: string
+  added_by_user_id: string
+  added_at: string
+  last_seen?: string
+  access_count: number
+}
+
+export interface IPWhitelistCreate {
+  ip_address: string
+  description?: string
+}
+
+export interface IPWhitelistUpdate {
+  description?: string
+}
+
+export interface IPWhitelistListResponse {
+  items: IPWhitelistEntry[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
 export const adminApi = {
   // Admin Settings
   async listSettings(params?: {
@@ -72,5 +210,144 @@ export const adminApi = {
 
   async deleteSetting(key: string): Promise<void> {
     await apiClient.delete(`/admin/config/${key}`)
+  },
+
+  // System Announcements
+  async broadcastAnnouncement(
+    data: SystemAnnouncementCreate
+  ): Promise<SystemAnnouncementResponse> {
+    const response = await apiClient.post('/admin/announcements/broadcast', data)
+    return response.data
+  },
+
+  // User Management
+  async listUsers(params?: {
+    page?: number
+    page_size?: number
+    search?: string
+    is_active?: boolean
+    is_admin?: boolean
+  }): Promise<UserListResponse> {
+    const response = await apiClient.get('/admin/users', { params })
+    return response.data
+  },
+
+  async getUser(userId: string): Promise<UserDetail> {
+    const response = await apiClient.get(`/admin/users/${userId}`)
+    return response.data
+  },
+
+  async updateUser(userId: string, data: UserUpdateRequest): Promise<UserDetail> {
+    const response = await apiClient.put(`/admin/users/${userId}`, data)
+    return response.data
+  },
+
+  async deleteUser(userId: string): Promise<void> {
+    await apiClient.delete(`/admin/users/${userId}`)
+  },
+
+  async getUserStats(): Promise<UserStats> {
+    const response = await apiClient.get('/admin/users/stats')
+    return response.data
+  },
+
+  // Log Management
+  async getLogs(params?: {
+    page?: number
+    page_size?: number
+    level?: string
+    search?: string
+    source?: string
+  }): Promise<LogListResponse> {
+    const response = await apiClient.get('/admin/logs', { params })
+    return response.data
+  },
+
+  async getLogStats(): Promise<{
+    errors_24h: number
+    warnings_24h: number
+    total_logs: number
+  }> {
+    const response = await apiClient.get('/admin/logs/stats')
+    return response.data
+  },
+
+  async getLogSources(): Promise<{
+    sources: Array<{ name: string; label: string; available: boolean }>
+  }> {
+    const response = await apiClient.get('/admin/logs/sources')
+    return response.data
+  },
+
+  // Security Events Management
+  async listSecurityEvents(params?: {
+    page?: number
+    page_size?: number
+    event_type?: string
+    severity?: string
+    is_resolved?: boolean
+  }): Promise<SecurityEventListResponse> {
+    const response = await apiClient.get('/admin/security', { params })
+    return response.data
+  },
+
+  async getSecurityEvent(eventId: string): Promise<SecurityEvent> {
+    const response = await apiClient.get(`/admin/security/${eventId}`)
+    return response.data
+  },
+
+  async updateSecurityEvent(
+    eventId: string,
+    data: SecurityEventUpdate
+  ): Promise<SecurityEvent> {
+    const response = await apiClient.patch(`/admin/security/${eventId}`, data)
+    return response.data
+  },
+
+  async deleteSecurityEvent(eventId: string): Promise<void> {
+    await apiClient.delete(`/admin/security/${eventId}`)
+  },
+
+  async getSecurityStats(): Promise<SecurityStats> {
+    const response = await apiClient.get('/admin/security/stats')
+    return response.data
+  },
+
+  async getEventTypes(): Promise<{
+    event_types: string[]
+  }> {
+    const response = await apiClient.get('/admin/security/event-types')
+    return response.data
+  },
+
+  // IP Whitelist Management
+  async listIPWhitelist(params?: {
+    page?: number
+    page_size?: number
+  }): Promise<IPWhitelistListResponse> {
+    const response = await apiClient.get('/admin/security/ip-whitelist', { params })
+    return response.data
+  },
+
+  async getIPWhitelistEntry(ipAddress: string): Promise<IPWhitelistEntry> {
+    const response = await apiClient.get(`/admin/security/ip-whitelist/${encodeURIComponent(ipAddress)}`)
+    return response.data
+  },
+
+  async addIPToWhitelist(data: IPWhitelistCreate): Promise<IPWhitelistEntry> {
+    const response = await apiClient.post('/admin/security/ip-whitelist', data)
+    return response.data
+  },
+
+  async updateIPWhitelistEntry(
+    ipAddress: string,
+    data: IPWhitelistUpdate
+  ): Promise<IPWhitelistEntry> {
+    const response = await apiClient.patch(`/admin/security/ip-whitelist/${encodeURIComponent(ipAddress)}`, data)
+    return response.data
+  },
+
+  async removeIPFromWhitelist(ipAddress: string): Promise<void> {
+    await apiClient.delete(`/admin/security/ip-whitelist/${encodeURIComponent(ipAddress)}`)
   },
 }

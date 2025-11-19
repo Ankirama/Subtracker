@@ -8,6 +8,8 @@ import { DashboardLayout } from './components/common/DashboardLayout'
 import { AdminLayout } from './components/admin/AdminLayout'
 import { LoginPage } from './components/auth/LoginPage'
 import { RegisterPage } from './components/auth/RegisterPage'
+import { VerifyEmailPage } from './components/auth/VerifyEmailPage'
+import { ResendVerificationPage } from './components/auth/ResendVerificationPage'
 import { DashboardPage } from './components/subscriptions/DashboardPage'
 import { SubscriptionsPage } from './components/subscriptions/SubscriptionsPage'
 import { SubscriptionDetailPage } from './components/subscriptions/SubscriptionDetailPage'
@@ -19,7 +21,13 @@ import { NotificationListPage } from './components/notifications/NotificationLis
 import { OptimizePage } from './components/optimize/OptimizePage'
 import { BudgetsPage } from './components/budgets/BudgetsPage'
 import { CategoriesPage } from './components/categories'
+import { TwoFactorSettingsPage } from './components/settings/TwoFactorSettingsPage'
 import { ConfigPage } from './pages/admin/ConfigPage'
+import { AdminAnnouncementsPage } from './components/admin/AdminAnnouncementsPage'
+import { AdminUsersPage } from './components/admin/AdminUsersPage'
+import { AdminLogsPage } from './components/admin/AdminLogsPage'
+import { AdminSecurityEventsPage } from './components/admin/AdminSecurityEventsPage'
+import { AdminIPWhitelistPage } from './components/admin/AdminIPWhitelistPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +48,8 @@ function App() {
               {/* Public routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+              <Route path="/resend-verification" element={<ResendVerificationPage />} />
 
               {/* Protected routes */}
               <Route element={<ProtectedRoute />}>
@@ -55,15 +65,18 @@ function App() {
                   <Route path="/ai-sandbox" element={<AISandboxPage />} />
                   <Route path="/notifications" element={<NotificationListPage />} />
                   <Route path="/notifications/settings" element={<NotificationSettingsPage />} />
+                  <Route path="/settings/2fa" element={<TwoFactorSettingsPage />} />
                 </Route>
               </Route>
 
               {/* Admin routes */}
               <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
                 <Route path="config" element={<ConfigPage />} />
-                <Route path="users" element={<div>Users Page (Coming Soon)</div>} />
-                <Route path="logs" element={<div>Logs Page (Coming Soon)</div>} />
-                <Route path="security" element={<div>Security Events Page (Coming Soon)</div>} />
+                <Route path="announcements" element={<AdminAnnouncementsPage />} />
+                <Route path="users" element={<AdminUsersPage />} />
+                <Route path="logs" element={<AdminLogsPage />} />
+                <Route path="security" element={<AdminSecurityEventsPage />} />
+                <Route path="ip-whitelist" element={<AdminIPWhitelistPage />} />
               </Route>
 
               {/* Default redirect */}

@@ -234,3 +234,90 @@ class SystemAnnouncementResponse(BaseModel):
     notifications_created: int
     emails_sent: int
     message: str
+
+
+# User Management Schemas
+class UserBase(BaseModel):
+    """Base schema for user"""
+    email: str
+    is_active: bool
+    is_admin: bool
+
+
+class UserResponse(UserBase):
+    """Schema for user response"""
+    id: str
+    created_at: str
+    updated_at: str
+
+
+class UserDetailResponse(UserResponse):
+    """Schema for detailed user response"""
+    settings: dict
+    subscription_count: int
+    mailbox_count: int
+
+
+class UserUpdateRequest(BaseModel):
+    """Schema for updating user"""
+    is_active: Optional[bool] = None
+    is_admin: Optional[bool] = None
+
+
+class UserListResponse(PaginatedResponse):
+    """Paginated list of users"""
+    users: list[UserResponse]
+
+
+class UserStatsResponse(BaseModel):
+    """User statistics"""
+    total_users: int
+    active_users: int
+    inactive_users: int
+    admin_users: int
+    new_users_30d: int
+
+
+# Log Management Schemas
+class LogEntryResponse(BaseModel):
+    """Schema for log entry"""
+    id: str
+    timestamp: str
+    level: str
+    module: str
+    message: str
+    source: str
+
+
+class LogListResponse(PaginatedResponse):
+    """Paginated list of logs"""
+    logs: list[LogEntryResponse]
+
+
+# IP Whitelist Schemas
+class IPWhitelistCreate(BaseModel):
+    """Schema for creating an IP whitelist entry"""
+    ip_address: str = Field(..., description="IP address to whitelist (IPv4 or IPv6)")
+    description: Optional[str] = Field(None, max_length=255, description="Description of why this IP is whitelisted")
+
+
+class IPWhitelistUpdate(BaseModel):
+    """Schema for updating an IP whitelist entry"""
+    description: Optional[str] = Field(None, max_length=255, description="Update description")
+
+
+class IPWhitelistResponse(BaseModel):
+    """Schema for IP whitelist response"""
+    ip_address: str
+    description: Optional[str]
+    added_by_user_id: str
+    added_at: datetime
+    last_seen: Optional[datetime]
+    access_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IPWhitelistListResponse(PaginatedResponse):
+    """Paginated list of IP whitelist entries"""
+    items: list[IPWhitelistResponse]

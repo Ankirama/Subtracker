@@ -25,6 +25,8 @@ import {
   FiLogOut,
   FiUser,
   FiHome,
+  FiBell,
+  FiShield,
 } from 'react-icons/fi'
 
 interface NavItem {
@@ -35,9 +37,11 @@ interface NavItem {
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
   { label: 'Configuration', icon: FiSettings, path: '/admin/config' },
+  { label: 'Announcements', icon: FiBell, path: '/admin/announcements' },
   { label: 'Users', icon: FiUsers, path: '/admin/users' },
   { label: 'Logs', icon: FiActivity, path: '/admin/logs' },
   { label: 'Security Events', icon: FiAlertTriangle, path: '/admin/security' },
+  { label: 'IP Whitelist', icon: FiShield, path: '/admin/ip-whitelist' },
 ]
 
 export const AdminLayout = () => {
