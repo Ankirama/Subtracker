@@ -23,6 +23,7 @@ from app.utils.config_helper import get_config_value
 from app.services.renewal_calculator import RenewalCalculator, get_subscription_emails
 from app.services.ai_classifier import classify_emails_batch
 from app.services.subscription_extractor import extract_subscriptions_batch
+from app.services.email_filter import should_process_email
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,9 @@ async def _sync_mailbox_async(
     force_full_sync: bool,
     date_filter: str,
     resume_position: int = 0,
-    resume_batch_num: int = 0
+    resume_batch_num: int = 0,
+    sync_start_time: datetime = None,
+    history_entry: 'SyncHistory' = None
 ) -> Dict[str, Any]:
     """
     Async implementation of email sync logic with resume capability.
@@ -64,6 +67,8 @@ async def _sync_mailbox_async(
         date_filter: Optional date filter override
         resume_position: Position to resume from (for interrupted syncs)
         resume_batch_num: Batch number to resume from (for interrupted syncs)
+        sync_start_time: Start time of the sync (for progress tracking)
+        history_entry: Sync history entry to update on cancellation
     """
     try:
         # Decrypt credentials
@@ -155,7 +160,11 @@ async def _sync_mailbox_async(
 
                 if not existing_email:
                     new_emails.append(email)
-                    new_emails_to_classify.append(email)
+                    # Only add to classification if not a system email
+                    if should_process_email(email, db):
+                        new_emails_to_classify.append(email)
+                    else:
+                        logger.info(f"Skipping system email: {email.subject}")
                 else:
                     existing_email_records.append((email, existing_email))
 
@@ -245,7 +254,80 @@ async def _sync_mailbox_async(
                 try:
                     if subscription_data:
                         logger.info(f"Processing subscription data for: {email.subject}")
-                        # Check if subscription already exists using composite key
+
+                        # PRIORITY: Handle price updates detected by AI
+                        is_price_update = subscription_data.get('is_price_update', False)
+
+                        if is_price_update:
+                            logger.info(f"Price update detected by AI for: {email.subject}")
+                            old_amount = subscription_data.get('old_amount')
+                            new_amount = subscription_data.get('new_amount')
+
+                            # Search for existing subscription more aggressively for price updates
+                            existing_sub = db.query(Subscription).filter(
+                                Subscription.mailbox_id == mailbox.id,
+                                Subscription.provider == subscription_data['provider']
+                            ).first()
+
+                            if existing_sub:
+                                logger.info(f"Found existing subscription for price update: {existing_sub.provider}")
+
+                                # Update subscription with new price
+                                existing_sub.amount = new_amount
+                                existing_sub.updated_at = datetime.now(timezone.utc)
+
+                                # Create price history record
+                                if old_amount is not None and new_amount is not None:
+                                    change_percentage = ((float(new_amount) - float(old_amount)) / float(old_amount)) * 100
+                                    change_type = 'increase' if float(new_amount) > float(old_amount) else 'decrease'
+
+                                    price_history_record = PriceHistory(
+                                        subscription_id=existing_sub.id,
+                                        old_amount=old_amount,
+                                        new_amount=new_amount,
+                                        currency=subscription_data.get('currency') or existing_sub.currency,
+                                        change_type=change_type,
+                                        change_percentage=round(change_percentage, 2),
+                                        detected_from='email',
+                                        notes=f"Price update detected by AI from email: {email.subject}"
+                                    )
+                                    db.add(price_history_record)
+                                    logger.info(f"AI-detected price {change_type} for {existing_sub.provider}: {old_amount} -> {new_amount} ({change_type} of {abs(change_percentage):.1f}%)")
+
+                                # Link email to existing subscription
+                                relationship_exists = db.execute(
+                                    subscription_emails.select().where(
+                                        subscription_emails.c.subscription_id == existing_sub.id,
+                                        subscription_emails.c.email_id == email_record.id
+                                    )
+                                ).first()
+
+                                if not relationship_exists:
+                                    extraction_data_json = {}
+                                    for key, value in subscription_data.items():
+                                        if isinstance(value, datetime):
+                                            extraction_data_json[key] = value.isoformat()
+                                        else:
+                                            extraction_data_json[key] = value
+
+                                    db.execute(
+                                        subscription_emails.insert().values(
+                                            subscription_id=existing_sub.id,
+                                            email_id=email_record.id,
+                                            extraction_role='price_update',
+                                            extraction_data=extraction_data_json
+                                        )
+                                    )
+                                    logger.info(f"Linked price update email to subscription")
+
+                                subscriptions_updated += 1
+                                db.commit()
+                                continue  # Skip normal processing, price update handled
+                            else:
+                                logger.warning(f"Price update detected but no existing subscription found for {subscription_data['provider']}, creating new subscription")
+                                # Fall through to normal creation logic
+
+                        # NORMAL PROCESSING: Check if subscription already exists using composite key
                         # Strategy: Match on stable fields (provider, billing_cycle, email_sender)
                         # Note: Amount is NOT used for matching since prices can change over time
                         # Only use custom_label for genuinely different subscriptions (Twitch channels, specific tiers)
@@ -587,8 +669,12 @@ def sync_mailbox_emails(
             )
 
     # Set status to in_progress and update sync start time
-    sync_start_time = datetime.now(timezone.utc)
-    if not is_resuming:
+    # For resuming syncs, use the original start time; for fresh syncs, use current time
+    if is_resuming and mailbox.last_sync_started_at:
+        sync_start_time = mailbox.last_sync_started_at.replace(tzinfo=timezone.utc)
+        logger.info(f"Using original sync start time: {sync_start_time}")
+    else:
+        sync_start_time = datetime.now(timezone.utc)
         mailbox.last_sync_status = 'in_progress'
         mailbox.last_sync_started_at = sync_start_time
         mailbox.last_sync_position = 0
@@ -613,11 +699,13 @@ def sync_mailbox_emails(
     logger.info(f"Created sync history entry: {history_entry.id}")
 
     try:
-        # Run async sync logic with resume position
+        # Run async sync logic with resume position and sync start time
         result = asyncio.run(_sync_mailbox_async(
             db, mailbox, force_full_sync, date_filter,
             resume_position=resume_position,
-            resume_batch_num=resume_batch_num
+            resume_batch_num=resume_batch_num,
+            sync_start_time=sync_start_time,
+            history_entry=history_entry
         ))
 
         # Update mailbox sync status with metrics
@@ -645,7 +733,7 @@ def sync_mailbox_emails(
             # Update history entry for successful completion (Issue #11)
             history_entry.status = 'completed'
             history_entry.completed_at = completion_time
-            history_entry.duration_seconds = int((completion_time - history_entry.started_at).total_seconds())
+            history_entry.duration_seconds = int((completion_time - history_entry.started_at.replace(tzinfo=timezone.utc)).total_seconds())
             history_entry.total_emails_processed = result.get('total_emails_processed', 0)
             history_entry.subscriptions_found = result.get('subscriptions_found', 0)
             history_entry.subscriptions_updated = result.get('subscriptions_updated', 0)
@@ -665,7 +753,7 @@ def sync_mailbox_emails(
             # Update history entry for failure (Issue #11)
             history_entry.status = 'failed'
             history_entry.completed_at = completion_time
-            history_entry.duration_seconds = int((completion_time - history_entry.started_at).total_seconds())
+            history_entry.duration_seconds = int((completion_time - history_entry.started_at.replace(tzinfo=timezone.utc)).total_seconds())
             history_entry.total_emails_processed = result.get('total_emails_processed', 0)
             history_entry.subscriptions_found = result.get('subscriptions_found', 0)
             history_entry.subscriptions_updated = result.get('subscriptions_updated', 0)
@@ -692,7 +780,7 @@ def sync_mailbox_emails(
         # Update history entry for exception (Issue #11)
         history_entry.status = 'failed'
         history_entry.completed_at = exception_time
-        history_entry.duration_seconds = int((exception_time - history_entry.started_at).total_seconds())
+        history_entry.duration_seconds = int((exception_time - history_entry.started_at.replace(tzinfo=timezone.utc)).total_seconds())
         history_entry.error_message = str(e)
         history_entry.error_type = type(e).__name__
         history_entry.total_emails_processed = mailbox.last_sync_emails_processed or 0

@@ -10,12 +10,13 @@ class EmailTemplates:
     """Email template generator for summaries."""
 
     @staticmethod
-    def generate_summary_email(summary_data: Dict[str, Any]) -> str:
+    def generate_summary_email(summary_data: Dict[str, Any], frontend_url: str = "http://localhost:5173") -> str:
         """
         Generate HTML email for subscription summary.
 
         Args:
             summary_data: Summary data from SummaryService
+            frontend_url: Frontend application base URL (from admin settings)
 
         Returns:
             HTML string for email
@@ -241,7 +242,7 @@ class EmailTemplates:
 
             <!-- Call to Action -->
             <div style="text-align: center; margin-top: 30px;">
-                <a href="http://localhost:5173/subscriptions" class="button">
+                <a href="{frontend_url}/subscriptions" class="button">
                     View All Subscriptions →
                 </a>
             </div>
@@ -250,7 +251,7 @@ class EmailTemplates:
         <div class="footer">
             <p>📧 SubTracker - Your Subscription Management Assistant</p>
             <p style="font-size: 12px; margin-top: 10px;">
-                <a href="http://localhost:5173/notifications/settings" style="color: #667eea; text-decoration: none;">
+                <a href="{frontend_url}/notifications/settings" style="color: #667eea; text-decoration: none;">
                     Manage Email Preferences
                 </a>
             </p>

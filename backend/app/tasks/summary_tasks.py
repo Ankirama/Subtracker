@@ -14,6 +14,8 @@ from app.models.user import User
 from app.services.summary_service import SummaryService
 from app.services.email_templates import EmailTemplates
 from app.services.email_service import EmailService
+from app.config import settings
+from app.utils.config_helper import get_config_value
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +62,7 @@ def send_weekly_summaries():
                         type=NotificationType.WEEKLY_SUMMARY,
                         priority=NotificationPriority.LOW,
                         title=f"📊 Your Weekly Subscription Summary",
-                        message=f"Total spending: €{summary_data['total_monthly_cost']}/mo • {summary_data['total_subscriptions']} active subscriptions",
+                        message=f"Total spending: €{summary_data['total_monthly_cost']:.2f}/mo • {summary_data['total_subscriptions']} active subscriptions",
                         notification_metadata=summary_data
                     )
                     db.add(notification)
@@ -69,12 +71,14 @@ def send_weekly_summaries():
                 # Send email if enabled
                 if pref.email_enabled and user.email:
                     try:
-                        html_content = EmailTemplates.generate_summary_email(summary_data)
+                        # Get configured frontend URL for email links
+                        frontend_url = get_config_value('frontend_url', settings.FRONTEND_URL, db)
+                        html_content = EmailTemplates.generate_summary_email(summary_data, frontend_url)
 
                         email_service = EmailService()
                         email_service.send_email(
                             to_email=user.email,
-                            subject=f"📊 Your Weekly Subscription Summary - €{summary_data['total_monthly_cost']}/mo",
+                            subject=f"📊 Your Weekly Subscription Summary - €{summary_data['total_monthly_cost']:.2f}/mo",
                             html_content=html_content
                         )
 
@@ -151,7 +155,7 @@ def send_monthly_summaries():
                         type=NotificationType.MONTHLY_SUMMARY,
                         priority=NotificationPriority.LOW,
                         title=f"📈 Your Monthly Subscription Summary",
-                        message=f"Total spending: €{summary_data['total_monthly_cost']}/mo • {summary_data['new_subscriptions_count']} new, {summary_data['cancelled_subscriptions_count']} cancelled",
+                        message=f"Total spending: €{summary_data['total_monthly_cost']:.2f}/mo • {summary_data['new_subscriptions_count']} new, {summary_data['cancelled_subscriptions_count']} cancelled",
                         notification_metadata=summary_data
                     )
                     db.add(notification)
@@ -160,12 +164,14 @@ def send_monthly_summaries():
                 # Send email if enabled
                 if pref.email_enabled and user.email:
                     try:
-                        html_content = EmailTemplates.generate_summary_email(summary_data)
+                        # Get configured frontend URL for email links
+                        frontend_url = get_config_value('frontend_url', settings.FRONTEND_URL, db)
+                        html_content = EmailTemplates.generate_summary_email(summary_data, frontend_url)
 
                         email_service = EmailService()
                         email_service.send_email(
                             to_email=user.email,
-                            subject=f"📈 Your Monthly Subscription Summary - €{summary_data['total_monthly_cost']}/mo",
+                            subject=f"📈 Your Monthly Subscription Summary - €{summary_data['total_monthly_cost']:.2f}/mo",
                             html_content=html_content
                         )
 
