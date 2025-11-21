@@ -115,6 +115,10 @@ export interface Subscription {
   last_confirmed_at: string
   created_at: string
   updated_at: string
+  // AI cancellation suggestion fields
+  suggested_cancellation_status: string | null
+  cancellation_suggestion_reason: string | null
+  cancellation_suggestion_created_at: string | null
 }
 
 export interface SubscriptionListResponse {
@@ -359,6 +363,170 @@ export interface BulkMarkNotSubscriptionResponse {
   processed: number
   failed: number
   errors: string[]
+}
+
+// Cancellation types
+export type CancellationStatus = 'active' | 'pending_cancellation' | 'paused' | 'cancelled'
+export type DifficultyRating = 'easy' | 'medium' | 'hard'
+export type ReviewSuggestionReason =
+  | 'trial_ending'
+  | 'trial_ending_soon'
+  | 'likely_unused'
+  | 'price_increased'
+  | 'expensive_unused'
+  | 'duplicate_detected'
+
+export interface ProviderCancellationInfo {
+  id: string
+  provider_name: string
+  cancellation_url: string | null
+  difficulty_rating: DifficultyRating
+  instructions: string[] | null
+  instructions_source: string
+  requires_phone_call: boolean
+  requires_chat: boolean
+  allows_pause: boolean
+  pause_instructions: string[] | null
+  additional_notes: string | null
+  estimated_time_minutes: number | null
+  cancellation_gotchas: string[] | null
+  ai_confidence_score: number | null
+  created_at: string
+  updated_at: string
+  is_verified: boolean
+  needs_reverification: boolean
+  is_ai_generated: boolean
+}
+
+export interface AIResearchRequest {
+  provider_name: string
+  force_refresh?: boolean
+}
+
+export interface AIResearchResponse {
+  provider_name: string
+  cancellation_url: string | null
+  difficulty_rating: DifficultyRating
+  instructions: string[]
+  requires_phone_call: boolean
+  requires_chat: boolean
+  allows_pause: boolean
+  pause_instructions: string[] | null
+  additional_notes: string | null
+  estimated_time_minutes: number | null
+  cancellation_gotchas: string[] | null
+  ai_confidence_score: number
+  sources_consulted: string[] | null
+  research_timestamp: string
+}
+
+export interface SubscriptionCancellationInfo {
+  subscription_id: string
+  provider: string
+  cancellation_status: CancellationStatus
+  cancellation_requested_at: string | null
+  cancellation_confirmed_at: string | null
+  cancellation_notes: string | null
+  provider_info: ProviderCancellationInfo | null
+}
+
+export interface CancellationStatusUpdate {
+  cancellation_status: CancellationStatus
+  cancellation_notes?: string | null
+}
+
+export interface ReviewSuggestion {
+  subscription_id: string
+  provider: string
+  amount: number | null
+  currency: string
+  billing_cycle: string
+  reason: ReviewSuggestionReason
+  priority: 'critical' | 'high' | 'medium' | 'low'
+  message: string
+  action_by_date: string | null
+  days_since_last_email: number | null
+  price_change_amount: number | null
+  price_change_date: string | null
+  dismissed_at: string | null
+  snoozed_until: string | null
+}
+
+export interface ReviewSuggestionsResponse {
+  suggestions: ReviewSuggestion[]
+  total_count: number
+  critical_count: number
+  high_priority_count: number
+}
+
+// Feedback types
+export type FeedbackTypeEnum = 'helpful' | 'not_helpful' | 'inaccurate' | 'incomplete' | 'worked' | 'failed'
+
+export interface FeedbackSubmission {
+  provider_cancellation_id: string
+  feedback_type: FeedbackTypeEnum
+  successfully_cancelled?: boolean | null
+  time_taken_minutes?: number | null
+  helpfulness_rating?: number | null  // 1-5
+  accuracy_rating?: number | null  // 1-5
+  comment?: string | null
+  issues_encountered?: string[] | null
+  device_type?: string | null
+}
+
+export interface QuickFeedback {
+  provider_cancellation_id: string
+  feedback_type: 'helpful' | 'not_helpful'
+}
+
+export interface FeedbackResponse {
+  id: string
+  user_id: string
+  provider_cancellation_id: string
+  provider_name: string
+  feedback_type: FeedbackTypeEnum
+  successfully_cancelled: boolean | null
+  time_taken_minutes: number | null
+  helpfulness_rating: number | null
+  accuracy_rating: number | null
+  comment: string | null
+  issues_encountered: any[] | null
+  ai_confidence_at_feedback: number | null
+  validation_quality_at_feedback: number | null
+  prompt_version_at_feedback: string | null
+  device_type: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ProviderMetrics {
+  provider_name: string
+  total_feedback: number
+  helpful_count: number
+  not_helpful_count: number
+  success_rate: number | null
+  avg_time_minutes: number | null
+  avg_helpfulness: number | null
+  avg_accuracy: number | null
+  common_issues: string[]
+}
+
+export interface ValidationMetrics {
+  total_feedback: number
+  high_confidence_success_rate: number | null
+  low_confidence_success_rate: number | null
+  accuracy_improvement_over_time: Record<string, any> | null
+  providers_needing_update: string[]
+}
+
+export interface DashboardMetrics {
+  overall_metrics: ValidationMetrics
+  provider_metrics: ProviderMetrics[]
+}
+
+export interface MyFeedbackResponse {
+  feedback: FeedbackResponse[]
+  total: number
 }
 
 // API Error types

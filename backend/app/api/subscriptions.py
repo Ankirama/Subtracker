@@ -405,6 +405,176 @@ async def get_analytics_trends(
     )
 
 
+@router.get("/duplicates", response_model=List[dict])
+async def find_duplicate_subscriptions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Find potential duplicate subscriptions for the current user.
+
+    Groups subscriptions by provider and billing cycle to identify duplicates.
+    """
+    # Get all active subscriptions for user
+    subscriptions = db.query(Subscription).filter(
+        Subscription.user_id == current_user.id
+    ).order_by(Subscription.provider, Subscription.created_at).all()
+
+    # Group by provider and billing cycle
+    groups = defaultdict(list)
+    for sub in subscriptions:
+        # Create grouping key: provider + billing_cycle (or "unknown" if missing)
+        key = f"{sub.provider.lower()}_{sub.billing_cycle or 'unknown'}"
+        groups[key].append(sub)
+
+    # Find groups with multiple subscriptions (potential duplicates)
+    duplicate_groups = []
+    for key, subs in groups.items():
+        if len(subs) > 1:
+            # Calculate similarity metrics
+            provider = subs[0].provider
+            billing_cycle = subs[0].billing_cycle
+
+            # Check if amounts are similar (within 20%)
+            amounts = [float(s.amount) for s in subs if s.amount is not None]
+            similar_amounts = False
+            if len(amounts) > 1:
+                max_diff = max(amounts) - min(amounts)
+                avg_amount = sum(amounts) / len(amounts)
+                similar_amounts = (max_diff / avg_amount) < 0.20 if avg_amount > 0 else True
+
+            duplicate_groups.append({
+                "provider": provider,
+                "billing_cycle": billing_cycle,
+                "count": len(subs),
+                "similar_amounts": similar_amounts,
+                "subscriptions": [
+                    {
+                        "id": str(s.id),
+                        "provider": s.provider,
+                        "amount": float(s.amount) if s.amount else None,
+                        "currency": s.currency,
+                        "billing_cycle": s.billing_cycle,
+                        "custom_label": s.custom_label,
+                        "created_at": s.created_at.isoformat(),
+                        "renewal_date": s.renewal_date.isoformat() if s.renewal_date else None,
+                        "is_active": s.is_active,
+                        "email_count": db.query(func.count()).select_from(subscription_emails).filter(
+                            subscription_emails.c.subscription_id == s.id
+                        ).scalar()
+                    }
+                    for s in subs
+                ]
+            })
+
+    return duplicate_groups
+
+
+@router.post("/{subscription_id}/merge/{target_id}")
+async def merge_subscriptions(
+    subscription_id: UUID,
+    target_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Merge two subscriptions together, keeping the target and removing the source.
+
+    - Transfers all email links from source to target
+    - Creates price history if amounts differ
+    - Updates target with latest information
+    - Deletes source subscription
+    """
+    # Get both subscriptions
+    source_sub = db.query(Subscription).filter(
+        Subscription.id == subscription_id,
+        Subscription.user_id == current_user.id
+    ).first()
+
+    target_sub = db.query(Subscription).filter(
+        Subscription.id == target_id,
+        Subscription.user_id == current_user.id
+    ).first()
+
+    if not source_sub or not target_sub:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="One or both subscriptions not found"
+        )
+
+    if source_sub.id == target_sub.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot merge subscription with itself"
+        )
+
+    # Determine which is older (keep the older created_at)
+    if source_sub.created_at < target_sub.created_at:
+        # Source is older, swap them
+        source_sub, target_sub = target_sub, source_sub
+
+    try:
+        # Check if amounts differ (create price history)
+        if source_sub.amount and target_sub.amount and source_sub.amount != target_sub.amount:
+            change_percentage = ((float(target_sub.amount) - float(source_sub.amount)) / float(source_sub.amount)) * 100
+            change_type = 'increase' if float(target_sub.amount) > float(source_sub.amount) else 'decrease'
+
+            price_history_record = PriceHistory(
+                subscription_id=target_sub.id,
+                old_amount=source_sub.amount,
+                new_amount=target_sub.amount,
+                currency=target_sub.currency or source_sub.currency,
+                change_type=change_type,
+                change_percentage=round(change_percentage, 2),
+                detected_from='manual_merge',
+                notes=f"Merged duplicate subscription - price changed from {source_sub.amount} to {target_sub.amount}"
+            )
+            db.add(price_history_record)
+
+        # Update target with newer information from source
+        target_sub.amount = target_sub.amount or source_sub.amount
+        target_sub.currency = target_sub.currency or source_sub.currency
+        target_sub.billing_cycle = target_sub.billing_cycle or source_sub.billing_cycle
+        target_sub.renewal_date = target_sub.renewal_date or source_sub.renewal_date
+        target_sub.custom_label = target_sub.custom_label or source_sub.custom_label
+        target_sub.updated_at = datetime.now()
+
+        # Transfer all email links from source to target
+        db.execute(
+            subscription_emails.update().where(
+                subscription_emails.c.subscription_id == source_sub.id
+            ).values(subscription_id=target_sub.id)
+        )
+
+        # Transfer all price history records from source to target
+        db.execute(
+            PriceHistory.__table__.update().where(
+                PriceHistory.subscription_id == source_sub.id
+            ).values(subscription_id=target_sub.id)
+        )
+
+        # Delete source subscription
+        db.delete(source_sub)
+        db.commit()
+
+        logger.info(f"Merged subscription {source_sub.id} into {target_sub.id} for provider {target_sub.provider}")
+
+        return {
+            "success": True,
+            "message": f"Successfully merged {source_sub.provider} subscriptions",
+            "target_subscription_id": str(target_sub.id),
+            "deleted_subscription_id": str(source_sub.id)
+        }
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error merging subscriptions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to merge subscriptions: {str(e)}"
+        )
+
+
 @router.get("/{subscription_id}", response_model=SubscriptionDetailResponse)
 async def get_subscription(
     subscription_id: UUID,
@@ -841,3 +1011,112 @@ async def update_subscription_status(
         response["errors"] = errors
 
     return response
+
+
+@router.post("/{subscription_id}/accept-suggestion", response_model=SubscriptionResponse)
+async def accept_cancellation_suggestion(
+    subscription_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Accept an AI-generated cancellation suggestion.
+
+    This will apply the suggested cancellation status to the subscription
+    and clear the suggestion fields.
+    """
+    # Get subscription and verify ownership
+    subscription = db.query(Subscription).filter(
+        Subscription.id == subscription_id,
+        Subscription.user_id == current_user.id
+    ).first()
+
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Subscription not found"
+        )
+
+    # Check if there's a suggestion to accept
+    if not subscription.suggested_cancellation_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No pending cancellation suggestion for this subscription"
+        )
+
+    try:
+        # Apply the suggested status
+        subscription.cancellation_status = subscription.suggested_cancellation_status
+        subscription.cancellation_confirmed_at = datetime.now(timezone.utc)
+        subscription.cancellation_notes = f"Auto-cancelled based on AI detection: {subscription.cancellation_suggestion_reason}"
+
+        # Clear the suggestion fields
+        subscription.suggested_cancellation_status = None
+        subscription.cancellation_suggestion_reason = None
+        subscription.cancellation_suggestion_created_at = None
+
+        db.commit()
+        db.refresh(subscription)
+
+        logger.info(f"User {current_user.id} accepted cancellation suggestion for subscription {subscription_id}")
+
+        return SubscriptionResponse.model_validate(subscription)
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to accept cancellation suggestion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to accept cancellation suggestion"
+        )
+
+
+@router.post("/{subscription_id}/dismiss-suggestion")
+async def dismiss_cancellation_suggestion(
+    subscription_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Dismiss an AI-generated cancellation suggestion.
+
+    This will clear the suggestion fields without changing the subscription status.
+    """
+    # Get subscription and verify ownership
+    subscription = db.query(Subscription).filter(
+        Subscription.id == subscription_id,
+        Subscription.user_id == current_user.id
+    ).first()
+
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Subscription not found"
+        )
+
+    # Check if there's a suggestion to dismiss
+    if not subscription.suggested_cancellation_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No pending cancellation suggestion for this subscription"
+        )
+
+    try:
+        # Clear the suggestion fields
+        subscription.suggested_cancellation_status = None
+        subscription.cancellation_suggestion_reason = None
+        subscription.cancellation_suggestion_created_at = None
+
+        db.commit()
+
+        logger.info(f"User {current_user.id} dismissed cancellation suggestion for subscription {subscription_id}")
+
+        return {"success": True, "message": "Suggestion dismissed"}
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to dismiss cancellation suggestion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to dismiss cancellation suggestion"
+        )

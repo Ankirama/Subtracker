@@ -38,12 +38,17 @@ import {
   TabPanel,
   useDisclosure,
 } from '@chakra-ui/react'
-import { FiArrowLeft, FiMail, FiCalendar, FiClock, FiInfo, FiEdit2 } from 'react-icons/fi'
+import { FiArrowLeft, FiMail, FiCalendar, FiClock, FiInfo, FiEdit2, FiXCircle } from 'react-icons/fi'
 import DOMPurify from 'dompurify'
 import { subscriptionsAPI } from '../../api/subscriptions'
-import { SubscriptionEmailLink } from '../../types'
+import { cancellationAPI } from '../../api/cancellation'
+import { SubscriptionEmailLink, SubscriptionCancellationInfo } from '../../types'
 import { SubscriptionModal } from './SubscriptionModal'
 import { PriceHistoryCard } from './PriceHistoryCard'
+import { CancellationInstructions } from './CancellationInstructions'
+import { CancellationStatusManager } from './CancellationStatusManager'
+import { CancellationSuggestionBanner } from './CancellationSuggestionBanner'
+import { ProviderLogo } from '../common/ProviderLogo'
 
 export const SubscriptionDetailPage = () => {
   const { id } = useParams<{ id: string }>()
@@ -57,8 +62,18 @@ export const SubscriptionDetailPage = () => {
     enabled: !!id,
   })
 
+  const { data: cancellationInfo } = useQuery({
+    queryKey: ['cancellation', id],
+    queryFn: () => cancellationAPI.getSubscriptionCancellationInfo(id!),
+    enabled: !!id,
+  })
+
   const handleEditClose = () => {
     onEditClose()
+    queryClient.invalidateQueries({ queryKey: ['subscription', id] })
+  }
+
+  const handleSuggestionUpdate = () => {
     queryClient.invalidateQueries({ queryKey: ['subscription', id] })
   }
 
@@ -176,17 +191,26 @@ export const SubscriptionDetailPage = () => {
           </Button>
         </HStack>
 
+        {/* Cancellation Suggestion Banner */}
+        <CancellationSuggestionBanner
+          subscription={subscription}
+          onUpdate={handleSuggestionUpdate}
+        />
+
         {/* Header */}
         <Box>
           <HStack justify="space-between" align="start">
-            <Box>
-              <Heading size="xl">{subscription.provider}</Heading>
-              {subscription.custom_label && (
-                <Text fontSize="lg" color="gray.600" mt={1}>
-                  {subscription.custom_label}
-                </Text>
-              )}
-            </Box>
+            <HStack spacing={4} align="start">
+              <ProviderLogo providerName={subscription.provider} size="2xl" />
+              <Box>
+                <Heading size="xl">{subscription.provider}</Heading>
+                {subscription.custom_label && (
+                  <Text fontSize="lg" color="gray.600" mt={1}>
+                    {subscription.custom_label}
+                  </Text>
+                )}
+              </Box>
+            </HStack>
             <Badge
               fontSize="md"
               px={3}
@@ -272,116 +296,161 @@ export const SubscriptionDetailPage = () => {
           </CardBody>
         </Card>
 
-        {/* Price History */}
-        <PriceHistoryCard subscriptionId={subscription.id} />
+        {/* Tabs for Different Views */}
+        <Tabs colorScheme="blue">
+          <TabList>
+            <Tab>
+              <Icon as={FiInfo} mr={2} />
+              Details
+            </Tab>
+            <Tab>
+              <Icon as={FiXCircle} mr={2} />
+              Cancellation
+            </Tab>
+            <Tab>
+              <Icon as={FiMail} mr={2} />
+              Source Emails ({subscription.source_emails?.length || 0})
+            </Tab>
+          </TabList>
 
-        {/* Source Emails */}
-        <Card>
-          <CardHeader>
-            <HStack justify="space-between">
-              <Heading size="md">Source Emails ({subscription.source_emails?.length || 0})</Heading>
-              <Badge colorScheme="purple">
-                AI-Extracted Data
-              </Badge>
-            </HStack>
-          </CardHeader>
-          <CardBody>
-            {!subscription.source_emails || subscription.source_emails.length === 0 ? (
-              <Text color="gray.500">No source emails found</Text>
-            ) : (
-              <Accordion allowMultiple>
-                {subscription.source_emails.map((link, index) => (
-                  <AccordionItem key={link.email.id}>
-                    <h2>
-                      <AccordionButton>
-                        <Box flex="1" textAlign="left">
-                          <VStack align="start" spacing={1}>
-                            <HStack>
-                              <Icon as={FiMail} color="blue.500" />
-                              <Text fontWeight="semibold">{link.email.subject}</Text>
-                              {link.extraction_role && (
-                                <Badge colorScheme="purple" ml={2}>
-                                  {link.extraction_role}
-                                </Badge>
+          <TabPanels>
+            {/* Details Tab */}
+            <TabPanel px={0}>
+              <PriceHistoryCard subscriptionId={subscription.id} />
+            </TabPanel>
+
+            {/* Cancellation Tab */}
+            <TabPanel px={0}>
+              <VStack spacing={4} align="stretch">
+                <CancellationStatusManager
+                  subscriptionId={subscription.id}
+                  cancellationInfo={cancellationInfo}
+                />
+                <CancellationInstructions
+                  providerName={subscription.provider}
+                  subscriptionId={subscription.id}
+                  existingInfo={cancellationInfo?.provider_info}
+                />
+              </VStack>
+            </TabPanel>
+
+            {/* Source Emails Tab */}
+            <TabPanel px={0}>
+              <Card>
+                <CardHeader>
+                  <HStack justify="space-between">
+                    <Heading size="md">Source Emails</Heading>
+                    <Badge colorScheme="purple">AI-Extracted Data</Badge>
+                  </HStack>
+                </CardHeader>
+                <CardBody>
+                  {!subscription.source_emails || subscription.source_emails.length === 0 ? (
+                    <Text color="gray.500">No source emails found</Text>
+                  ) : (
+                    <Accordion allowMultiple>
+                      {subscription.source_emails.map((link, index) => (
+                        <AccordionItem key={link.email.id}>
+                          <h2>
+                            <AccordionButton>
+                              <Box flex="1" textAlign="left">
+                                <VStack align="start" spacing={1}>
+                                  <HStack>
+                                    <Icon as={FiMail} color="blue.500" />
+                                    <Text fontWeight="semibold">{link.email.subject}</Text>
+                                    {link.extraction_role && (
+                                      <Badge colorScheme="purple" ml={2}>
+                                        {link.extraction_role}
+                                      </Badge>
+                                    )}
+                                  </HStack>
+                                  <HStack fontSize="sm" color="gray.600">
+                                    <Text>From: {link.email.sender_name || link.email.sender}</Text>
+                                    <Text>•</Text>
+                                    <Text>{formatDateTime(link.email.date)}</Text>
+                                    {link.email.classification_confidence && (
+                                      <>
+                                        <Text>•</Text>
+                                        <Text>
+                                          Confidence: {(link.email.classification_confidence * 100).toFixed(0)}%
+                                        </Text>
+                                      </>
+                                    )}
+                                  </HStack>
+                                </VStack>
+                              </Box>
+                              <AccordionIcon />
+                            </AccordionButton>
+                          </h2>
+                          <AccordionPanel pb={4}>
+                            <VStack align="stretch" spacing={4}>
+                              {/* Email Metadata */}
+                              <Box p={3} bg="gray.50" borderRadius="md">
+                                <Stack spacing={2} fontSize="sm">
+                                  <HStack>
+                                    <Text fontWeight="semibold">To:</Text>
+                                    <Text>{link.email.recipient}</Text>
+                                  </HStack>
+                                  <HStack>
+                                    <Text fontWeight="semibold">Date:</Text>
+                                    <Text>{formatDateTime(link.email.date)}</Text>
+                                  </HStack>
+                                </Stack>
+                              </Box>
+
+                              {/* Extracted Data */}
+                              {link.extraction_data && (
+                                <Box>
+                                  <Text fontWeight="semibold" mb={2}>
+                                    Extracted Data:
+                                  </Text>
+                                  <Code
+                                    p={3}
+                                    borderRadius="md"
+                                    display="block"
+                                    whiteSpace="pre-wrap"
+                                    fontSize="sm"
+                                  >
+                                    {JSON.stringify(link.extraction_data, null, 2)}
+                                  </Code>
+                                </Box>
                               )}
-                            </HStack>
-                            <HStack fontSize="sm" color="gray.600">
-                              <Text>From: {link.email.sender_name || link.email.sender}</Text>
-                              <Text>•</Text>
-                              <Text>{formatDateTime(link.email.date)}</Text>
-                              {link.email.classification_confidence && (
-                                <>
-                                  <Text>•</Text>
-                                  <Text>Confidence: {(link.email.classification_confidence * 100).toFixed(0)}%</Text>
-                                </>
+
+                              {/* Classification Reasoning */}
+                              {link.email.classification_reasoning && (
+                                <Box>
+                                  <Text fontWeight="semibold" mb={2}>
+                                    AI Classification:
+                                  </Text>
+                                  <Code
+                                    p={3}
+                                    borderRadius="md"
+                                    display="block"
+                                    whiteSpace="pre-wrap"
+                                    fontSize="sm"
+                                  >
+                                    {JSON.stringify(link.email.classification_reasoning, null, 2)}
+                                  </Code>
+                                </Box>
                               )}
-                            </HStack>
-                          </VStack>
-                        </Box>
-                        <AccordionIcon />
-                      </AccordionButton>
-                    </h2>
-                    <AccordionPanel pb={4}>
-                      <VStack align="stretch" spacing={4}>
-                        {/* Email Metadata */}
-                        <Box p={3} bg="gray.50" borderRadius="md">
-                          <Stack spacing={2} fontSize="sm">
-                            <HStack>
-                              <Text fontWeight="semibold">To:</Text>
-                              <Text>{link.email.recipient}</Text>
-                            </HStack>
-                            <HStack>
-                              <Text fontWeight="semibold">Date:</Text>
-                              <Text>{formatDateTime(link.email.date)}</Text>
-                            </HStack>
-                          </Stack>
-                        </Box>
 
-                        {/* Extracted Data */}
-                        {link.extraction_data && (
-                          <Box>
-                            <Text fontWeight="semibold" mb={2}>Extracted Data:</Text>
-                            <Code
-                              p={3}
-                              borderRadius="md"
-                              display="block"
-                              whiteSpace="pre-wrap"
-                              fontSize="sm"
-                            >
-                              {JSON.stringify(link.extraction_data, null, 2)}
-                            </Code>
-                          </Box>
-                        )}
-
-                        {/* Classification Reasoning */}
-                        {link.email.classification_reasoning && (
-                          <Box>
-                            <Text fontWeight="semibold" mb={2}>AI Classification:</Text>
-                            <Code
-                              p={3}
-                              borderRadius="md"
-                              display="block"
-                              whiteSpace="pre-wrap"
-                              fontSize="sm"
-                            >
-                              {JSON.stringify(link.email.classification_reasoning, null, 2)}
-                            </Code>
-                          </Box>
-                        )}
-
-                        {/* Email Body */}
-                        <Box>
-                          <Text fontWeight="semibold" mb={2}>Email Content:</Text>
-                          {renderEmailBody(link)}
-                        </Box>
-                      </VStack>
-                    </AccordionPanel>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            )}
-          </CardBody>
-        </Card>
+                              {/* Email Body */}
+                              <Box>
+                                <Text fontWeight="semibold" mb={2}>
+                                  Email Content:
+                                </Text>
+                                {renderEmailBody(link)}
+                              </Box>
+                            </VStack>
+                          </AccordionPanel>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  )}
+                </CardBody>
+              </Card>
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
       </VStack>
 
       {/* Edit Subscription Modal */}

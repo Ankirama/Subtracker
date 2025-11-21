@@ -478,6 +478,25 @@ async def _sync_mailbox_async(
                                 logger.error(f"Error calculating renewal date for {subscription_record.provider}: {str(e)}")
                                 # Continue with subscription creation even if renewal calculation fails
 
+                        # Check for cancellation category and create suggestion
+                        if subscription_record and email_record:
+                            try:
+                                classification = email_record.classification_reasoning or {}
+                                category = classification.get('category', '')
+
+                                if category == 'cancellation':
+                                    # Only create suggestion if no existing suggestion is pending
+                                    if not subscription_record.suggested_cancellation_status:
+                                        subscription_record.suggested_cancellation_status = 'cancelled'
+                                        subscription_record.cancellation_suggestion_reason = classification.get('reasoning', 'AI detected a cancellation email')
+                                        subscription_record.cancellation_suggestion_created_at = datetime.now(timezone.utc)
+                                        logger.info(f"Created cancellation suggestion for {subscription_record.provider}: {classification.get('reasoning', 'No reason')}")
+                                    else:
+                                        logger.info(f"Cancellation suggestion already exists for {subscription_record.provider}, skipping")
+                            except Exception as e:
+                                logger.error(f"Error creating cancellation suggestion for {subscription_record.provider}: {str(e)}")
+                                # Continue even if suggestion creation fails
+
                         # Create subscription-email relationship if not exists
                         if subscription_record and email_record:
                             # Check if relationship already exists

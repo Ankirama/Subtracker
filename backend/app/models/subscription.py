@@ -64,6 +64,11 @@ class Subscription(Base):
     cancellation_confirmed_at = Column(DateTime(timezone=True), nullable=True)
     cancellation_notes = Column(Text, nullable=True)
 
+    # AI-suggested cancellation (requires user confirmation)
+    suggested_cancellation_status = Column(String(50), nullable=True, index=True)  # Suggested status from AI
+    cancellation_suggestion_reason = Column(Text, nullable=True)  # AI reasoning for the suggestion
+    cancellation_suggestion_created_at = Column(DateTime(timezone=True), nullable=True)  # When suggestion was made
+
     # Tracking
     first_detected_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     last_confirmed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

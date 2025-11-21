@@ -84,4 +84,24 @@ export const subscriptionsAPI = {
     const response = await apiClient.get<PriceStatistics>(`/subscriptions/${subscriptionId}/price-statistics`)
     return response.data
   },
+
+  getDuplicates: async (): Promise<any[]> => {
+    const response = await apiClient.get('/subscriptions/duplicates')
+    return response.data
+  },
+
+  merge: async (sourceId: string, targetId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post(`/subscriptions/${sourceId}/merge/${targetId}`)
+    return response.data
+  },
+
+  acceptCancellationSuggestion: async (id: string): Promise<Subscription> => {
+    const response = await apiClient.post<Subscription>(`/subscriptions/${id}/accept-suggestion`)
+    return response.data
+  },
+
+  dismissCancellationSuggestion: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const response = await apiClient.post<{ success: boolean; message: string }>(`/subscriptions/${id}/dismiss-suggestion`)
+    return response.data
+  },
 }

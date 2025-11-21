@@ -37,13 +37,16 @@ import { Subscription } from '../../types'
 import { SubscriptionModal } from './SubscriptionModal'
 import { SubscriptionFeedbackModal } from './SubscriptionFeedbackModal'
 import { ExportModal } from './ExportModal'
+import { ProviderLogo } from '../common/ProviderLogo'
 
 export const SubscriptionsPage = () => {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
-  const [activeFilter, setActiveFilter] = useState<string>('')
+  const [activeFilter, setActiveFilter] = useState<string>('active')
   const [excludeTrials, setExcludeTrials] = useState(true)
+  const [showRecentOnly, setShowRecentOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'provider'>('newest')
   const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null)
   const [feedbackSubscription, setFeedbackSubscription] = useState<Subscription | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -151,10 +154,36 @@ export const SubscriptionsPage = () => {
     }).format(amount)
   }
 
-  const filteredSubscriptions = data?.subscriptions.filter((sub) =>
-    sub.provider.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sub.custom_label?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || []
+  const isNewSubscription = (createdAt: string) => {
+    const created = new Date(createdAt)
+    const now = new Date()
+    const hoursDiff = (now.getTime() - created.getTime()) / (1000 * 60 * 60)
+    return hoursDiff <= 24
+  }
+
+  const filteredSubscriptions = (data?.subscriptions || [])
+    .filter((sub) => {
+      // Search filter
+      const matchesSearch = sub.provider.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sub.custom_label?.toLowerCase().includes(searchTerm.toLowerCase())
+
+      // Recent only filter
+      const matchesRecent = !showRecentOnly || isNewSubscription(sub.created_at)
+
+      return matchesSearch && matchesRecent
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        case 'provider':
+          return a.provider.localeCompare(b.provider)
+        default:
+          return 0
+      }
+    })
 
   if (isLoading) {
     return (
@@ -182,7 +211,19 @@ export const SubscriptionsPage = () => {
         <HStack justify="space-between">
           <Box>
             <Heading size="lg">Subscriptions</Heading>
-            <Text color="gray.600">{data?.total || 0} total subscriptions</Text>
+            <HStack spacing={4}>
+              <Text color="gray.600">{data?.total || 0} total subscriptions</Text>
+              {(() => {
+                const newCount = (data?.subscriptions || []).filter(sub =>
+                  isNewSubscription(sub.created_at)
+                ).length
+                return newCount > 0 && (
+                  <Badge colorScheme="green" fontSize="sm">
+                    {newCount} new in last 24h
+                  </Badge>
+                )
+              })()}
+            </HStack>
           </Box>
           <HStack spacing={3}>
             <Button
@@ -249,12 +290,30 @@ export const SubscriptionsPage = () => {
             <option value="inactive">Inactive</option>
           </Select>
 
+          <Select
+            maxW="150px"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'provider')}
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="provider">By Provider</option>
+          </Select>
+
           <Checkbox
             isChecked={excludeTrials}
             onChange={(e) => setExcludeTrials(e.target.checked)}
             colorScheme="blue"
           >
             Hide trial subscriptions
+          </Checkbox>
+
+          <Checkbox
+            isChecked={showRecentOnly}
+            onChange={(e) => setShowRecentOnly(e.target.checked)}
+            colorScheme="green"
+          >
+            Recently Added (24h)
           </Checkbox>
         </HStack>
 
@@ -283,14 +342,29 @@ export const SubscriptionsPage = () => {
                 filteredSubscriptions.map((subscription) => (
                   <Tr key={subscription.id} _hover={{ bg: 'gray.50' }}>
                     <Td>
-                      <VStack align="start" spacing={0}>
-                        <Text fontWeight="bold">{subscription.provider}</Text>
-                        {subscription.custom_label && (
-                          <Text fontSize="sm" color="gray.600">
-                            {subscription.custom_label}
-                          </Text>
-                        )}
-                      </VStack>
+                      <HStack spacing={3}>
+                        <ProviderLogo providerName={subscription.provider} size="md" />
+                        <VStack align="start" spacing={0}>
+                          <HStack>
+                            <Text fontWeight="bold">{subscription.provider}</Text>
+                            {isNewSubscription(subscription.created_at) && (
+                              <Badge colorScheme="green" fontSize="xs">
+                                NEW
+                              </Badge>
+                            )}
+                            {subscription.suggested_cancellation_status && (
+                              <Badge colorScheme="orange" fontSize="xs">
+                                Suggestion Pending
+                              </Badge>
+                            )}
+                          </HStack>
+                          {subscription.custom_label && (
+                            <Text fontSize="sm" color="gray.600">
+                              {subscription.custom_label}
+                            </Text>
+                          )}
+                        </VStack>
+                      </HStack>
                     </Td>
                     <Td fontWeight="medium">
                       {formatCurrency(subscription.amount)}
