@@ -17,6 +17,7 @@ export interface RegisterRequest {
   email: string
   password: string
   display_name?: string  // Optional display name for personalization
+  invite_token?: string  // Required when REQUIRE_INVITE_TOKEN is enabled
 }
 
 export interface TokenResponse {

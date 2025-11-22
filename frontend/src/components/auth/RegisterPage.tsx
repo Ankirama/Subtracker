@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   Button,
@@ -15,20 +15,30 @@ import {
   AlertIcon,
   FormHelperText,
 } from '@chakra-ui/react'
-import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
 import { authAPI } from '../../api/auth'
 
 export const RegisterPage = () => {
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [inviteToken, setInviteToken] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState('')
   const navigate = useNavigate()
   const toast = useToast()
+
+  // Pre-fill invite token from URL query param
+  useEffect(() => {
+    const token = searchParams.get('token')
+    if (token) {
+      setInviteToken(token)
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,6 +62,7 @@ export const RegisterPage = () => {
         email,
         password,
         display_name: displayName || undefined,
+        invite_token: inviteToken || undefined,
       })
 
       // Show success message and email verification instructions
@@ -136,6 +147,21 @@ export const RegisterPage = () => {
                     {error}
                   </Alert>
                 )}
+
+                <FormControl isRequired>
+                  <FormLabel>Invite Token</FormLabel>
+                  <Input
+                    type="text"
+                    value={inviteToken}
+                    onChange={(e) => setInviteToken(e.target.value)}
+                    placeholder="Enter your invite token"
+                    isReadOnly={!!searchParams.get('token')}
+                    bg={searchParams.get('token') ? 'gray.100' : undefined}
+                  />
+                  <FormHelperText>
+                    Required to register. Get one from an admin.
+                  </FormHelperText>
+                </FormControl>
 
                 <FormControl>
                   <FormLabel>Display Name (Optional)</FormLabel>
