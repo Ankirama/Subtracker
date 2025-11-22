@@ -3,6 +3,7 @@ export interface User {
   id: string
   email: string
   is_admin: boolean
+  display_name?: string | null
   created_at: string
   updated_at: string
 }
@@ -90,6 +91,47 @@ export interface BackupCodesRegenerateResponse {
   backup_codes: string[]
 }
 
+// Account Management types
+export interface ProfileUpdateRequest {
+  display_name?: string | null
+  email?: string | null
+}
+
+export interface PasswordChangeRequest {
+  current_password: string
+  new_password: string
+}
+
+export interface UserPreferences {
+  theme?: 'light' | 'dark' | 'system'
+  language?: string
+  currency?: string
+  date_format?: string
+  timezone?: string
+}
+
+export interface UserPreferencesUpdate {
+  theme?: 'light' | 'dark' | 'system'
+  language?: string
+  currency?: string
+  date_format?: string
+  timezone?: string
+}
+
+export interface DeleteAccountRequest {
+  password: string
+  confirm: boolean
+}
+
+export interface MessageResponse {
+  message: string
+}
+
+export interface PreferencesResponse {
+  message: string
+  preferences: UserPreferences
+}
+
 // Subscription types
 export interface Subscription {
   id: string
@@ -136,6 +178,22 @@ export interface SubscriptionStats {
   by_category: Record<string, { count: number; total: number }>
   by_billing_cycle: Record<string, number>
   upcoming_renewals: Subscription[]
+}
+
+export interface MonthlySpending {
+  month: string
+  total_cost: number
+  subscription_count: number
+  new_subscriptions: number
+  cancelled_subscriptions: number
+}
+
+export interface AnalyticsResponse {
+  monthly_spending: MonthlySpending[]
+  average_monthly_cost: number
+  total_spent: number
+  peak_month: string | null
+  peak_month_cost: number | null
 }
 
 export interface SubscriptionCreate {

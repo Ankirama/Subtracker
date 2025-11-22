@@ -8,6 +8,7 @@ import {
   SubscriptionUpdate,
   PriceHistory,
   PriceStatistics,
+  AnalyticsResponse,
 } from '../types'
 
 export const subscriptionsAPI = {
@@ -34,8 +35,8 @@ export const subscriptionsAPI = {
     return response.data
   },
 
-  getAnalytics: async (months: number = 12): Promise<any> => {
-    const response = await apiClient.get('/subscriptions/analytics/trends', {
+  getAnalytics: async (months: number = 12): Promise<AnalyticsResponse> => {
+    const response = await apiClient.get<AnalyticsResponse>('/subscriptions/analytics/trends', {
       params: { months }
     })
     return response.data

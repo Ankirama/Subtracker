@@ -16,6 +16,12 @@ import {
   EmailVerificationResponse,
   EmailVerificationRequest,
   ResendVerificationRequest,
+  ProfileUpdateRequest,
+  PasswordChangeRequest,
+  UserPreferencesUpdate,
+  DeleteAccountRequest,
+  MessageResponse,
+  PreferencesResponse,
 } from '../types'
 
 export const authAPI = {
@@ -41,6 +47,28 @@ export const authAPI = {
     await apiClient.post('/auth/logout')
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
+  },
+
+  // Account Management methods
+
+  updateProfile: async (data: ProfileUpdateRequest): Promise<User> => {
+    const response = await apiClient.put<User>('/auth/me/profile', data)
+    return response.data
+  },
+
+  changePassword: async (data: PasswordChangeRequest): Promise<MessageResponse> => {
+    const response = await apiClient.put<MessageResponse>('/auth/me/password', data)
+    return response.data
+  },
+
+  updatePreferences: async (data: UserPreferencesUpdate): Promise<PreferencesResponse> => {
+    const response = await apiClient.put<PreferencesResponse>('/auth/me/preferences', data)
+    return response.data
+  },
+
+  deleteAccount: async (data: DeleteAccountRequest): Promise<MessageResponse> => {
+    const response = await apiClient.delete<MessageResponse>('/auth/me', { data })
+    return response.data
   },
 
   // Two-Factor Authentication methods

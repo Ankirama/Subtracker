@@ -33,7 +33,7 @@ export const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
       <Box display="flex" justifyContent="center" alignItems="center" minH="100vh">
         <VStack spacing={4}>
           <Text fontSize="2xl" fontWeight="bold">Access Denied</Text>
-          <Text color="gray.600">You need admin privileges to access this page.</Text>
+          <Text color="text.subtle">You need admin privileges to access this page.</Text>
           <Text color="blue.500" cursor="pointer" onClick={() => window.location.href = '/dashboard'}>
             Return to Dashboard
           </Text>

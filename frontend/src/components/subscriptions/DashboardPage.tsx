@@ -25,14 +25,15 @@ import { FiDollarSign, FiCreditCard, FiCalendar, FiTrendingUp, FiBell } from 're
 import { subscriptionsAPI } from '../../api/subscriptions'
 import { notificationsApi } from '../../api/notifications'
 import { Link as RouterLink } from 'react-router-dom'
+import { SubscriptionStats } from '../../types'
 
 export const DashboardPage = () => {
-  const { data: stats, isLoading, error } = useQuery({
+  const { data: stats, isLoading, error, refetch: refetchStats } = useQuery<SubscriptionStats>({
     queryKey: ['subscriptionStats'],
-    queryFn: subscriptionsAPI.getStats,
+    queryFn: () => subscriptionsAPI.getStats(),
   })
 
-  const { data: upcomingRenewals } = useQuery({
+  const { data: upcomingRenewals, refetch: refetchRenewals } = useQuery({
     queryKey: ['upcomingRenewals'],
     queryFn: () => notificationsApi.getUpcomingRenewals(30),
   })
@@ -71,15 +72,19 @@ export const DashboardPage = () => {
     return 'green'
   }
 
+  const handleRefresh = async () => {
+    await Promise.all([refetchStats(), refetchRenewals()])
+  }
+
   return (
     <Container maxW="container.xl" py={8}>
-      <VStack align="stretch" spacing={8}>
+        <VStack align="stretch" spacing={8}>
         {/* Header */}
         <Box>
           <Heading size="lg" mb={2}>
             Dashboard
           </Heading>
-          <Text color="gray.600">Overview of your subscriptions</Text>
+          <Text color="text.subtle">Overview of your subscriptions</Text>
         </Box>
 
         {/* Stats Cards */}
@@ -147,6 +152,7 @@ export const DashboardPage = () => {
           </Card>
         </SimpleGrid>
 
+
         {/* Category Breakdown */}
         {stats?.by_category && Object.keys(stats.by_category).length > 0 && (
           <Card>
@@ -163,7 +169,7 @@ export const DashboardPage = () => {
                       </Badge>
                       <Text fontWeight="bold">{data.count}</Text>
                     </HStack>
-                    <Text fontSize="sm" color="gray.600">
+                    <Text fontSize="sm" color="text.subtle">
                       {formatCurrency(data.total)}/month
                     </Text>
                   </Box>
@@ -210,7 +216,7 @@ export const DashboardPage = () => {
                             {renewal.days_until_renewal === 1 && 'Tomorrow'}
                             {renewal.days_until_renewal > 1 && `${renewal.days_until_renewal} days`}
                           </Badge>
-                          <Text fontSize="sm" color="gray.600">
+                          <Text fontSize="sm" color="text.subtle">
                             {new Date(renewal.renewal_date).toLocaleDateString()}
                           </Text>
                         </HStack>
@@ -251,7 +257,7 @@ export const DashboardPage = () => {
             Manage Mailboxes
           </Button>
         </HStack>
-      </VStack>
+        </VStack>
     </Container>
   )
 }

@@ -54,22 +54,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (credentials: LoginRequest) => {
     const response = await authAPI.login(credentials)
-    localStorage.setItem('access_token', response.access_token)
-    localStorage.setItem('refresh_token', response.refresh_token)
 
-    const currentUser = await authAPI.getCurrentUser()
-    setUser(currentUser)
-    navigate('/dashboard')
+    // Check if response is TokenResponse (has access_token) or TwoFactorRequiredResponse
+    if ('access_token' in response) {
+      localStorage.setItem('access_token', response.access_token)
+      localStorage.setItem('refresh_token', response.refresh_token)
+
+      const currentUser = await authAPI.getCurrentUser()
+      setUser(currentUser)
+      navigate('/dashboard')
+    }
+    // If it's TwoFactorRequiredResponse, the calling component should handle 2FA flow
   }
 
   const register = async (data: RegisterRequest) => {
-    const response = await authAPI.register(data)
-    localStorage.setItem('access_token', response.access_token)
-    localStorage.setItem('refresh_token', response.refresh_token)
-
-    const currentUser = await authAPI.getCurrentUser()
-    setUser(currentUser)
-    navigate('/dashboard')
+    // Register returns EmailVerificationResponse, not tokens
+    // User needs to verify email before they can login
+    await authAPI.register(data)
+    // Don't set tokens or navigate - the calling component should show
+    // "check your email" message and handle the verification flow
   }
 
   const logout = async () => {

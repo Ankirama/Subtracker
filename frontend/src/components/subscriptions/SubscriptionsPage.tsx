@@ -29,6 +29,9 @@ import {
   InputLeftElement,
   Icon,
   Checkbox,
+  Card,
+  CardBody,
+  Flex,
 } from '@chakra-ui/react'
 import { FiSearch, FiEdit2, FiTrash2, FiPlus, FiEye, FiRefreshCw, FiDownload } from 'react-icons/fi'
 import { subscriptionsAPI } from '../../api/subscriptions'
@@ -38,6 +41,8 @@ import { SubscriptionModal } from './SubscriptionModal'
 import { SubscriptionFeedbackModal } from './SubscriptionFeedbackModal'
 import { ExportModal } from './ExportModal'
 import { ProviderLogo } from '../common/ProviderLogo'
+import { SwipeableCard } from '../common/SwipeableCard'
+import { PullToRefresh } from '../common/PullToRefresh'
 
 export const SubscriptionsPage = () => {
   const navigate = useNavigate()
@@ -56,12 +61,11 @@ export const SubscriptionsPage = () => {
   const queryClient = useQueryClient()
   const toast = useToast()
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['subscriptions', categoryFilter, activeFilter, excludeTrials],
     queryFn: () =>
       subscriptionsAPI.getAll({
         category: categoryFilter || undefined,
-        status: activeFilter || undefined,
         exclude_trials: excludeTrials,
       }),
   })
@@ -204,15 +208,20 @@ export const SubscriptionsPage = () => {
     )
   }
 
+  const handleRefresh = async () => {
+    await refetch()
+  }
+
   return (
     <Container maxW="container.xl" py={8}>
-      <VStack align="stretch" spacing={6}>
+      <PullToRefresh onRefresh={handleRefresh}>
+        <VStack align="stretch" spacing={6}>
         {/* Header */}
         <HStack justify="space-between">
           <Box>
             <Heading size="lg">Subscriptions</Heading>
             <HStack spacing={4}>
-              <Text color="gray.600">{data?.total || 0} total subscriptions</Text>
+              <Text color="text.subtle">{data?.total || 0} total subscriptions</Text>
               {(() => {
                 const newCount = (data?.subscriptions || []).filter(sub =>
                   isNewSubscription(sub.created_at)
@@ -317,10 +326,10 @@ export const SubscriptionsPage = () => {
           </Checkbox>
         </HStack>
 
-        {/* Table */}
-        <Box overflowX="auto" borderWidth={1} borderRadius="lg">
+        {/* Desktop Table */}
+        <Box display={{ base: 'none', lg: 'block' }} overflowX="auto" borderWidth={1} borderRadius="lg">
           <Table variant="simple">
-            <Thead bg="gray.50">
+            <Thead bg="bg.subtle">
               <Tr>
                 <Th>Provider</Th>
                 <Th>Amount</Th>
@@ -359,7 +368,7 @@ export const SubscriptionsPage = () => {
                             )}
                           </HStack>
                           {subscription.custom_label && (
-                            <Text fontSize="sm" color="gray.600">
+                            <Text fontSize="sm" color="text.subtle">
                               {subscription.custom_label}
                             </Text>
                           )}
@@ -425,7 +434,115 @@ export const SubscriptionsPage = () => {
             </Tbody>
           </Table>
         </Box>
-      </VStack>
+
+        {/* Mobile Cards */}
+        <VStack display={{ base: 'flex', lg: 'none' }} spacing={3} align="stretch">
+          {filteredSubscriptions.length === 0 ? (
+            <Card>
+              <CardBody>
+                <Text color="gray.500" textAlign="center">No subscriptions found</Text>
+              </CardBody>
+            </Card>
+          ) : (
+            filteredSubscriptions.map((subscription) => (
+              <SwipeableCard
+                key={subscription.id}
+                onSwipeLeft={() => handleEdit(subscription)}
+                onSwipeRight={() => handleDelete(subscription)}
+              >
+                <Card variant="outline" _active={{ bg: 'gray.50' }}>
+                  <CardBody>
+                  <VStack align="stretch" spacing={3}>
+                    {/* Provider Info */}
+                    <Flex justify="space-between" align="start">
+                      <HStack spacing={3} flex={1}>
+                        <ProviderLogo providerName={subscription.provider} size="lg" />
+                        <VStack align="start" spacing={0} flex={1}>
+                          <HStack flexWrap="wrap">
+                            <Text fontWeight="bold" fontSize="md">{subscription.provider}</Text>
+                            {isNewSubscription(subscription.created_at) && (
+                              <Badge colorScheme="green" fontSize="xs">NEW</Badge>
+                            )}
+                            {subscription.suggested_cancellation_status && (
+                              <Badge colorScheme="orange" fontSize="xs">Pending</Badge>
+                            )}
+                          </HStack>
+                          {subscription.custom_label && (
+                            <Text fontSize="sm" color="text.subtle" noOfLines={1}>
+                              {subscription.custom_label}
+                            </Text>
+                          )}
+                        </VStack>
+                      </HStack>
+                      <Badge colorScheme={subscription.is_active ? 'green' : 'gray'}>
+                        {subscription.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </Flex>
+
+                    {/* Amount and Billing */}
+                    <Flex justify="space-between" align="center">
+                      <Text fontWeight="bold" fontSize="lg" color="blue.600">
+                        {formatCurrency(subscription.amount)}
+                      </Text>
+                      <Badge colorScheme="blue" textTransform="capitalize">
+                        {subscription.billing_cycle}
+                      </Badge>
+                    </Flex>
+
+                    {/* Category and Renewal */}
+                    <Flex justify="space-between" align="center" fontSize="sm">
+                      <Badge
+                        colorScheme={categoriesData?.categories.find(c => c.name === subscription.category)?.color || 'gray'}
+                        textTransform="capitalize"
+                      >
+                        {categoriesData?.categories.find(c => c.name === subscription.category)?.display_name || subscription.category}
+                      </Badge>
+                      <Text color="text.subtle">
+                        Next: {subscription.renewal_date
+                          ? new Date(subscription.renewal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                          : 'N/A'}
+                      </Text>
+                    </Flex>
+
+                    {/* Actions */}
+                    <Flex justify="space-between" pt={2} borderTopWidth={1}>
+                      <Button
+                        leftIcon={<Icon as={FiEye} />}
+                        size="sm"
+                        variant="ghost"
+                        colorScheme="blue"
+                        onClick={() => navigate(`/subscriptions/${subscription.id}`)}
+                      >
+                        View
+                      </Button>
+                      <HStack spacing={2}>
+                        <IconButton
+                          aria-label="Edit"
+                          icon={<Icon as={FiEdit2} />}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEdit(subscription)}
+                        />
+                        <IconButton
+                          aria-label="Delete"
+                          icon={<Icon as={FiTrash2} />}
+                          size="sm"
+                          colorScheme="red"
+                          variant="ghost"
+                          onClick={() => handleDelete(subscription)}
+                          isLoading={deleteMutation.isPending}
+                        />
+                      </HStack>
+                    </Flex>
+                  </VStack>
+                </CardBody>
+              </Card>
+              </SwipeableCard>
+            ))
+          )}
+        </VStack>
+        </VStack>
+      </PullToRefresh>
 
       {/* Edit/Create Modal */}
       <SubscriptionModal
