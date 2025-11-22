@@ -17,14 +17,14 @@ from app.database import Base
 
 class NotificationType(str, enum.Enum):
     """Types of notifications."""
-    RENEWAL_REMINDER = "renewal_reminder"
-    TRIAL_ENDING = "trial_ending"
-    WEEKLY_SUMMARY = "weekly_summary"
-    MONTHLY_SUMMARY = "monthly_summary"
-    INACTIVE_SUBSCRIPTION = "inactive_subscription"
-    PRICE_CHANGE = "price_change"
-    BUDGET_ALERT = "budget_alert"
-    SYSTEM_ANNOUNCEMENT = "system_announcement"
+    RENEWAL_REMINDER = "RENEWAL_REMINDER"
+    TRIAL_ENDING = "TRIAL_ENDING"
+    WEEKLY_SUMMARY = "WEEKLY_SUMMARY"
+    MONTHLY_SUMMARY = "MONTHLY_SUMMARY"
+    INACTIVE_SUBSCRIPTION = "INACTIVE_SUBSCRIPTION"
+    PRICE_CHANGE = "PRICE_CHANGE"
+    BUDGET_ALERT = "BUDGET_ALERT"
+    SYSTEM_ANNOUNCEMENT = "SYSTEM_ANNOUNCEMENT"
 
 
 class NotificationPriority(str, enum.Enum):

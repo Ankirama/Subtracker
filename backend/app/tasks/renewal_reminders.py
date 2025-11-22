@@ -252,8 +252,9 @@ def check_renewal_reminders():
     2. Checks user notification preferences
     3. Sends reminders for subscriptions due within configured days
     """
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         logger.info("Starting renewal reminders check...")
 
         # Get all renewal reminder preferences
@@ -318,4 +319,5 @@ def check_renewal_reminders():
             "error": str(e)
         }
     finally:
-        db.close()
+        if db is not None:
+            db.close()

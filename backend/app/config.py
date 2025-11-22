@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     SENDGRID_FROM_EMAIL: str = "noreply@subscriptiontracker.app"
     SENDGRID_FROM_NAME: str = "Subscription Tracker"
 
+    # Push Notifications (VAPID)
+    VAPID_PUBLIC_KEY: str
+    VAPID_PRIVATE_KEY: str
+    VAPID_CLAIM_EMAIL: str = "mailto:noreply@subscriptiontracker.app"
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]

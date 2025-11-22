@@ -85,6 +85,26 @@ TRIAL DETECTION (CRITICAL):
 - Extract trial end date if mentioned: "trial ends on [date]", "trial period: X days", "complimentary access until [date]"
 - If trial detected AND only first email: this is likely a trial signup (not a paid subscription yet)
 
+PRICE UPDATE DETECTION (CRITICAL):
+- Check for price change indicators: "price increase", "price change", "price adjustment", "new price", "new rate", "pricing update", "rate change", "subscription price", "price will increase", "increasing to", "changing from", "new pricing", "price is changing"
+- Extract BOTH amounts if price update detected: old price AND new price
+- Look for phrases like: "$X increasing to $Y", "changing from $X to $Y", "new rate of $Y (currently $X)"
+- If price update detected: set is_price_update: true, extract old_amount and new_amount
+- If NOT a price update: set is_price_update: false, old_amount: null, new_amount: null
+
+CUSTOM LABEL / IDENTIFIER EXTRACTION (CRITICAL):
+This field identifies WHICH specific subscription within a service (e.g., which Twitch streamer):
+- **Twitch**: Extract streamer/channel name from subject or body (e.g., "xQc", "Pokimane", "Asmongold")
+  - Look for: "to [streamer]", "subscription to [streamer]", "[streamer]'s channel", streamer name in subject
+  - Example: "Subscription to xQc - Tier 3" → custom_label: "xQc"
+- **Patreon**: Extract creator name (e.g., "John Doe", "Artist Name")
+  - Look for: "supporting [creator]", "[creator]'s Patreon", creator name mentioned
+- **YouTube Memberships**: Extract channel name
+- **OnlyFans**: Extract creator name
+- **Other services**: Any identifying info that makes this subscription unique
+  - For services where multiple subscriptions are common (gaming platforms, content creators)
+  - Leave null if no distinguishing information exists or service typically has only one subscription per user
+
 Extract the following information and respond ONLY with a JSON object:
 {{
     "provider": "Service name ONLY if subscription evidence found, else null",
@@ -93,6 +113,7 @@ Extract the following information and respond ONLY with a JSON object:
     "billing_cycle": "monthly|yearly|weekly ONLY if explicitly stated, else null",
     "renewal_date": "YYYY-MM-DD ONLY if explicitly mentioned, else null",
     "description": "Brief description or null",
+    "custom_label": "For Twitch/Patreon/YouTube: streamer/creator/channel name. For others: identifying info that distinguishes this from other subscriptions of same provider, else null",
     "category": "streaming|software|storage|productivity|entertainment|fitness|gaming|news|education|communication|finance|shopping|music|other",
     "payment_method_last4": "last 4 digits ONLY if shown, else null",
     "confidence_score": 0.0-1.0 (MUST be 0.0 without EXPLICIT subscription evidence),
@@ -100,6 +121,9 @@ Extract the following information and respond ONLY with a JSON object:
     "trial_detected": true if trial keywords found, else false,
     "trial_end_date": "YYYY-MM-DD ONLY if trial end date explicitly mentioned, else null",
     "trial_keywords_found": ["list", "of", "trial", "keywords", "found"] or [],
+    "is_price_update": true if price change detected, else false,
+    "old_amount": decimal number for current/old price ONLY if price update detected, else null,
+    "new_amount": decimal number for new price ONLY if price update detected, else null,
     "raw_email_data": {{
         "subject": "original subject",
         "sender": "sender email",
@@ -299,6 +323,34 @@ def clean_extracted_data(data: Dict[str, Any]) -> Dict[str, Any]:
     else:
         cleaned['extraction_metadata'] = None
         cleaned['trial_end_date'] = None
+
+    # Price update detection
+    is_price_update = data.get('is_price_update', False)
+    cleaned['is_price_update'] = bool(is_price_update)
+
+    if is_price_update:
+        # Extract old amount
+        old_amount = data.get('old_amount')
+        if old_amount is not None:
+            try:
+                cleaned['old_amount'] = float(old_amount)
+            except (ValueError, TypeError):
+                cleaned['old_amount'] = None
+        else:
+            cleaned['old_amount'] = None
+
+        # Extract new amount
+        new_amount = data.get('new_amount')
+        if new_amount is not None:
+            try:
+                cleaned['new_amount'] = float(new_amount)
+            except (ValueError, TypeError):
+                cleaned['new_amount'] = None
+        else:
+            cleaned['new_amount'] = None
+    else:
+        cleaned['old_amount'] = None
+        cleaned['new_amount'] = None
 
     return cleaned
 

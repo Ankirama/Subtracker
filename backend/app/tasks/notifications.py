@@ -25,11 +25,11 @@ def send_renewal_reminders():
     based on user preferences (days_before_renewal setting)
     """
     logger.info("Starting renewal reminder check...")
-    db = next(get_db())
-    notification_service = NotificationService(db)
     notifications_sent = 0
+    db = None
 
     try:
+        db = next(get_db())
         # Get all active users with renewal reminder preferences
         preferences = db.query(NotificationPreference).filter(
             NotificationPreference.notification_type == NotificationType.RENEWAL_REMINDER.value,
@@ -43,7 +43,7 @@ def send_renewal_reminders():
             # Find subscriptions renewing around the target date (±1 day tolerance)
             subscriptions = db.query(Subscription).filter(
                 Subscription.user_id == pref.user_id,
-                Subscription.status == 'active',
+                Subscription.is_active == True,
                 Subscription.next_billing_date.isnot(None),
                 Subscription.next_billing_date >= target_date - timedelta(days=1),
                 Subscription.next_billing_date <= target_date + timedelta(days=1)
@@ -61,14 +61,14 @@ def send_renewal_reminders():
 
                 if not existing:
                     # Create renewal reminder notification
-                    days_until = (subscription.next_billing_date - datetime.utcnow()).days
+                    days_until = (subscription.next_billing_date - datetime.utcnow().date()).days
                     notification = NotificationService.create_notification(
                         db=db,
                         user_id=pref.user_id,
                         notification_type=NotificationType.RENEWAL_REMINDER,
                         priority='medium' if days_until <= 3 else 'low',
-                        title=f"Upcoming Renewal: {subscription.name}",
-                        message=f"Your {subscription.name} subscription will renew in {days_until} days on {subscription.next_billing_date.strftime('%Y-%m-%d')}. Amount: {subscription.currency} {subscription.amount}",
+                        title=f"Upcoming Renewal: {subscription.provider}",
+                        message=f"Your {subscription.provider} subscription will renew in {days_until} days on {subscription.next_billing_date.strftime('%Y-%m-%d')}. Amount: {subscription.currency} {subscription.amount}",
                         related_subscription_id=subscription.id,
                         notification_metadata={
                             'days_until_renewal': days_until,
@@ -87,21 +87,24 @@ def send_renewal_reminders():
         logger.error(f"Error in renewal reminder task: {str(e)}", exc_info=True)
         return {"success": False, "error": str(e)}
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 
-@celery_app.task(name="tasks.send_weekly_summaries")
-def send_weekly_summaries():
+# DEPRECATED: This implementation is replaced by app/tasks/summary_tasks.py
+# Keeping here temporarily for reference but not registered as a Celery task
+# @celery_app.task(name="tasks.send_weekly_summaries")
+def send_weekly_summaries_deprecated():
     """
     Send weekly subscription summaries to users who have this preference enabled
     Runs on the day of week specified in user preferences
     """
     logger.info("Starting weekly summary generation...")
-    db = next(get_db())
-    notification_service = NotificationService(db)
     summaries_sent = 0
+    db = None
 
     try:
+        db = next(get_db())
         current_day = datetime.utcnow().weekday()  # 0 = Monday, 6 = Sunday
 
         # Get users who want weekly summaries on this day
@@ -118,7 +121,7 @@ def send_weekly_summaries():
             # Get user's active subscriptions
             subscriptions = db.query(Subscription).filter(
                 Subscription.user_id == pref.user_id,
-                Subscription.status == 'active'
+                Subscription.is_active == True
             ).all()
 
             if not subscriptions:
@@ -134,7 +137,7 @@ def send_weekly_summaries():
             upcoming_renewals = [
                 sub for sub in subscriptions
                 if sub.next_billing_date and
-                   (sub.next_billing_date - datetime.utcnow()).days <= 7
+                   (sub.next_billing_date - datetime.utcnow().date()).days <= 7
             ]
 
             # Build summary message
@@ -181,21 +184,24 @@ def send_weekly_summaries():
         logger.error(f"Error in weekly summary task: {str(e)}", exc_info=True)
         return {"success": False, "error": str(e)}
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 
-@celery_app.task(name="tasks.send_monthly_summaries")
-def send_monthly_summaries():
+# DEPRECATED: This implementation is replaced by app/tasks/summary_tasks.py
+# Keeping here temporarily for reference but not registered as a Celery task
+# @celery_app.task(name="tasks.send_monthly_summaries")
+def send_monthly_summaries_deprecated():
     """
     Send monthly subscription summaries to users who have this preference enabled
     Runs on the day of month specified in user preferences
     """
     logger.info("Starting monthly summary generation...")
-    db = next(get_db())
-    notification_service = NotificationService(db)
     summaries_sent = 0
+    db = None
 
     try:
+        db = next(get_db())
         current_day = datetime.utcnow().day
 
         # Get users who want monthly summaries on this day (or default to 1st)
@@ -212,7 +218,7 @@ def send_monthly_summaries():
             # Get user's active subscriptions
             subscriptions = db.query(Subscription).filter(
                 Subscription.user_id == pref.user_id,
-                Subscription.status == 'active'
+                Subscription.is_active == True
             ).all()
 
             if not subscriptions:
@@ -230,7 +236,7 @@ def send_monthly_summaries():
             upcoming_renewals = [
                 sub for sub in subscriptions
                 if sub.next_billing_date and
-                   (sub.next_billing_date - datetime.utcnow()).days <= 30
+                   (sub.next_billing_date - datetime.utcnow().date()).days <= 30
             ]
 
             # Group by billing cycle
@@ -273,7 +279,8 @@ def send_monthly_summaries():
         logger.error(f"Error in monthly summary task: {str(e)}", exc_info=True)
         return {"success": False, "error": str(e)}
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 
 @celery_app.task(name="tasks.check_inactive_subscriptions")
@@ -283,11 +290,11 @@ def check_inactive_subscriptions():
     and notify users about potentially inactive or cancelled subscriptions
     """
     logger.info("Starting inactive subscription check...")
-    db = next(get_db())
-    notification_service = NotificationService(db)
     notifications_sent = 0
+    db = None
 
     try:
+        db = next(get_db())
         # Get users who have inactive subscription notifications enabled
         preferences = db.query(NotificationPreference).filter(
             NotificationPreference.notification_type == NotificationType.INACTIVE_SUBSCRIPTION.value,
@@ -300,10 +307,10 @@ def check_inactive_subscriptions():
 
             subscriptions = db.query(Subscription).filter(
                 Subscription.user_id == pref.user_id,
-                Subscription.status == 'active',
+                Subscription.is_active == True,
                 or_(
-                    Subscription.last_email_date < inactive_threshold,
-                    Subscription.last_email_date.is_(None)
+                    Subscription.last_confirmed_at < inactive_threshold,
+                    Subscription.last_confirmed_at.is_(None)
                 )
             ).all()
 
@@ -319,12 +326,12 @@ def check_inactive_subscriptions():
 
                 if not existing:
                     days_inactive = (
-                        (datetime.utcnow() - subscription.last_email_date).days
-                        if subscription.last_email_date
+                        (datetime.utcnow() - subscription.last_confirmed_at).days
+                        if subscription.last_confirmed_at
                         else None
                     )
 
-                    message = f"No activity detected for {subscription.name}"
+                    message = f"No activity detected for {subscription.provider}"
                     if days_inactive:
                         message += f" in the last {days_inactive} days"
                     message += ". You may want to verify if this subscription is still active."
@@ -335,12 +342,12 @@ def check_inactive_subscriptions():
                         user_id=pref.user_id,
                         notification_type=NotificationType.INACTIVE_SUBSCRIPTION,
                         priority='low',
-                        title=f"Inactive Subscription: {subscription.name}",
+                        title=f"Inactive Subscription: {subscription.provider}",
                         message=message,
                         related_subscription_id=subscription.id,
                         notification_metadata={
                             'days_inactive': days_inactive,
-                            'last_email_date': subscription.last_email_date.isoformat() if subscription.last_email_date else None
+                            'last_confirmed_at': subscription.last_confirmed_at.isoformat() if subscription.last_confirmed_at else None
                         }
                     )
                     notifications_sent += 1
@@ -353,7 +360,8 @@ def check_inactive_subscriptions():
         logger.error(f"Error in inactive subscription task: {str(e)}", exc_info=True)
         return {"success": False, "error": str(e)}
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 
 def _convert_to_monthly(amount: float, billing_cycle: str) -> float:

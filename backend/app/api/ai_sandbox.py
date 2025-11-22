@@ -1,12 +1,13 @@
 """
 AI Sandbox API endpoints for testing and reviewing email classification/extraction.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from datetime import datetime, timezone
+import re
 
 from app.database import get_db
 from app.models.user import User
@@ -143,13 +144,23 @@ async def test_email_extraction(
 async def get_uncertain_emails(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    limit: int = 50
+    limit: int = Query(default=50, ge=1, le=100),
+    search: Optional[str] = Query(default=None, max_length=100)
 ):
     """
     Get emails that need manual review:
     - Classified as subscription but low confidence (< 0.8)
     - Classified as subscription but no subscription created
     - Subscriptions with missing data (amount = null)
+
+    Args:
+        limit: Number of results to return (1-100, default 50)
+        search: Optional search term to filter by sender, sender_name, or subject (max 100 chars, case-insensitive)
+
+    Security:
+        - Input validation: search limited to 100 chars, limit capped at 100
+        - SQL injection protection: parameterized queries with escaped wildcards
+        - Authorization: filtered by current_user's mailboxes only
     """
     try:
         # Get user's mailbox IDs
@@ -165,7 +176,7 @@ async def get_uncertain_emails(
             )
 
         # Build base query for uncertain emails
-        base_filter = and_(
+        filter_conditions = [
             EmailMessage.mailbox_id.in_(mailbox_ids),
             EmailMessage.is_subscription == True,
             or_(
@@ -176,7 +187,27 @@ async def get_uncertain_emails(
                     .filter(EmailMessage.mailbox_id.in_(mailbox_ids))
                 )
             )
-        )
+        ]
+
+        # Add search filter if provided with proper sanitization
+        if search:
+            # Strip whitespace and validate
+            search = search.strip()
+            if search:
+                # Escape SQL wildcards to prevent wildcard injection attacks
+                # This prevents queries like "%_%_%_%_" from causing performance issues
+                search_escaped = search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+                search_term = f"%{search_escaped}%"
+
+                filter_conditions.append(
+                    or_(
+                        EmailMessage.sender.ilike(search_term, escape='\\'),
+                        EmailMessage.sender_name.ilike(search_term, escape='\\'),
+                        EmailMessage.subject.ilike(search_term, escape='\\')
+                    )
+                )
+
+        base_filter = and_(*filter_conditions)
 
         # Get total count of all uncertain emails
         total_count = db.query(func.count(EmailMessage.id)).filter(base_filter).scalar()

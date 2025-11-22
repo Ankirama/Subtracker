@@ -69,6 +69,45 @@ class UserUpdate(BaseModel):
     settings: Optional[dict] = None
 
 
+class ProfileUpdateRequest(BaseModel):
+    """Schema for updating user profile."""
+    display_name: Optional[str] = Field(None, max_length=255, description="Display name")
+    email: Optional[EmailStr] = Field(None, description="New email address")
+
+
+class PasswordChangeRequest(BaseModel):
+    """Schema for changing password."""
+    current_password: str = Field(..., description="Current password for verification")
+    new_password: str = Field(..., min_length=8, max_length=100, description="New password")
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        """Validate password strength."""
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('Password must contain at least one digit')
+        if not any(c.isalpha() for c in v):
+            raise ValueError('Password must contain at least one letter')
+        return v
+
+
+class UserPreferencesUpdate(BaseModel):
+    """Schema for updating user preferences."""
+    theme: Optional[str] = Field(None, pattern="^(light|dark|system)$", description="UI theme preference")
+    language: Optional[str] = Field(None, pattern="^[a-z]{2}(-[A-Z]{2})?$", description="Language code (e.g., 'en', 'fr', 'en-US')")
+    currency: Optional[str] = Field(None, pattern="^[A-Z]{3}$", description="Currency code (e.g., 'USD', 'EUR')")
+    date_format: Optional[str] = Field(None, description="Preferred date format")
+    timezone: Optional[str] = Field(None, description="User timezone")
+
+
+class DeleteAccountRequest(BaseModel):
+    """Schema for account deletion."""
+    password: str = Field(..., description="Current password for verification")
+    confirm: bool = Field(..., description="Confirmation flag")
+
+
 # Two-Factor Authentication Schemas
 
 class TwoFactorSetupRequest(BaseModel):

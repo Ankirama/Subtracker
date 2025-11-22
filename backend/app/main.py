@@ -3,11 +3,35 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.config import settings
 import logging
+from logging.handlers import RotatingFileHandler
+import os
+from pathlib import Path
 
-# Configure logging
+# Configure logging to both stdout and file
+log_dir = Path("/app/logs")
+log_dir.mkdir(exist_ok=True)
+
+# Create formatters and handlers
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# Console handler (stdout for Docker)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(getattr(logging, settings.LOG_LEVEL))
+console_handler.setFormatter(formatter)
+
+# File handler (for admin panel)
+file_handler = RotatingFileHandler(
+    log_dir / "app.log",
+    maxBytes=10 * 1024 * 1024,  # 10MB
+    backupCount=5
+)
+file_handler.setLevel(getattr(logging, settings.LOG_LEVEL))
+file_handler.setFormatter(formatter)
+
+# Configure root logger
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    handlers=[console_handler, file_handler]
 )
 
 logger = logging.getLogger(__name__)
@@ -46,6 +70,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security middleware (order matters - applied in reverse order)
+from app.middleware import (
+    RateLimitMiddleware,
+    QueryLoggingMiddleware,
+    SecurityHeadersMiddleware,
+    RequestLoggingMiddleware
+)
+
+# 1. Request logging (applied last, logs everything)
+app.add_middleware(RequestLoggingMiddleware)
+
+# 2. Security headers (applied to all responses)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# 3. Query logging for suspicious patterns
+app.add_middleware(QueryLoggingMiddleware)
+
+# 4. Rate limiting (applied first, blocks excessive requests)
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=100,  # General limit
+    requests_per_hour=1000
+)
+
 
 # Health check endpoint
 @app.get("/health")
@@ -71,7 +119,8 @@ async def root():
 
 
 # Import and include routers
-from app.api import auth, mailboxes, subscriptions, ai_sandbox, notifications, optimize, export, budgets, categories, cancellation, reviews
+from app.api import auth, mailboxes, subscriptions, ai_sandbox, notifications, optimize, export, budgets, categories, cancellation, reviews, feedback, providers
+from app.api.endpoints import push_notifications
 from app.api.admin import config as admin_config, announcements as admin_announcements, users as admin_users, logs as admin_logs, security as admin_security
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -80,8 +129,11 @@ app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["Sub
 app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
 app.include_router(cancellation.router, prefix="/api/cancellation", tags=["Cancellation"])
 app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews"])
+app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
+app.include_router(providers.router, prefix="/api", tags=["Providers"])
 app.include_router(ai_sandbox.router, prefix="/api/ai-sandbox", tags=["AI Sandbox"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
+app.include_router(push_notifications.router, prefix="/api/push", tags=["Push Notifications"])
 app.include_router(optimize.router, prefix="/api/optimize", tags=["Optimization"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
 app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])

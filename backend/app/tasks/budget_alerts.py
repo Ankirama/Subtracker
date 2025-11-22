@@ -165,7 +165,7 @@ async def send_budget_alert_email(budget: Budget, alert_type: str, message: str,
                 </p>
 
                 <div style="text-align: center; margin-top: 30px;">
-                    <a href="{EmailService.get_base_url()}/budgets"
+                    <a href="http://localhost:5173/budgets"
                        style="background-color: #3B82F6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
                         View Budget Details
                     </a>
@@ -193,7 +193,7 @@ Usage: {budget_status.percentage_used:.1f}%
 {'Category: ' + budget.category if budget.category else ''}
 Period: {budget_status.period_start} to {budget_status.period_end}
 
-View your budget details: {EmailService.get_base_url()}/budgets
+View your budget details: http://localhost:5173/budgets
         """
 
         await EmailService.send_email(
@@ -255,7 +255,14 @@ def check_budget_alerts():
                         # Send email if user has email notifications enabled
                         user = db.query(User).filter(User.id == budget.user_id).first()
                         if user and user.settings.get('notifications', {}).get('email_enabled', True):
-                            send_budget_alert_email(budget, alert_type, message, user)
+                            # Run async function synchronously in Celery task
+                            import asyncio
+                            loop = asyncio.new_event_loop()
+                            asyncio.set_event_loop(loop)
+                            loop.run_until_complete(
+                                send_budget_alert_email(budget, alert_type, message, user)
+                            )
+                            loop.close()
                             total_emails += 1
 
             except Exception as e:

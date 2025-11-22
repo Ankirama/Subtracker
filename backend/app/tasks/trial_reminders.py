@@ -298,8 +298,9 @@ def check_trial_reminders():
     2. Checks trial end dates
     3. Sends reminders at 3 days, 1 day, and 0 days (same day) before trial ends
     """
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         logger.info("Starting trial ending reminders check...")
 
         # Days before trial ends to send reminders
@@ -327,8 +328,7 @@ def check_trial_reminders():
                 pref = db.query(NotificationPreference).filter(
                     and_(
                         NotificationPreference.user_id == subscription.user_id,
-                        NotificationPreference.notification_type == NotificationType.TRIAL_ENDING,
-                        NotificationPreference.enabled == True
+                        NotificationPreference.notification_type == NotificationType.TRIAL_ENDING
                     )
                 ).first()
 
@@ -370,4 +370,5 @@ def check_trial_reminders():
             "error": str(e)
         }
     finally:
-        db.close()
+        if db is not None:
+            db.close()

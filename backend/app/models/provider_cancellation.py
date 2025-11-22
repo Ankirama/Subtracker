@@ -5,6 +5,7 @@ Stores cancellation instructions, difficulty ratings, and AI research results.
 from sqlalchemy import Column, String, Boolean, DateTime, Text, Float, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 import uuid
 import enum
 
@@ -90,6 +91,9 @@ class ProviderCancellationInfo(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    feedback = relationship("CancellationFeedback", back_populates="provider_cancellation", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<ProviderCancellationInfo(provider={self.provider_name}, difficulty={self.difficulty_rating})>"

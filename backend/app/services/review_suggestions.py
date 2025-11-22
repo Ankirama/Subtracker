@@ -4,7 +4,7 @@ Analyzes subscriptions and suggests which ones users should review or cancel.
 """
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, and_, or_
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 from collections import defaultdict
@@ -19,6 +19,19 @@ from app.schemas.cancellation import (
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _ensure_timezone_aware(dt: Optional[datetime]) -> Optional[datetime]:
+    """Convert naive datetime to timezone-aware (UTC) if needed.
+
+    SQLite doesn't preserve timezone info, so datetimes may be naive.
+    This ensures consistent comparison with timezone-aware datetimes.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 class ReviewSuggestionsService:
@@ -211,7 +224,7 @@ class ReviewSuggestionsService:
             List of unused subscription suggestions
         """
         suggestions = []
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         thirty_days_ago = now - timedelta(days=30)
         sixty_days_ago = now - timedelta(days=60)
 
@@ -223,7 +236,7 @@ class ReviewSuggestionsService:
             # Get most recent email date
             recent_emails = [
                 email for email in sub.source_emails
-                if email.date and email.date > thirty_days_ago
+                if email.date and _ensure_timezone_aware(email.date) > thirty_days_ago
             ]
 
             if not recent_emails:
@@ -236,7 +249,7 @@ class ReviewSuggestionsService:
                 )
 
                 if all_emails_sorted:
-                    last_email_date = all_emails_sorted[0].date
+                    last_email_date = _ensure_timezone_aware(all_emails_sorted[0].date)
                     days_since = (now - last_email_date).days
 
                     # Calculate monthly cost for impact messaging
@@ -272,7 +285,7 @@ class ReviewSuggestionsService:
             List of expensive unused suggestions
         """
         suggestions = []
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         thirty_days_ago = now - timedelta(days=30)
 
         for sub in subscriptions:
@@ -286,7 +299,7 @@ class ReviewSuggestionsService:
             # Check for recent emails
             recent_emails = [
                 email for email in sub.source_emails
-                if email.date and email.date > thirty_days_ago
+                if email.date and _ensure_timezone_aware(email.date) > thirty_days_ago
             ] if sub.source_emails else []
 
             if not recent_emails:
@@ -298,7 +311,7 @@ class ReviewSuggestionsService:
                         reverse=True
                     )
                     if all_emails_sorted:
-                        days_since = (now - all_emails_sorted[0].date).days
+                        days_since = (now - _ensure_timezone_aware(all_emails_sorted[0].date)).days
 
                 suggestions.append(ReviewSuggestion(
                     subscription_id=sub.id,

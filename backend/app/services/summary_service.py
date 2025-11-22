@@ -174,7 +174,7 @@ class SummaryService:
             'period_type': period_type,
             'start_date': start_date.strftime('%B %d, %Y'),
             'end_date': end_date.strftime('%B %d, %Y'),
-            'user_name': user.full_name or user.email.split('@')[0],
+            'user_name': user.display_name or user.email.split('@')[0],
 
             # Overview
             'total_subscriptions': len(active_subscriptions),

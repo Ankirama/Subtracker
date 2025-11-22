@@ -38,6 +38,8 @@ class User(Base):
 
     # Relationships
     mailboxes = relationship("Mailbox", back_populates="user", cascade="all, delete-orphan")
+    cancellation_feedback = relationship("CancellationFeedback", back_populates="user", cascade="all, delete-orphan")
+    push_subscriptions = relationship("PushSubscription", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User {self.email}>"

@@ -23,7 +23,11 @@ from app.schemas.auth import (
     BackupCodesRegenerateResponse,
     EmailVerificationResponse,
     EmailVerificationRequest,
-    ResendVerificationRequest
+    ResendVerificationRequest,
+    ProfileUpdateRequest,
+    PasswordChangeRequest,
+    UserPreferencesUpdate,
+    DeleteAccountRequest
 )
 from app.security.password import hash_password, verify_password
 from app.security.jwt import create_access_token, create_refresh_token, verify_token
@@ -430,6 +434,165 @@ async def logout(current_user: User = Depends(get_current_user)):
     logger.info(f"User logged out: {current_user.email}")
 
     return {"message": "Successfully logged out"}
+
+
+# Account Management Endpoints
+
+@router.put("/me/profile", response_model=UserResponse)
+async def update_profile(
+    profile_data: ProfileUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user profile (display_name, email).
+
+    Args:
+        profile_data: Profile update data
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        Updated user information
+    """
+    # Update display_name if provided
+    if profile_data.display_name is not None:
+        current_user.display_name = profile_data.display_name
+
+    # Update email if provided and different
+    if profile_data.email and profile_data.email != current_user.email:
+        # Check if email already exists
+        existing_user = db.query(User).filter(User.email == profile_data.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        current_user.email = profile_data.email
+        current_user.email_verified = False  # Re-verify new email
+
+    db.commit()
+    db.refresh(current_user)
+
+    logger.info(f"Profile updated for user: {current_user.email}")
+    return UserResponse.model_validate(current_user)
+
+
+@router.put("/me/password")
+async def change_password(
+    password_data: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Change user password.
+
+    Args:
+        password_data: Password change data with current and new password
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    # Verify current password
+    if not verify_password(password_data.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+
+    # Hash new password
+    new_hash, new_salt = hash_password(password_data.new_password)
+    current_user.password_hash = new_hash
+    current_user.salt = new_salt
+
+    db.commit()
+
+    logger.info(f"Password changed for user: {current_user.email}")
+    return {"message": "Password changed successfully"}
+
+
+@router.put("/me/preferences")
+async def update_preferences(
+    preferences_data: UserPreferencesUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Update user preferences (theme, language, currency, etc.).
+
+    Args:
+        preferences_data: User preferences update data
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        Updated preferences
+    """
+    # Get current settings or initialize empty dict
+    settings = current_user.settings if isinstance(current_user.settings, dict) else {}
+
+    # Update preferences
+    if preferences_data.theme is not None:
+        settings['theme'] = preferences_data.theme
+    if preferences_data.language is not None:
+        settings['language'] = preferences_data.language
+    if preferences_data.currency is not None:
+        settings['currency'] = preferences_data.currency
+    if preferences_data.date_format is not None:
+        settings['date_format'] = preferences_data.date_format
+    if preferences_data.timezone is not None:
+        settings['timezone'] = preferences_data.timezone
+
+    current_user.settings = settings
+    db.commit()
+    db.refresh(current_user)
+
+    logger.info(f"Preferences updated for user: {current_user.email}")
+    return {"message": "Preferences updated successfully", "preferences": settings}
+
+
+@router.delete("/me")
+async def delete_account(
+    delete_data: DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete user account (requires password confirmation).
+
+    Args:
+        delete_data: Account deletion request with password
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        Success message
+    """
+    from app.schemas.auth import DeleteAccountRequest
+    from app.security.password import verify_password
+
+    # Verify password
+    if not verify_password(delete_data.password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password is incorrect"
+        )
+
+    # Verify confirmation
+    if not delete_data.confirm:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Account deletion not confirmed"
+        )
+
+    email = current_user.email
+    db.delete(current_user)
+    db.commit()
+
+    logger.info(f"Account deleted for user: {email}")
+    return {"message": "Account deleted successfully"}
 
 
 # Two-Factor Authentication Endpoints

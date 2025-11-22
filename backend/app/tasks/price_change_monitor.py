@@ -6,6 +6,7 @@ Detects when subscription prices change and sends notifications to users.
 from datetime import datetime, timedelta
 from typing import Tuple
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from decimal import Decimal
 import logging
 
@@ -333,8 +334,9 @@ def check_price_changes():
     2. Checks if prices have changed since last check
     3. Sends notifications for price changes
     """
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         logger.info("Starting price change monitoring...")
 
         # Get all active subscriptions with prices
@@ -360,11 +362,10 @@ def check_price_changes():
                 # Check user preferences
                 pref = db.query(NotificationPreference).filter(
                     NotificationPreference.user_id == subscription.user_id,
-                    NotificationPreference.notification_type == NotificationType.PRICE_CHANGE,
-                    NotificationPreference.enabled == True
+                    NotificationPreference.notification_type == NotificationType.PRICE_CHANGE
                 ).first()
 
-                # Default to enabled if no preference exists
+                # Default to enabled if no preference exists, otherwise respect the preference
                 if pref is None or pref.enabled:
                     if should_send_price_change_notification(subscription, db):
                         # Create notification
@@ -395,6 +396,8 @@ def check_price_changes():
                         metadata['last_known_price'] = float(new_price)
                         metadata['price_change_detected_at'] = datetime.now().isoformat()
                         subscription.extraction_metadata = metadata
+                        # Mark the JSONB column as modified so SQLAlchemy tracks the change
+                        flag_modified(subscription, 'extraction_metadata')
                         db.commit()
 
         logger.info(f"Price monitoring complete: {total_changes} changes detected, "
@@ -413,4 +416,5 @@ def check_price_changes():
             "error": str(e)
         }
     finally:
-        db.close()
+        if db is not None:
+            db.close()
