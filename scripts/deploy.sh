@@ -62,13 +62,18 @@ print_success "Environment variables configured"
 
 # Create necessary directories
 print_status "Creating required directories..."
-mkdir -p "$PROJECT_DIR/data/postgres"
-mkdir -p "$PROJECT_DIR/data/redis"
-mkdir -p "$PROJECT_DIR/certbot/conf"
-mkdir -p "$PROJECT_DIR/certbot/www"
 mkdir -p "$PROJECT_DIR/backups"
 mkdir -p "$PROJECT_DIR/logs"
 print_success "Directories created"
+
+# Check if proxy network exists (required for Traefik integration)
+print_status "Checking Traefik proxy network..."
+if ! docker network ls | grep -q "proxy"; then
+    echo -e "${RED}Error: 'proxy' network not found. Make sure Traefik is running.${NC}"
+    echo "Create it with: docker network create proxy"
+    exit 1
+fi
+print_success "Traefik proxy network found"
 
 # Pull latest images or build
 print_status "Building Docker images..."
@@ -90,7 +95,7 @@ print_status "Waiting for services to be healthy..."
 sleep 10
 
 # Check service health
-services=("postgres" "redis" "backend" "celery-worker" "celery-beat" "frontend" "nginx")
+services=("postgres" "redis" "backend" "celery_worker" "celery_beat" "frontend")
 for service in "${services[@]}"; do
     if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps | grep -q "$service.*Up"; then
         print_success "$service is running"
@@ -104,39 +109,30 @@ print_status "Running database migrations..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T backend alembic upgrade head
 print_success "Migrations completed"
 
-# SSL Certificate setup (first time only)
-if [ ! -f "$PROJECT_DIR/certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
-    print_status "Setting up SSL certificate..."
-    echo "Running certbot for initial certificate..."
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" run --rm certbot certonly \
-        --webroot \
-        --webroot-path=/var/www/certbot \
-        -d "$DOMAIN" \
-        --email "$CERTBOT_EMAIL" \
-        --agree-tos \
-        --no-eff-email
-
-    # Reload nginx to pick up the certificate
-    docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec nginx nginx -s reload
-    print_success "SSL certificate obtained"
-fi
-
 # Final health check
 print_status "Running final health check..."
 sleep 5
 
-# Check if backend is responding
-if curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000/health" | grep -q "200"; then
-    print_success "Backend health check passed"
+# Check if backend is responding (via Traefik)
+FULL_DOMAIN="${SUBDOMAIN}.${DOMAIN_NAME}"
+if curl -s -o /dev/null -w "%{http_code}" "https://${FULL_DOMAIN}/health" | grep -q "200"; then
+    print_success "Backend health check passed (via Traefik)"
 else
-    echo -e "${YELLOW}Warning: Backend health check failed${NC}"
+    # Fallback to direct container check
+    if docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T backend curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000/health" | grep -q "200"; then
+        print_success "Backend health check passed (direct)"
+    else
+        echo -e "${YELLOW}Warning: Backend health check failed - service may need more time to start${NC}"
+    fi
 fi
 
 echo -e "${GREEN}======================================${NC}"
 echo -e "${GREEN}  Deployment Complete!${NC}"
 echo -e "${GREEN}======================================${NC}"
 echo ""
-echo "Your application should be available at: https://$DOMAIN"
+echo "Your application should be available at: https://${FULL_DOMAIN}"
+echo ""
+echo "Note: SSL is handled by Traefik automatically."
 echo ""
 echo "Useful commands:"
 echo "  View logs:     docker compose -f $COMPOSE_FILE logs -f"

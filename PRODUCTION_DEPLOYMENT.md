@@ -1,11 +1,12 @@
 # Production Deployment Guide
 
-This guide walks you through deploying Subscription Tracker to production on your Ubuntu server.
+This guide walks you through deploying Subscription Tracker to production on your Ubuntu server with Traefik reverse proxy.
 
 ## Prerequisites
 
 - Ubuntu server (tested on Ubuntu 22.04+)
 - Docker and Docker Compose installed
+- **Traefik reverse proxy already running** (with `proxy` network and `mytlschallenge` certresolver)
 - Domain name pointed to your server (`subtracker.ankirama.com`)
 - SSH access to your server
 
@@ -85,13 +86,11 @@ POSTGRES_PASSWORD=<generate-strong-password>
 JWT_SECRET_KEY=<run: openssl rand -hex 32>
 ENCRYPTION_KEY=<run: openssl rand -base64 32>
 
-# Domain
-DOMAIN=subtracker.ankirama.com
+# Domain (for Traefik integration)
+DOMAIN_NAME=ankirama.com
+SUBDOMAIN=subtracker
 FRONTEND_URL=https://subtracker.ankirama.com
 CORS_ORIGINS=https://subtracker.ankirama.com
-
-# SSL Certificate email
-CERTBOT_EMAIL=your-email@example.com
 
 # OpenAI API
 OPENAI_API_KEY=sk-your-actual-key
@@ -207,12 +206,7 @@ crontab -e
 
 ### SSL Certificate Renewal
 
-Let's Encrypt certificates auto-renew via the certbot container. To manually renew:
-
-```bash
-docker compose -f docker-compose.prod.yml run --rm certbot renew
-docker compose -f docker-compose.prod.yml exec nginx nginx -s reload
-```
+SSL certificates are managed automatically by Traefik using Let's Encrypt. No manual intervention is required - Traefik handles certificate renewal automatically.
 
 ### Updates
 
@@ -248,12 +242,14 @@ docker compose -f docker-compose.prod.yml exec postgres psql -U subscriptions -l
 
 ### SSL certificate issues
 
-```bash
-# Check certbot logs
-docker compose -f docker-compose.prod.yml logs certbot
+SSL is handled by Traefik. Check Traefik's logs if you encounter certificate issues:
 
-# Verify domain is accessible
-curl -I http://subtracker.ankirama.com/.well-known/acme-challenge/test
+```bash
+# Check your Traefik container logs
+docker logs traefik
+
+# Verify domain is accessible via Traefik
+curl -I https://subtracker.ankirama.com/health
 ```
 
 ### High memory usage
@@ -298,8 +294,8 @@ sudo ufw enable
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Nginx (Port 80, 443)                     │
-│              SSL Termination + Reverse Proxy                │
+│               Traefik (External - Port 80, 443)             │
+│    SSL Termination + Reverse Proxy (shared with n8n, etc)   │
 └─────────────────────────────────────────────────────────────┘
                     │                    │
                     ▼                    ▼
