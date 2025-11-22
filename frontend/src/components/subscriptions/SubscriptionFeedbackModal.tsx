@@ -110,7 +110,7 @@ export const SubscriptionFeedbackModal = ({
               <Text fontWeight="medium" mb={2}>
                 Subscription: {subscription.provider}
               </Text>
-              <Text fontSize="sm" color="gray.600">
+              <Text fontSize="sm" color="text.subtle">
                 Amount: €{subscription.amount || 'N/A'} • {subscription.billing_cycle}
               </Text>
             </Box>
@@ -136,7 +136,7 @@ export const SubscriptionFeedbackModal = ({
                       <Radio value={option.value} colorScheme="blue">
                         <VStack align="start" spacing={0} ml={2}>
                           <Text fontWeight="medium">{option.label}</Text>
-                          <Text fontSize="sm" color="gray.600">
+                          <Text fontSize="sm" color="text.subtle">
                             {option.description}
                           </Text>
                         </VStack>

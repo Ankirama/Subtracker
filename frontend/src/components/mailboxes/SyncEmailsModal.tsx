@@ -62,7 +62,7 @@ export const SyncEmailsModal = ({
   const [selectedPeriod, setSelectedPeriod] = useState<SyncPeriod>('30days')
   const [customDays, setCustomDays] = useState<string>('60')
   const [syncStatus, setSyncStatus] = useState<MailboxSyncStatus | null>(null)
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
+  const [pollingInterval, setPollingInterval] = useState<number | null>(null)
   const [startTime, setStartTime] = useState<Date | null>(null)
 
   const syncMutation = useMutation({
@@ -166,7 +166,7 @@ export const SyncEmailsModal = ({
             {/* Mailbox Info */}
             {mailbox && (
               <Box>
-                <Text fontSize="sm" color="gray.600" mb={1}>Syncing mailbox:</Text>
+                <Text fontSize="sm" color="text.subtle" mb={1}>Syncing mailbox:</Text>
                 <Text fontWeight="semibold">{mailbox.display_name || mailbox.email_address}</Text>
               </Box>
             )}
@@ -187,7 +187,7 @@ export const SyncEmailsModal = ({
                     ))}
                   </Select>
                   {selectedPeriodInfo && (
-                    <Text fontSize="sm" color="gray.600" mt={2}>
+                    <Text fontSize="sm" color="text.subtle" mt={2}>
                       {selectedPeriodInfo.description}
                     </Text>
                   )}
@@ -205,7 +205,7 @@ export const SyncEmailsModal = ({
                     >
                       <NumberInputField placeholder="e.g., 60, 730" />
                     </NumberInput>
-                    <Text fontSize="xs" color="gray.600" mt={1}>
+                    <Text fontSize="xs" color="text.subtle" mt={1}>
                       Enter 1-3650 days (maximum ~10 years)
                     </Text>
                   </FormControl>
@@ -256,7 +256,7 @@ export const SyncEmailsModal = ({
                 {isSyncing && (
                   <Box>
                     <Progress size="sm" isIndeterminate colorScheme="blue" borderRadius="md" />
-                    <Text fontSize="xs" color="gray.600" mt={1} textAlign="center">
+                    <Text fontSize="xs" color="text.subtle" mt={1} textAlign="center">
                       Processing emails... This may take several minutes
                     </Text>
                   </Box>
@@ -288,7 +288,7 @@ export const SyncEmailsModal = ({
                 {/* Time Elapsed */}
                 {startTime && (
                   <HStack justify="space-between" fontSize="sm">
-                    <HStack spacing={1} color="gray.600">
+                    <HStack spacing={1} color="text.subtle">
                       <Icon as={FiClock} />
                       <Text>Time Elapsed:</Text>
                     </HStack>
@@ -341,7 +341,7 @@ export const SyncEmailsModal = ({
           )}
 
           {isSyncing && (
-            <Text fontSize="sm" color="gray.600">
+            <Text fontSize="sm" color="text.subtle">
               Syncing in progress... Please wait
             </Text>
           )}

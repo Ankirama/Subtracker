@@ -160,15 +160,23 @@ export const SubscriptionModal = ({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="xl">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size={{ base: 'full', md: 'xl' }}
+      motionPreset="slideInBottom"
+    >
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent
+        maxH={{ base: '100vh', md: 'auto' }}
+        my={{ base: 0, md: 'auto' }}
+      >
         <ModalHeader>
           {subscription ? 'Edit Subscription' : 'Add Subscription'}
         </ModalHeader>
         <ModalCloseButton />
 
-        <ModalBody>
+        <ModalBody overflowY="auto" px={{ base: 4, md: 6 }} py={{ base: 4, md: 6 }}>
           <VStack spacing={4}>
             <FormControl isRequired>
               <FormLabel>Provider</FormLabel>
@@ -275,14 +283,22 @@ export const SubscriptionModal = ({
           </VStack>
         </ModalBody>
 
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={onClose}>
+        <ModalFooter
+          px={{ base: 4, md: 6 }}
+          py={{ base: 4, md: 6 }}
+          borderTopWidth={{ base: '1px', md: 0 }}
+          position={{ base: 'sticky', md: 'relative' }}
+          bottom={{ base: 0, md: 'auto' }}
+          bg="white"
+        >
+          <Button variant="ghost" mr={3} onClick={onClose} w={{ base: 'full', md: 'auto' }}>
             Cancel
           </Button>
           <Button
             colorScheme="blue"
             onClick={handleSubmit}
             isLoading={createMutation.isPending || updateMutation.isPending}
+            w={{ base: 'full', md: 'auto' }}
           >
             {subscription ? 'Save Changes' : 'Create Subscription'}
           </Button>

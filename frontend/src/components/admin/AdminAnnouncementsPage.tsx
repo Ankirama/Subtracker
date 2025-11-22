@@ -170,7 +170,7 @@ export const AdminAnnouncementsPage = () => {
                 </HStack>
                 <Collapse in={showMarkdownHelp} animateOpacity>
                   <Box
-                    bg="blue.50"
+                    bg="bg.accent.blue"
                     borderColor="blue.200"
                     borderWidth="1px"
                     borderRadius="md"
@@ -248,7 +248,7 @@ Expected downtime: ~30 minutes
                     <Badge colorScheme={currentPriorityInfo.color} fontSize="sm">
                       {currentPriorityInfo.label} Priority
                     </Badge>
-                    <Text fontSize="sm" color="gray.600">
+                    <Text fontSize="sm" color="text.subtle">
                       {currentPriorityInfo.description}
                     </Text>
                   </HStack>
@@ -268,13 +268,13 @@ Expected downtime: ~30 minutes
                   <Stack direction="column" spacing={3}>
                     <Radio value="all">
                       <Text fontWeight="medium">All Users</Text>
-                      <Text fontSize="sm" color="gray.600">
+                      <Text fontSize="sm" color="text.subtle">
                         Send to all active users in the system
                       </Text>
                     </Radio>
                     <Radio value="specific" isDisabled>
                       <Text fontWeight="medium">Specific Users</Text>
-                      <Text fontSize="sm" color="gray.600">
+                      <Text fontSize="sm" color="text.subtle">
                         Target specific users (coming soon)
                       </Text>
                     </Radio>
@@ -283,7 +283,7 @@ Expected downtime: ~30 minutes
               </FormControl>
 
               {/* Preview Section */}
-              <Box borderWidth="1px" borderColor={borderColor} borderRadius="md" p={4} bg="gray.50">
+              <Box borderWidth="1px" borderColor={borderColor} borderRadius="md" p={4} bg="bg.subtle">
                 <Text fontSize="sm" fontWeight="bold" mb={3} color="gray.700">
                   📱 Preview (as users will see it)
                 </Text>
@@ -332,7 +332,7 @@ Expected downtime: ~30 minutes
         </HStack>
 
         {/* Info Section */}
-        <Card bg="blue.50" borderColor="blue.200" borderWidth="1px">
+        <Card bg="bg.accent.blue" borderColor="blue.200" borderWidth="1px">
           <CardBody>
             <VStack align="start" spacing={2}>
               <Text fontWeight="bold" color="blue.800">

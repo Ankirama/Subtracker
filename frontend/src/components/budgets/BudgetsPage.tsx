@@ -112,7 +112,7 @@ export const BudgetsPage = () => {
         <HStack justify="space-between">
           <Box>
             <Heading size="lg">Budget Management</Heading>
-            <Text color="gray.600">
+            <Text color="text.subtle">
               Track your subscription spending and set limits
             </Text>
           </Box>
@@ -169,7 +169,7 @@ export const BudgetsPage = () => {
         ) : (
           <Box textAlign="center" py={12}>
             <Icon as={FiAlertTriangle} boxSize={12} color="gray.400" mb={4} />
-            <Heading size="md" mb={2} color="gray.600">
+            <Heading size="md" mb={2} color="text.subtle">
               No budgets yet
             </Heading>
             <Text color="gray.500" mb={4}>

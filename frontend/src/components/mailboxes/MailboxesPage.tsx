@@ -34,7 +34,7 @@ export const MailboxesPage = () => {
   const [syncMailbox, setSyncMailbox] = useState<Mailbox | null>(null)
   const [syncingMailboxId, setSyncingMailboxId] = useState<string | null>(null)
   const [syncStatuses, setSyncStatuses] = useState<Map<string, MailboxSyncStatus>>(new Map())
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const pollingIntervalRef = useRef<number | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { isOpen: isSyncOpen, onOpen: onSyncOpen, onClose: onSyncClose } = useDisclosure()
 
@@ -235,7 +235,7 @@ export const MailboxesPage = () => {
         <HStack justify="space-between">
           <Box>
             <Heading size="lg">Mailboxes</Heading>
-            <Text color="gray.600">
+            <Text color="text.subtle">
               {mailboxes?.length || 0} connected mailbox{mailboxes?.length !== 1 ? 'es' : ''}
             </Text>
           </Box>
@@ -254,7 +254,7 @@ export const MailboxesPage = () => {
             <CardBody>
               <Center py={8}>
                 <VStack spacing={4}>
-                  <Text fontSize="lg" color="gray.600">
+                  <Text fontSize="lg" color="text.subtle">
                     No mailboxes connected yet
                   </Text>
                   <Text color="gray.500">
@@ -286,7 +286,7 @@ export const MailboxesPage = () => {
                             {mailbox.is_active ? 'Active' : 'Inactive'}
                           </Badge>
                         </HStack>
-                        <Text fontSize="sm" color="gray.600">
+                        <Text fontSize="sm" color="text.subtle">
                           {mailbox.email_address}
                         </Text>
                       </VStack>
@@ -317,7 +317,7 @@ export const MailboxesPage = () => {
                         <Text fontSize="sm" fontWeight="medium">
                           Last Sync:
                         </Text>
-                        <Text fontSize="sm" color="gray.600">
+                        <Text fontSize="sm" color="text.subtle">
                           {formatDate(mailbox.last_sync_at)}
                         </Text>
                       </HStack>
@@ -354,7 +354,7 @@ export const MailboxesPage = () => {
                           {syncStatuses.get(mailbox.id)?.status === 'in_progress' && (
                             <>
                               <Progress size="xs" isIndeterminate colorScheme="blue" />
-                              <HStack justify="space-between" fontSize="xs" color="gray.600">
+                              <HStack justify="space-between" fontSize="xs" color="text.subtle">
                                 <Text>
                                   Emails: {syncStatuses.get(mailbox.id)?.total_emails_processed || 0}
                                 </Text>
@@ -378,7 +378,7 @@ export const MailboxesPage = () => {
                           <Text fontSize="sm" fontWeight="medium">
                             Last Sync Results:
                           </Text>
-                          <HStack spacing={3} fontSize="sm" color="gray.600">
+                          <HStack spacing={3} fontSize="sm" color="text.subtle">
                             <Text>{mailbox.last_sync_emails_processed} emails</Text>
                             <Text>•</Text>
                             <Text>{mailbox.last_sync_subscriptions_found || 0} subs</Text>
@@ -398,7 +398,7 @@ export const MailboxesPage = () => {
                         <Text fontSize="sm" fontWeight="medium">
                           Provider:
                         </Text>
-                        <Text fontSize="sm" color="gray.600" textTransform="uppercase">
+                        <Text fontSize="sm" color="text.subtle" textTransform="uppercase">
                           {mailbox.provider_type}
                         </Text>
                       </HStack>
@@ -407,7 +407,7 @@ export const MailboxesPage = () => {
                         <Text fontSize="sm" fontWeight="medium">
                           Sync Frequency:
                         </Text>
-                        <Text fontSize="sm" color="gray.600" textTransform="capitalize">
+                        <Text fontSize="sm" color="text.subtle" textTransform="capitalize">
                           {mailbox.sync_frequency}
                         </Text>
                       </HStack>

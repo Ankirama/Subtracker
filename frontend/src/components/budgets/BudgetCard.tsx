@@ -124,7 +124,7 @@ export const BudgetCard = ({ budgetStatus, onEdit, onDelete }: BudgetCardProps) 
             hasStripe={budgetStatus.status === 'warning'}
             isAnimated={budgetStatus.status === 'warning'}
           />
-          <Text fontSize="sm" color="gray.600" mt={1}>
+          <Text fontSize="sm" color="text.subtle" mt={1}>
             {budgetStatus.percentage_used.toFixed(1)}% used
           </Text>
         </Box>
@@ -154,7 +154,7 @@ export const BudgetCard = ({ budgetStatus, onEdit, onDelete }: BudgetCardProps) 
         </HStack>
 
         {/* Period Info */}
-        <HStack justify="space-between" fontSize="sm" color="gray.600">
+        <HStack justify="space-between" fontSize="sm" color="text.subtle">
           <Text textTransform="capitalize">{budgetStatus.period} budget</Text>
           <Text>
             {new Date(budgetStatus.period_start).toLocaleDateString()} -{' '}

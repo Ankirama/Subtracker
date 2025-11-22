@@ -71,7 +71,7 @@ export const TwoFactorSettingsPage = () => {
           <Heading size="lg" mb={2}>
             🔐 Two-Factor Authentication
           </Heading>
-          <Text color="gray.600">
+          <Text color="text.subtle">
             Add an extra layer of security to your account
           </Text>
         </Box>
@@ -126,7 +126,7 @@ export const TwoFactorSettingsPage = () => {
               )}
 
               {!status.enabled && (
-                <Text color="gray.600">
+                <Text color="text.subtle">
                   Two-factor authentication is not enabled. Enable it below to add extra security to your account.
                 </Text>
               )}
@@ -148,7 +148,7 @@ export const TwoFactorSettingsPage = () => {
 
         {isLoading && (
           <Box textAlign="center" py={8}>
-            <Text color="gray.600">Loading 2FA settings...</Text>
+            <Text color="text.subtle">Loading 2FA settings...</Text>
           </Box>
         )}
       </VStack>
@@ -205,7 +205,7 @@ const EnableTwoFactorSection = ({ onSuccess }: { onSuccess: () => void }) => {
               <Radio value="totp">
                 <Box>
                   <Text fontWeight="bold">Authenticator App (TOTP)</Text>
-                  <Text fontSize="sm" color="gray.600">
+                  <Text fontSize="sm" color="text.subtle">
                     Use apps like Google Authenticator, Authy, or 1Password
                   </Text>
                 </Box>
@@ -213,7 +213,7 @@ const EnableTwoFactorSection = ({ onSuccess }: { onSuccess: () => void }) => {
               <Radio value="email">
                 <Box>
                   <Text fontWeight="bold">Email OTP</Text>
-                  <Text fontSize="sm" color="gray.600">
+                  <Text fontSize="sm" color="text.subtle">
                     Receive verification codes via email
                   </Text>
                 </Box>
@@ -330,7 +330,7 @@ const SetupModal = ({
                   <Box textAlign="center">
                     <Image src={setupData.qr_code} alt="QR Code" maxW="250px" mx="auto" />
                   </Box>
-                  <Text fontSize="sm" color="gray.600">
+                  <Text fontSize="sm" color="text.subtle">
                     Or enter this secret key manually:
                   </Text>
                   <Code p={2} borderRadius="md" fontSize="sm">
@@ -356,7 +356,7 @@ const SetupModal = ({
                   maxLength={6}
                   autoFocus
                 />
-                <Text fontSize="xs" color="gray.600" mt={1}>
+                <Text fontSize="xs" color="text.subtle" mt={1}>
                   Enter the 6-digit code from your {setupData.method === 'totp' ? 'authenticator app' : 'email'}
                 </Text>
               </FormControl>
@@ -597,7 +597,7 @@ const BackupCodesSection = ({ backupCodesRemaining }: { backupCodesRemaining: nu
         </Heading>
 
         <VStack align="start" spacing={4}>
-          <Text color="gray.600">
+          <Text color="text.subtle">
             Backup codes allow you to access your account if you lose your 2FA device. Each code can only be used once.
           </Text>
 

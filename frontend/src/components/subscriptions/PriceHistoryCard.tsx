@@ -229,7 +229,7 @@ export const PriceHistoryCard: React.FC<PriceHistoryCardProps> = ({ subscription
                   </VStack>
                 </HStack>
                 {change.notes && (
-                  <Text fontSize="sm" color="gray.600" mt={2}>
+                  <Text fontSize="sm" color="text.subtle" mt={2}>
                     {change.notes}
                   </Text>
                 )}

@@ -245,7 +245,7 @@ export const ManualTestTab = () => {
 
                 <Box>
                   <Text fontWeight="bold" mb={2}>AI Reasoning:</Text>
-                  <Box bg="gray.50" p={4} borderRadius="md">
+                  <Box bg="bg.subtle" p={4} borderRadius="md">
                     <Text whiteSpace="pre-wrap">{classificationResult.reasoning}</Text>
                   </Box>
                 </Box>
@@ -324,7 +324,7 @@ export const ManualTestTab = () => {
                     <Divider />
                     <Box>
                       <Text fontWeight="bold" mb={2}>Raw AI Response:</Text>
-                      <Box bg="gray.50" p={4} borderRadius="md" maxH="300px" overflowY="auto">
+                      <Box bg="bg.subtle" p={4} borderRadius="md" maxH="300px" overflowY="auto">
                         <Code display="block" whiteSpace="pre-wrap" fontSize="xs">
                           {JSON.stringify(extractionResult.raw_response, null, 2)}
                         </Code>

@@ -39,6 +39,7 @@ import {
 } from 'recharts'
 import { FiTrendingUp, FiPieChart, FiDollarSign, FiCalendar, FiDownload } from 'react-icons/fi'
 import { subscriptionsAPI } from '../../api/subscriptions'
+import { SubscriptionStats, Subscription, AnalyticsResponse } from '../../types'
 import { useState } from 'react'
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D']
@@ -46,19 +47,19 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'
 export const AnalyticsPage = () => {
   const [timeRange, setTimeRange] = useState<'3m' | '6m' | '1y'>('6m')
 
-  const { data: stats, isLoading, error } = useQuery({
+  const { data: stats, isLoading, error } = useQuery<SubscriptionStats>({
     queryKey: ['subscriptionStats'],
-    queryFn: subscriptionsAPI.getStats,
+    queryFn: () => subscriptionsAPI.getStats(),
   })
 
-  const { data: subscriptions } = useQuery({
+  const { data: subscriptions } = useQuery<{ subscriptions: Subscription[], total: number }>({
     queryKey: ['subscriptions'],
     queryFn: () => subscriptionsAPI.getAll({}),
   })
 
   // Get analytics data based on selected time range
   const monthsMap = { '3m': 3, '6m': 6, '1y': 12 }
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+  const { data: analytics, isLoading: analyticsLoading } = useQuery<AnalyticsResponse>({
     queryKey: ['subscriptionAnalytics', timeRange],
     queryFn: () => subscriptionsAPI.getAnalytics(monthsMap[timeRange]),
   })
@@ -202,7 +203,7 @@ export const AnalyticsPage = () => {
         <HStack justify="space-between">
           <Box>
             <Heading size="lg">Analytics & Insights</Heading>
-            <Text color="gray.600">Visualize your subscription spending patterns</Text>
+            <Text color="text.subtle">Visualize your subscription spending patterns</Text>
           </Box>
           <HStack spacing={4}>
             <Select
@@ -395,14 +396,14 @@ export const AnalyticsPage = () => {
                       />
                       <VStack align="start" spacing={0}>
                         <Text fontWeight="medium">{category.name}</Text>
-                        <Text fontSize="sm" color="gray.600">
+                        <Text fontSize="sm" color="text.subtle">
                           {category.count} subscription{category.count !== 1 ? 's' : ''}
                         </Text>
                       </VStack>
                     </HStack>
                     <VStack align="end" spacing={0}>
                       <Text fontWeight="bold">{formatCurrency(category.value)}</Text>
-                      <Text fontSize="sm" color="gray.600">
+                      <Text fontSize="sm" color="text.subtle">
                         /month
                       </Text>
                     </VStack>
@@ -419,7 +420,7 @@ export const AnalyticsPage = () => {
         </SimpleGrid>
 
         {/* Insights Section */}
-        <Card bg="blue.50" borderColor="blue.200">
+        <Card bg="bg.accent.blue" borderColor="blue.200">
           <CardBody>
             <Heading size="md" mb={3}>
               💡 Insights & Recommendations
@@ -477,7 +478,7 @@ export const AnalyticsPage = () => {
                 </>
               )}
               {(!stats || stats.total_monthly_cost === 0) && (
-                <Text color="gray.600">
+                <Text color="text.subtle">
                   Add subscriptions to see personalized insights and recommendations
                 </Text>
               )}

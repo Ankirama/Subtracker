@@ -155,12 +155,20 @@ export const BudgetModal = ({ isOpen, onClose, budget }: BudgetModalProps) => {
   const isLoading = createMutation.isPending || updateMutation.isPending
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      size={{ base: 'full', md: 'lg' }}
+      motionPreset="slideInBottom"
+    >
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent
+        maxH={{ base: '100vh', md: 'auto' }}
+        my={{ base: 0, md: 'auto' }}
+      >
         <ModalHeader>{budget ? 'Edit Budget' : 'Create Budget'}</ModalHeader>
         <ModalCloseButton />
-        <ModalBody>
+        <ModalBody overflowY="auto" px={{ base: 4, md: 6 }} py={{ base: 4, md: 6 }}>
           <VStack spacing={4} align="stretch">
             <FormControl isRequired>
               <FormLabel>Budget Name</FormLabel>
@@ -189,7 +197,7 @@ export const BudgetModal = ({ isOpen, onClose, budget }: BudgetModalProps) => {
                   </option>
                 ))}
               </Select>
-              <Text fontSize="sm" color="gray.600" mt={1}>
+              <Text fontSize="sm" color="text.subtle" mt={1}>
                 Leave empty for an overall budget across all categories
               </Text>
             </FormControl>
@@ -245,7 +253,7 @@ export const BudgetModal = ({ isOpen, onClose, budget }: BudgetModalProps) => {
                   <NumberDecrementStepper />
                 </NumberInputStepper>
               </NumberInput>
-              <Text fontSize="sm" color="gray.600" mt={1}>
+              <Text fontSize="sm" color="text.subtle" mt={1}>
                 Get alerted when spending reaches this percentage
               </Text>
             </FormControl>
@@ -264,8 +272,15 @@ export const BudgetModal = ({ isOpen, onClose, budget }: BudgetModalProps) => {
           </VStack>
         </ModalBody>
 
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={onClose}>
+        <ModalFooter
+          px={{ base: 4, md: 6 }}
+          py={{ base: 4, md: 6 }}
+          borderTopWidth={{ base: '1px', md: 0 }}
+          position={{ base: 'sticky', md: 'relative' }}
+          bottom={{ base: 0, md: 'auto' }}
+          bg="white"
+        >
+          <Button variant="ghost" mr={3} onClick={onClose} w={{ base: 'full', md: 'auto' }}>
             Cancel
           </Button>
           <Button
@@ -273,6 +288,7 @@ export const BudgetModal = ({ isOpen, onClose, budget }: BudgetModalProps) => {
             onClick={handleSubmit}
             isLoading={isLoading}
             loadingText={budget ? 'Updating...' : 'Creating...'}
+            w={{ base: 'full', md: 'auto' }}
           >
             {budget ? 'Update' : 'Create'}
           </Button>

@@ -30,7 +30,7 @@ export const CancellationSuggestionBanner = ({
   const [isVisible, setIsVisible] = useState(true)
   const toast = useToast()
 
-  const bgColor = useColorModeValue('orange.50', 'orange.900')
+  const bgColor = useColorModeValue('orange.50', 'gray.700')
   const borderColor = useColorModeValue('orange.400', 'orange.600')
 
   // Don't show banner if no suggestion exists or if it's been dismissed
@@ -108,7 +108,7 @@ export const CancellationSuggestionBanner = ({
         <AlertTitle mb={1}>AI Detected Potential Cancellation</AlertTitle>
         <AlertDescription display="block">
           <Text mb={2}>{subscription.cancellation_suggestion_reason}</Text>
-          <Text fontSize="sm" color="gray.600" mb={3}>
+          <Text fontSize="sm" color="text.subtle" mb={3}>
             Detected {suggestionAge}
           </Text>
           <HStack spacing={3}>

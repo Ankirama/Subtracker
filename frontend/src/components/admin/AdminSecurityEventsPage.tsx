@@ -504,7 +504,7 @@ export const AdminSecurityEventsPage = () => {
             {/* Pagination */}
             {totalPages > 1 && (
               <Flex justify="space-between" align="center" mt={4}>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize="sm" color="text.subtle">
                   Showing page {currentPage} of {totalPages} ({totalEvents} total
                   events)
                 </Text>
@@ -635,7 +635,7 @@ export const AdminSecurityEventsPage = () => {
                       </Text>
                       <Box
                         p={3}
-                        bg="gray.50"
+                        bg="bg.subtle"
                         borderRadius="md"
                         fontSize="sm"
                         fontFamily="mono"

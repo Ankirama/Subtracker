@@ -276,7 +276,7 @@ export const NotificationBell = () => {
                           {notification.priority}
                         </Badge>
                       </HStack>
-                      <Text fontSize="xs" color="gray.600" noOfLines={2}>
+                      <Text fontSize="xs" color="text.subtle" noOfLines={2}>
                         {notification.message}
                       </Text>
                       <Text fontSize="xs" color="gray.500">

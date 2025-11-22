@@ -233,15 +233,23 @@ export const AddMailboxModal = ({
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      size={{ base: 'full', md: 'lg' }}
+      motionPreset="slideInBottom"
+    >
       <ModalOverlay />
-      <ModalContent>
+      <ModalContent
+        maxH={{ base: '100vh', md: 'auto' }}
+        my={{ base: 0, md: 'auto' }}
+      >
         <ModalHeader>
           {mailbox ? 'Edit Mailbox' : 'Add Mailbox'}
         </ModalHeader>
         <ModalCloseButton />
 
-        <ModalBody>
+        <ModalBody overflowY="auto" px={{ base: 4, md: 6 }} py={{ base: 4, md: 6 }}>
           <VStack spacing={4}>
             <Alert status="info" borderRadius="md">
               <AlertIcon />
@@ -367,8 +375,15 @@ export const AddMailboxModal = ({
           </VStack>
         </ModalBody>
 
-        <ModalFooter>
-          <Button variant="ghost" mr={3} onClick={handleClose}>
+        <ModalFooter
+          px={{ base: 4, md: 6 }}
+          py={{ base: 4, md: 6 }}
+          borderTopWidth={{ base: '1px', md: 0 }}
+          position={{ base: 'sticky', md: 'relative' }}
+          bottom={{ base: 0, md: 'auto' }}
+          bg="white"
+        >
+          <Button variant="ghost" mr={3} onClick={handleClose} w={{ base: 'full', md: 'auto' }}>
             Cancel
           </Button>
           <Button
@@ -376,6 +391,7 @@ export const AddMailboxModal = ({
             onClick={handleSubmit}
             isLoading={createMutation.isPending || updateMutation.isPending}
             isDisabled={!mailbox && !connectionTested}
+            w={{ base: 'full', md: 'auto' }}
           >
             {mailbox ? 'Save Changes' : 'Add Mailbox'}
           </Button>

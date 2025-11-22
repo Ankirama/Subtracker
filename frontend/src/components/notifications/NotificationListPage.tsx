@@ -222,7 +222,7 @@ export const NotificationListPage = () => {
               <Icon as={FiBell} boxSize={8} />
               <Heading size="lg">Notifications</Heading>
             </HStack>
-            <Text color="gray.600">
+            <Text color="text.subtle">
               {totalCount} total notifications • {unreadCount} unread
             </Text>
           </Box>
@@ -307,7 +307,7 @@ export const NotificationListPage = () => {
           <Center py={20}>
             <VStack spacing={4}>
               <Text fontSize="6xl">🔕</Text>
-              <Text fontSize="xl" fontWeight="medium" color="gray.600">
+              <Text fontSize="xl" fontWeight="medium" color="text.subtle">
                 No notifications found
               </Text>
               <Text color="gray.500">
@@ -407,7 +407,7 @@ export const NotificationListPage = () => {
           <Card bg={cardBg} borderColor={borderColor}>
             <CardBody>
               <Flex justify="space-between" align="center">
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize="sm" color="text.subtle">
                   Page {page} of {totalPages}
                 </Text>
                 <ButtonGroup size="sm" isAttached variant="outline">

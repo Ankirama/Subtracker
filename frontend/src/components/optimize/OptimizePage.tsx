@@ -65,7 +65,7 @@ export const OptimizePage = () => {
       <Center h="100vh">
         <VStack spacing={4}>
           <Spinner size="xl" color="blue.500" />
-          <Text color="gray.600">Analyzing your subscriptions...</Text>
+          <Text color="text.subtle">Analyzing your subscriptions...</Text>
         </VStack>
       </Center>
     )
@@ -100,7 +100,7 @@ export const OptimizePage = () => {
           <HStack justify="space-between" mb={2}>
             <Box>
               <Heading size="lg">🤖 AI Optimization</Heading>
-              <Text color="gray.600">
+              <Text color="text.subtle">
                 Personalized recommendations to save money and optimize your subscriptions
               </Text>
             </Box>
@@ -186,7 +186,7 @@ export const OptimizePage = () => {
                 <VStack spacing={4}>
                   <Icon as={FiCheckCircle} boxSize={12} color="green.500" />
                   <Heading size="md">All Optimized! 🎉</Heading>
-                  <Text color="gray.600" textAlign="center">
+                  <Text color="text.subtle" textAlign="center">
                     Your subscriptions are well-optimized. Check back later for new recommendations.
                   </Text>
                 </VStack>
@@ -274,7 +274,7 @@ const RecommendationCard = ({ recommendation }: { recommendation: Recommendation
             </HStack>
           </HStack>
 
-          <Text color="gray.600">{recommendation.description}</Text>
+          <Text color="text.subtle">{recommendation.description}</Text>
 
           {/* Action badge */}
           <HStack spacing={2}>

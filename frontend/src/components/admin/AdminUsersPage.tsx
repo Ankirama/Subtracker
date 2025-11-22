@@ -422,7 +422,7 @@ export const AdminUsersPage = () => {
                           </Badge>
                         </Td>
                         <Td>
-                          <Text fontSize="sm" color="gray.600">
+                          <Text fontSize="sm" color="text.subtle">
                             {formatDate(user.created_at)}
                           </Text>
                         </Td>
@@ -470,7 +470,7 @@ export const AdminUsersPage = () => {
             {/* Pagination */}
             {totalPages > 1 && (
               <Flex justify="space-between" align="center" mt={4}>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize="sm" color="text.subtle">
                   Showing page {currentPage} of {totalPages} ({totalUsers} total users)
                 </Text>
                 <HStack spacing={2}>
@@ -545,11 +545,11 @@ export const AdminUsersPage = () => {
               </FormControl>
 
               {selectedUser && (
-                <Box w="full" p={3} bg="gray.50" borderRadius="md">
-                  <Text fontSize="sm" color="gray.600">
+                <Box w="full" p={3} bg="bg.subtle" borderRadius="md">
+                  <Text fontSize="sm" color="text.subtle">
                     <strong>Email:</strong> {selectedUser.email}
                   </Text>
-                  <Text fontSize="sm" color="gray.600">
+                  <Text fontSize="sm" color="text.subtle">
                     <strong>Created:</strong> {formatDate(selectedUser.created_at)}
                   </Text>
                 </Box>
@@ -644,7 +644,7 @@ export const AdminUsersPage = () => {
                     </Text>
                     <Box
                       p={3}
-                      bg="gray.50"
+                      bg="bg.subtle"
                       borderRadius="md"
                       fontSize="sm"
                       fontFamily="mono"

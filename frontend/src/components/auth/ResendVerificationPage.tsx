@@ -71,7 +71,7 @@ export const ResendVerificationPage = () => {
           <Heading size="2xl" mb={2}>
             📧 Subscription Tracker
           </Heading>
-          <Text color="gray.600">Resend Verification Email</Text>
+          <Text color="text.subtle">Resend Verification Email</Text>
         </Box>
 
         <Box w="full" p={8} borderWidth={1} borderRadius="lg" boxShadow="lg" bg="white">
@@ -90,7 +90,7 @@ export const ResendVerificationPage = () => {
                 you'll receive a verification email shortly.
               </Text>
 
-              <Text fontSize="sm" textAlign="center" color="gray.600">
+              <Text fontSize="sm" textAlign="center" color="text.subtle">
                 Check your inbox and click the verification link. The link will expire in 24 hours.
               </Text>
 
@@ -108,7 +108,7 @@ export const ResendVerificationPage = () => {
                   Resend Verification
                 </Heading>
 
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize="sm" color="text.subtle">
                   Enter your email address and we'll send you a new verification link.
                 </Text>
 

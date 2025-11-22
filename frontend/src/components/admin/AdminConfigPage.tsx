@@ -292,7 +292,7 @@ export const AdminConfigPage = () => {
                       <HStack justify="space-between">
                         <VStack align="start" spacing={0}>
                           <Text fontWeight="bold">{issue.key}</Text>
-                          <Text fontSize="sm" color="gray.600">{issue.description}</Text>
+                          <Text fontSize="sm" color="text.subtle">{issue.description}</Text>
                           <Badge colorScheme="purple">{issue.category}</Badge>
                         </VStack>
                         {issue.required && <Tag colorScheme="red" size="sm">Required</Tag>}
@@ -305,7 +305,7 @@ export const AdminConfigPage = () => {
 
             {/* Incomplete Settings */}
             {configStatus.incomplete.length > 0 && (
-              <Box borderWidth="1px" borderRadius="lg" borderColor="orange.300" p={4} bg={useColorModeValue('orange.50', 'orange.900')}>
+              <Box borderWidth="1px" borderRadius="lg" borderColor="orange.300" p={4} bg={useColorModeValue('orange.50', 'gray.700')}>
                 <Heading size="sm" color="orange.600" mb={3}>
                   ⚠️ Incomplete Settings ({configStatus.incomplete.length})
                 </Heading>
@@ -314,7 +314,7 @@ export const AdminConfigPage = () => {
                     <Box key={issue.key} p={2} bg={bgColor} borderRadius="md">
                       <VStack align="start" spacing={1}>
                         <Text fontWeight="bold">{issue.key}</Text>
-                        <Text fontSize="sm" color="gray.600">
+                        <Text fontSize="sm" color="text.subtle">
                           Issues: {issue.issues?.join(', ')}
                         </Text>
                         <Badge colorScheme="purple">{issue.category}</Badge>
@@ -397,7 +397,7 @@ export const AdminConfigPage = () => {
                       <Badge colorScheme="purple">{setting.category || 'none'}</Badge>
                     </Td>
                     <Td maxW="200px" overflow="hidden" textOverflow="ellipsis">
-                      <Text fontSize="sm" color="gray.600">{setting.description || '-'}</Text>
+                      <Text fontSize="sm" color="text.subtle">{setting.description || '-'}</Text>
                     </Td>
                     <Td>
                       <HStack spacing={2}>
@@ -528,7 +528,7 @@ export const AdminConfigPage = () => {
                   isChecked={formData.is_secret}
                   onChange={(e) => setFormData({ ...formData, is_secret: e.target.checked })}
                 />
-                <Text ml={3} fontSize="sm" color="gray.600">
+                <Text ml={3} fontSize="sm" color="text.subtle">
                   (Values will be encrypted)
                 </Text>
               </FormControl>

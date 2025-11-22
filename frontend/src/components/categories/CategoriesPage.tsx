@@ -163,7 +163,7 @@ export const CategoriesPage = () => {
           </Heading>
           <Box overflowX="auto" borderWidth={1} borderRadius="lg">
             <Table variant="simple">
-              <Thead bg="gray.50">
+              <Thead bg="bg.subtle">
                 <Tr>
                   <Th>Name</Th>
                   <Th>Display Name</Th>
@@ -209,7 +209,7 @@ export const CategoriesPage = () => {
           </Heading>
           <Box overflowX="auto" borderWidth={1} borderRadius="lg">
             <Table variant="simple">
-              <Thead bg="gray.50">
+              <Thead bg="bg.subtle">
                 <Tr>
                   <Th>Name</Th>
                   <Th>Display Name</Th>

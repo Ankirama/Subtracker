@@ -148,7 +148,7 @@ export const LoginPage = () => {
           <Heading size="2xl" mb={2}>
             📧 Subscription Tracker
           </Heading>
-          <Text color="gray.600">
+          <Text color="text.subtle">
             {requires2FA ? 'Enter verification code' : 'Sign in to manage your subscriptions'}
           </Text>
         </Box>
@@ -260,7 +260,7 @@ export const LoginPage = () => {
                     maxLength={isBackupCode ? 9 : 6}
                     autoFocus
                   />
-                  <Text fontSize="xs" color="gray.600" mt={1}>
+                  <Text fontSize="xs" color="text.subtle" mt={1}>
                     {twoFactorMethod === 'totp'
                       ? 'Enter the 6-digit code from your authenticator app'
                       : 'Enter the 6-digit code sent to your email'}

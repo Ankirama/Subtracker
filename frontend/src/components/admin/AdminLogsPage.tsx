@@ -314,7 +314,7 @@ export const AdminLogsPage = () => {
                     {logs.map((log) => (
                       <Tr key={log.id}>
                         <Td>
-                          <Text fontSize="xs" fontFamily="mono" color="gray.600">
+                          <Text fontSize="xs" fontFamily="mono" color="text.subtle">
                             {formatTimestamp(log.timestamp)}
                           </Text>
                         </Td>
@@ -348,7 +348,7 @@ export const AdminLogsPage = () => {
             {/* Pagination */}
             {totalPages > 1 && (
               <Flex justify="space-between" align="center" mt={4}>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize="sm" color="text.subtle">
                   Showing page {currentPage} of {totalPages} ({totalLogs} total logs)
                 </Text>
                 <HStack spacing={2}>
@@ -390,7 +390,7 @@ export const AdminLogsPage = () => {
         </Card>
 
         {/* Info Box */}
-        <Card bg="blue.50" borderColor="blue.200" borderWidth="1px">
+        <Card bg="bg.accent.blue" borderColor="blue.200" borderWidth="1px">
           <CardBody>
             <VStack align="start" spacing={2}>
               <Text fontWeight="bold" color="blue.800">

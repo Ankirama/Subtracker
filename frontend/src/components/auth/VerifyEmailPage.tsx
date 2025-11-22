@@ -62,7 +62,7 @@ export const VerifyEmailPage = () => {
           <Heading size="2xl" mb={2}>
             📧 Subscription Tracker
           </Heading>
-          <Text color="gray.600">Email Verification</Text>
+          <Text color="text.subtle">Email Verification</Text>
         </Box>
 
         <Box w="full" p={8} borderWidth={1} borderRadius="lg" boxShadow="lg" bg="white">
@@ -72,7 +72,7 @@ export const VerifyEmailPage = () => {
               <>
                 <Spinner size="xl" color="blue.500" thickness="4px" />
                 <Heading size="md">Verifying your email...</Heading>
-                <Text color="gray.600" textAlign="center">
+                <Text color="text.subtle" textAlign="center">
                   Please wait while we verify your email address
                 </Text>
               </>
@@ -87,7 +87,7 @@ export const VerifyEmailPage = () => {
                   <AlertIcon />
                   Your email has been verified. You're being logged in...
                 </Alert>
-                <Text color="gray.600" textAlign="center">
+                <Text color="text.subtle" textAlign="center">
                   Redirecting to your dashboard in a few seconds...
                 </Text>
                 <Button
@@ -111,7 +111,7 @@ export const VerifyEmailPage = () => {
                   <AlertIcon />
                   {error}
                 </Alert>
-                <Text color="gray.600" textAlign="center">
+                <Text color="text.subtle" textAlign="center">
                   The verification link may have expired or is invalid.
                 </Text>
                 <VStack spacing={3} width="full">

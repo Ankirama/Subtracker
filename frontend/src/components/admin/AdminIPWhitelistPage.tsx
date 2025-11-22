@@ -269,10 +269,10 @@ export const AdminIPWhitelistPage = () => {
         {/* Summary */}
         <Card bg={bgColor} borderColor={borderColor} borderWidth={1}>
           <CardBody>
-            <Text fontSize="sm" color="gray.600">
+            <Text fontSize="sm" color="text.subtle">
               Total Whitelisted IPs: <strong>{totalEntries}</strong>
             </Text>
-            <Text fontSize="sm" color="gray.600" mt={2}>
+            <Text fontSize="sm" color="text.subtle" mt={2}>
               Whitelisted IP addresses bypass all brute force protection and rate limiting.
             </Text>
           </CardBody>
@@ -310,7 +310,7 @@ export const AdminIPWhitelistPage = () => {
                         </Badge>
                       </Td>
                       <Td>
-                        <Text fontSize="sm" color="gray.600">
+                        <Text fontSize="sm" color="text.subtle">
                           {entry.description || '—'}
                         </Text>
                       </Td>
@@ -353,7 +353,7 @@ export const AdminIPWhitelistPage = () => {
             {/* Pagination */}
             {totalPages > 1 && (
               <Flex justify="space-between" align="center" mt={4}>
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize="sm" color="text.subtle">
                   Page {currentPage} of {totalPages}
                 </Text>
                 <HStack>
@@ -447,7 +447,7 @@ export const AdminIPWhitelistPage = () => {
                 <Input
                   value={editEntry?.ip_address || ''}
                   isReadOnly
-                  bg="gray.100"
+                  bg="bg.muted"
                 />
               </FormControl>
               <FormControl>

@@ -118,7 +118,7 @@ export const ExportModal = ({ isOpen, onClose }: ExportModalProps) => {
         <ModalCloseButton />
         <ModalBody>
           <VStack spacing={4} align="stretch">
-            <Text color="gray.600" fontSize="sm">
+            <Text color="text.subtle" fontSize="sm">
               Export your subscription data with optional filters. Choose between CSV for data analysis or PDF for a formatted report.
             </Text>
 

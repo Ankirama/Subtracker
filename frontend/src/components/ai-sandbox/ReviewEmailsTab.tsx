@@ -436,7 +436,7 @@ export const ReviewEmailsTab = () => {
 
               {/* Filtered Results Info */}
               {(searchTerm || filterType !== 'all') && (
-                <Text fontSize="sm" color="gray.600">
+                <Text fontSize="sm" color="text.subtle">
                   Showing {filteredStats.total} results
                   {searchTerm && ` matching "${searchTerm}"`}
                   {filterType !== 'all' && ` (${filterType === 'low_confidence' ? 'Low Confidence' : 'Extraction Failed'})`}
@@ -606,7 +606,7 @@ export const ReviewEmailsTab = () => {
                     </TabList>
                     <TabPanels>
                       <TabPanel p={0} pt={4}>
-                        <Box bg="gray.50" p={4} borderRadius="md" maxH="400px" overflowY="auto">
+                        <Box bg="bg.subtle" p={4} borderRadius="md" maxH="400px" overflowY="auto">
                           <Text whiteSpace="pre-wrap" fontFamily="monospace" fontSize="sm">
                             {selectedEmail.body_html || selectedEmail.body_text || 'No content'}
                           </Text>
@@ -635,7 +635,7 @@ export const ReviewEmailsTab = () => {
                 {selectedEmail.classification_reasoning && (
                   <Box>
                     <Text fontWeight="bold" mb={2}>Classification Reasoning:</Text>
-                    <Box bg="gray.50" p={4} borderRadius="md" maxH="200px" overflowY="auto">
+                    <Box bg="bg.subtle" p={4} borderRadius="md" maxH="200px" overflowY="auto">
                       <Code display="block" whiteSpace="pre-wrap" fontSize="xs">
                         {JSON.stringify(selectedEmail.classification_reasoning, null, 2)}
                       </Code>

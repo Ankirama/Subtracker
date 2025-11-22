@@ -6,6 +6,7 @@ import {
   Text,
   Icon,
   Button,
+  IconButton,
   Avatar,
   Menu,
   MenuButton,
@@ -13,12 +14,14 @@ import {
   MenuItem,
   MenuDivider,
   useColorModeValue,
+  useColorMode,
   Heading,
   Divider,
 } from '@chakra-ui/react'
 import { Link as RouterLink, useLocation, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { NotificationBell } from '../notifications/NotificationBell'
+import { BottomNav } from '../navigation/BottomNav'
 import {
   FiHome,
   FiCreditCard,
@@ -32,6 +35,11 @@ import {
   FiDollarSign,
   FiTag,
   FiLock,
+  FiAlertCircle,
+  FiCopy,
+  FiSettings,
+  FiSun,
+  FiMoon,
 } from 'react-icons/fi'
 
 interface NavItem {
@@ -43,6 +51,8 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', icon: FiHome, path: '/dashboard' },
   { label: 'Subscriptions', icon: FiCreditCard, path: '/subscriptions' },
+  { label: 'Duplicates', icon: FiCopy, path: '/duplicates' },
+  { label: 'Reviews', icon: FiAlertCircle, path: '/reviews' },
   { label: 'Categories', icon: FiTag, path: '/categories' },
   { label: 'Mailboxes', icon: FiMail, path: '/mailboxes' },
   { label: 'Budgets', icon: FiDollarSign, path: '/budgets' },
@@ -54,14 +64,16 @@ const NAV_ITEMS: NavItem[] = [
 export const DashboardLayout = () => {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const { colorMode, toggleColorMode } = useColorMode()
   const bgColor = useColorModeValue('gray.50', 'gray.900')
   const sidebarBg = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.700')
 
   return (
     <Flex h="100vh" bg={bgColor}>
-      {/* Sidebar */}
+      {/* Sidebar - Hidden on mobile */}
       <Box
+        display={{ base: 'none', lg: 'block' }}
         w="250px"
         bg={sidebarBg}
         borderRightWidth="1px"
@@ -129,7 +141,9 @@ export const DashboardLayout = () => {
               </Text>
             </MenuButton>
             <MenuList>
-              <MenuItem icon={<Icon as={FiUser} />}>Profile</MenuItem>
+              <MenuItem icon={<Icon as={FiSettings} />} as={RouterLink} to="/settings">
+                Settings
+              </MenuItem>
               <MenuItem icon={<Icon as={FiLock} />} as={RouterLink} to="/settings/2fa">
                 Two-Factor Auth
               </MenuItem>
@@ -143,27 +157,89 @@ export const DashboardLayout = () => {
       </Box>
 
       {/* Main content */}
-      <Box flex={1} overflow="auto">
+      <Box
+        flex={1}
+        display="flex"
+        flexDirection="column"
+        overflow="hidden"
+      >
         {/* Header with notification bell */}
         <Flex
           h="60px"
-          px={6}
+          px={{ base: 4, md: 6 }}
           bg={sidebarBg}
           borderBottomWidth="1px"
           borderColor={borderColor}
           align="center"
-          justify="flex-end"
+          justify={{ base: 'space-between', lg: 'flex-end' }}
+          flexShrink={0}
         >
+          {/* Logo on mobile only */}
+          <Heading size="md" color="blue.500" display={{ base: 'block', lg: 'none' }}>
+            📧 SubTracker
+          </Heading>
+
           <HStack spacing={2}>
+            {/* Color mode toggle */}
+            <IconButton
+              aria-label={`Switch to ${colorMode === 'light' ? 'dark' : 'light'} mode`}
+              icon={<Icon as={colorMode === 'light' ? FiMoon : FiSun} />}
+              onClick={toggleColorMode}
+              variant="ghost"
+              size="sm"
+            />
+
             <NotificationBell />
+
+            {/* User menu on mobile */}
+            <Box display={{ base: 'block', lg: 'none' }}>
+              <Menu>
+                <MenuButton
+                  as={Button}
+                  variant="ghost"
+                  size="sm"
+                  p={0}
+                >
+                  <Avatar size="sm" name={user?.email} />
+                </MenuButton>
+                <MenuList>
+                  <MenuItem icon={<Icon as={FiSettings} />} as={RouterLink} to="/settings">
+                    Settings
+                  </MenuItem>
+                  <MenuItem icon={<Icon as={FiLock} />} as={RouterLink} to="/settings/2fa">
+                    Two-Factor Auth
+                  </MenuItem>
+                  {user?.is_admin && (
+                    <MenuItem
+                      icon={<Icon as={FiShield} />}
+                      as={RouterLink}
+                      to="/admin/config"
+                    >
+                      Admin Panel
+                    </MenuItem>
+                  )}
+                  <MenuDivider />
+                  <MenuItem icon={<Icon as={FiLogOut} />} onClick={logout}>
+                    Logout
+                  </MenuItem>
+                </MenuList>
+              </Menu>
+            </Box>
           </HStack>
         </Flex>
 
         {/* Page content */}
-        <Box>
+        <Box
+          flex={1}
+          overflow="auto"
+          pb={{ base: '80px', lg: 0 }}
+        >
           <Outlet />
         </Box>
       </Box>
+
+      {/* Bottom Navigation - Mobile only */}
+      <BottomNav />
     </Flex>
   )
 }

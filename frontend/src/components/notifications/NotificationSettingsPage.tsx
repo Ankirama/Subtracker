@@ -31,6 +31,7 @@ import {
   NotificationPreference,
 } from '../../api/notifications'
 import { FiBell, FiMail, FiCheck } from 'react-icons/fi'
+import { PushNotificationSettings } from './PushNotificationSettings'
 
 const NOTIFICATION_TYPES = [
   {
@@ -168,8 +169,22 @@ export const NotificationSettingsPage = () => {
           <Heading size="lg" mb={2}>
             Notification Settings
           </Heading>
-          <Text color="gray.600">
+          <Text color="text.subtle">
             Customize how and when you want to receive notifications
+          </Text>
+        </Box>
+
+        {/* Push Notifications Section */}
+        <PushNotificationSettings />
+
+        <Divider />
+
+        <Box>
+          <Heading size="md" mb={2}>
+            Notification Preferences
+          </Heading>
+          <Text color="text.subtle" fontSize="sm">
+            Configure email and in-app notification preferences
           </Text>
         </Box>
 
@@ -186,7 +201,7 @@ export const NotificationSettingsPage = () => {
                       <Text fontSize="2xl">{notifType.icon}</Text>
                       <Box>
                         <Text fontWeight="bold">{notifType.label}</Text>
-                        <Text fontSize="sm" color="gray.600">
+                        <Text fontSize="sm" color="text.subtle">
                           {notifType.description}
                         </Text>
                       </Box>
@@ -337,7 +352,7 @@ export const NotificationSettingsPage = () => {
           <CardBody>
             <HStack spacing={2}>
               <Icon as={FiCheck} color="green.500" />
-              <Text fontSize="sm" color="gray.600">
+              <Text fontSize="sm" color="text.subtle">
                 Your preferences are saved automatically
               </Text>
             </HStack>

@@ -117,7 +117,7 @@ export const SubscriptionDetailPage = () => {
         </TabList>
         <TabPanels>
           <TabPanel p={0} pt={4}>
-            <Box bg="gray.50" p={4} borderRadius="md" maxH="400px" overflowY="auto">
+            <Box bg="bg.subtle" p={4} borderRadius="md" maxH="400px" overflowY="auto">
               <Text whiteSpace="pre-wrap" fontFamily="monospace" fontSize="sm">
                 {link.email.body_html || link.email.body_text || 'No content'}
               </Text>
@@ -205,7 +205,7 @@ export const SubscriptionDetailPage = () => {
               <Box>
                 <Heading size="xl">{subscription.provider}</Heading>
                 {subscription.custom_label && (
-                  <Text fontSize="lg" color="gray.600" mt={1}>
+                  <Text fontSize="lg" color="text.subtle" mt={1}>
                     {subscription.custom_label}
                   </Text>
                 )}
@@ -285,7 +285,7 @@ export const SubscriptionDetailPage = () => {
 
               <Divider />
 
-              <HStack fontSize="sm" color="gray.600">
+              <HStack fontSize="sm" color="text.subtle">
                 <Icon as={FiCalendar} />
                 <Text>First detected: {formatDate(subscription.first_detected_at)}</Text>
                 <Text>•</Text>
@@ -363,7 +363,7 @@ export const SubscriptionDetailPage = () => {
                                       </Badge>
                                     )}
                                   </HStack>
-                                  <HStack fontSize="sm" color="gray.600">
+                                  <HStack fontSize="sm" color="text.subtle">
                                     <Text>From: {link.email.sender_name || link.email.sender}</Text>
                                     <Text>•</Text>
                                     <Text>{formatDateTime(link.email.date)}</Text>
@@ -384,7 +384,7 @@ export const SubscriptionDetailPage = () => {
                           <AccordionPanel pb={4}>
                             <VStack align="stretch" spacing={4}>
                               {/* Email Metadata */}
-                              <Box p={3} bg="gray.50" borderRadius="md">
+                              <Box p={3} bg="bg.subtle" borderRadius="md">
                                 <Stack spacing={2} fontSize="sm">
                                   <HStack>
                                     <Text fontWeight="semibold">To:</Text>

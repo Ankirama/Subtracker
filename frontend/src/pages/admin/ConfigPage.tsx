@@ -224,7 +224,7 @@ export const ConfigPage = () => {
     <VStack spacing={6} align="stretch">
       <Box>
         <Heading size="lg" mb={2}>Configuration Settings</Heading>
-        <Text color="gray.600">Manage application configuration, API keys, and system settings</Text>
+        <Text color="text.subtle">Manage application configuration, API keys, and system settings</Text>
       </Box>
 
       <Alert status="warning">
@@ -309,7 +309,7 @@ export const ConfigPage = () => {
                     )}
                   </Td>
                   <Td maxW="200px" isTruncated>{setting.description || '-'}</Td>
-                  <Td fontSize="sm" color="gray.600">
+                  <Td fontSize="sm" color="text.subtle">
                     {new Date(setting.updated_at).toLocaleDateString()}
                   </Td>
                   <Td>

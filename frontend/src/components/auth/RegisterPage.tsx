@@ -84,7 +84,7 @@ export const RegisterPage = () => {
           <Heading size="2xl" mb={2}>
             📧 Subscription Tracker
           </Heading>
-          <Text color="gray.600">
+          <Text color="text.subtle">
             {registrationSuccess ? 'Check your email!' : 'Create your account'}
           </Text>
         </Box>
@@ -104,7 +104,7 @@ export const RegisterPage = () => {
                 We've sent a verification link to <strong>{registeredEmail}</strong>
               </Text>
 
-              <Text fontSize="sm" textAlign="center" color="gray.600">
+              <Text fontSize="sm" textAlign="center" color="text.subtle">
                 Click the link in your email to verify your account and start using Subscription Tracker.
                 The link will expire in 24 hours.
               </Text>
