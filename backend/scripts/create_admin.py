@@ -66,8 +66,8 @@ def create_admin_user(email: str, password: str, display_name: str = None):
         # Insert the user with all required columns
         session.execute(
             text("""
-                INSERT INTO users (id, email, password_hash, salt, display_name, is_active, is_admin, email_verified, created_at, updated_at)
-                VALUES (:id, :email, :password_hash, :salt, :display_name, true, true, true, :created_at, :updated_at)
+                INSERT INTO users (id, email, password_hash, salt, display_name, is_active, is_admin, email_verified, settings, backup_codes, created_at, updated_at)
+                VALUES (:id, :email, :password_hash, :salt, :display_name, true, true, true, '{}', '[]', :created_at, :updated_at)
             """),
             {
                 "id": user_id,
