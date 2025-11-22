@@ -3,10 +3,10 @@
 Create an admin user for Subscription Tracker.
 
 Usage (inside the backend container):
-    python scripts/create_admin.py --email admin@example.com --password yourpassword
+    python -m scripts.create_admin --email admin@example.com --password yourpassword
 
 Or from docker:
-    docker compose -f docker-compose.prod.yml exec backend python scripts/create_admin.py \
+    docker compose -f docker-compose.prod.yml exec backend python -m scripts.create_admin \
         --email admin@example.com --password yourpassword
 """
 
@@ -17,9 +17,9 @@ import os
 # Add the app directory to the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from passlib.hash import bcrypt
+from app.security.password import hash_password
 import uuid
 from datetime import datetime
 
@@ -40,7 +40,6 @@ def create_admin_user(email: str, password: str, display_name: str = None):
 
     try:
         # Check if user already exists
-        from sqlalchemy import text
         result = session.execute(
             text("SELECT id FROM users WHERE email = :email"),
             {"email": email}
@@ -48,34 +47,33 @@ def create_admin_user(email: str, password: str, display_name: str = None):
 
         if result:
             print(f"User with email '{email}' already exists.")
-            # Ask if they want to make them admin
-            response = input("Do you want to make this user an admin? (y/N): ")
-            if response.lower() == 'y':
-                session.execute(
-                    text("UPDATE users SET is_admin = true WHERE email = :email"),
-                    {"email": email}
-                )
-                session.commit()
-                print(f"User '{email}' is now an admin.")
+            # Make them admin directly (non-interactive for Docker)
+            session.execute(
+                text("UPDATE users SET is_admin = true WHERE email = :email"),
+                {"email": email}
+            )
+            session.commit()
+            print(f"User '{email}' is now an admin.")
             return
 
-        # Hash the password
-        password_hash = bcrypt.hash(password)
+        # Hash the password using the app's security module
+        password_hash, salt = hash_password(password)
 
         # Generate UUID
         user_id = str(uuid.uuid4())
         now = datetime.utcnow()
 
-        # Insert the user
+        # Insert the user with all required columns
         session.execute(
             text("""
-                INSERT INTO users (id, email, password_hash, display_name, is_active, is_admin, is_email_verified, created_at, updated_at)
-                VALUES (:id, :email, :password_hash, :display_name, true, true, true, :created_at, :updated_at)
+                INSERT INTO users (id, email, password_hash, salt, display_name, is_active, is_admin, email_verified, created_at, updated_at)
+                VALUES (:id, :email, :password_hash, :salt, :display_name, true, true, true, :created_at, :updated_at)
             """),
             {
                 "id": user_id,
                 "email": email,
                 "password_hash": password_hash,
+                "salt": salt,
                 "display_name": display_name,
                 "created_at": now,
                 "updated_at": now,
