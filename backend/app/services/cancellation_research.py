@@ -11,13 +11,20 @@ from app.config import settings
 from app.models.provider_cancellation import ProviderCancellationInfo, DifficultyRating, InstructionsSource
 from app.utils.config_helper import get_config_value
 from app.services.ai_classifier import get_openai_client
+from app.services.prompts import get_prompt, PromptVersion, get_prompt_metadata
+from app.services.prompt_validation import validate_research
 import logging
 import json
 import asyncio
+import random
 
 logger = logging.getLogger(__name__)
 
+# Configuration for A/B testing
+ENABLE_AB_TESTING = False  # Set to True to enable prompt A/B testing
+AB_TEST_SPLIT = 0.5  # 50/50 split between v1 and v2
 
+# Legacy prompt kept for reference (now in prompts.py as v1)
 CANCELLATION_RESEARCH_PROMPT = """You are a helpful AI assistant that researches how to cancel subscription services.
 
 Your task is to provide accurate, step-by-step instructions for cancelling a subscription to {provider_name}.
@@ -198,23 +205,43 @@ class CancellationResearchService:
             "cached_at": cached.created_at.isoformat() if cached.created_at else None,
         }
 
-    async def _call_openai_research(self, provider_name: str) -> Dict[str, Any]:
+    async def _call_openai_research(
+        self,
+        provider_name: str,
+        prompt_version: Optional[PromptVersion] = None
+    ) -> Dict[str, Any]:
         """
         Call OpenAI API to research cancellation instructions.
 
         Args:
             provider_name: Provider to research
+            prompt_version: Specific prompt version to use (for A/B testing)
 
         Returns:
-            Parsed research results
+            Parsed research results with validation metadata
 
         Raises:
             ValueError: If response cannot be parsed
         """
         client = self._get_client()
 
-        # Format prompt with provider name
-        prompt = CANCELLATION_RESEARCH_PROMPT.format(provider_name=provider_name)
+        # Select prompt version (A/B testing or default to v2)
+        if prompt_version is None:
+            if ENABLE_AB_TESTING:
+                # Random A/B test split
+                prompt_version = (
+                    PromptVersion.V1_BASELINE if random.random() < AB_TEST_SPLIT
+                    else PromptVersion.V2_ENHANCED
+                )
+            else:
+                # Default to enhanced v2 prompt
+                prompt_version = PromptVersion.V2_ENHANCED
+
+        # Get versioned prompt
+        prompt_template = get_prompt(prompt_version)
+        prompt = prompt_template.format(provider_name=provider_name)
+
+        logger.info(f"Researching {provider_name} with prompt version: {prompt_version.value}")
 
         try:
             # Call OpenAI with GPT-4o-mini (cost efficient)
@@ -251,8 +278,25 @@ class CancellationResearchService:
             research_data["provider_name"] = provider_name
             research_data["cached"] = False
             research_data["researched_at"] = datetime.utcnow().isoformat()
+            research_data["prompt_version"] = prompt_version.value
 
-            logger.info(f"Successfully researched {provider_name} (confidence: {research_data['confidence']})")
+            # Run validation checks
+            validation_report = validate_research(research_data)
+            research_data["validation"] = validation_report
+
+            # Log validation results
+            if validation_report["recommended_action"] == "regenerate":
+                logger.warning(
+                    f"Research for {provider_name} failed validation (quality: {validation_report['quality_score']:.2f}). "
+                    f"Warnings: {validation_report['warning_count']}"
+                )
+            else:
+                logger.info(
+                    f"Successfully researched {provider_name} "
+                    f"(confidence: {research_data['confidence']:.2f}, "
+                    f"quality: {validation_report['quality_score']:.2f}, "
+                    f"action: {validation_report['recommended_action']})"
+                )
 
             return research_data
 
@@ -304,18 +348,59 @@ class CancellationResearchService:
             existing.estimated_time_minutes = research_data.get("estimated_minutes")
             existing.cancellation_gotchas = research_data.get("gotchas")
             existing.ai_confidence_score = research_data.get("confidence", 0.0)
-            existing.ai_research_prompt = CANCELLATION_RESEARCH_PROMPT.format(provider_name=provider_name)
-            existing.ai_research_response = json.dumps(research_data)
+
+            # Store prompt version and validation info
+            prompt_version = research_data.get("prompt_version", "v2_enhanced")
+            validation = research_data.get("validation", {})
+
+            # Get the actual prompt used
+            if prompt_version == "v1_baseline":
+                prompt_used = get_prompt(PromptVersion.V1_BASELINE).format(provider_name=provider_name)
+            else:
+                prompt_used = get_prompt(PromptVersion.V2_ENHANCED).format(provider_name=provider_name)
+
+            existing.ai_research_prompt = prompt_used
+
+            # Enrich research response with metadata
+            enriched_response = {
+                **research_data,
+                "prompt_version": prompt_version,
+                "validation_quality_score": validation.get("quality_score"),
+                "validation_action": validation.get("recommended_action"),
+                "validation_warnings": validation.get("warning_count"),
+            }
+            existing.ai_research_response = json.dumps(enriched_response)
             existing.updated_at = datetime.utcnow()
 
             self.db.commit()
             self.db.refresh(existing)
 
-            logger.info(f"Updated cached cancellation info for {provider_name}")
+            logger.info(
+                f"Updated cached cancellation info for {provider_name} "
+                f"(version: {prompt_version}, quality: {validation.get('quality_score', 0):.2f})"
+            )
             return existing
 
         else:
             # Create new record
+            prompt_version = research_data.get("prompt_version", "v2_enhanced")
+            validation = research_data.get("validation", {})
+
+            # Get the actual prompt used
+            if prompt_version == "v1_baseline":
+                prompt_used = get_prompt(PromptVersion.V1_BASELINE).format(provider_name=provider_name)
+            else:
+                prompt_used = get_prompt(PromptVersion.V2_ENHANCED).format(provider_name=provider_name)
+
+            # Enrich research response with metadata
+            enriched_response = {
+                **research_data,
+                "prompt_version": prompt_version,
+                "validation_quality_score": validation.get("quality_score"),
+                "validation_action": validation.get("recommended_action"),
+                "validation_warnings": validation.get("warning_count"),
+            }
+
             new_info = ProviderCancellationInfo(
                 provider_name=provider_name,
                 cancellation_url=research_data.get("cancellation_url"),
@@ -330,15 +415,18 @@ class CancellationResearchService:
                 estimated_time_minutes=research_data.get("estimated_minutes"),
                 cancellation_gotchas=research_data.get("gotchas"),
                 ai_confidence_score=research_data.get("confidence", 0.0),
-                ai_research_prompt=CANCELLATION_RESEARCH_PROMPT.format(provider_name=provider_name),
-                ai_research_response=json.dumps(research_data),
+                ai_research_prompt=prompt_used,
+                ai_research_response=json.dumps(enriched_response),
             )
 
             self.db.add(new_info)
             self.db.commit()
             self.db.refresh(new_info)
 
-            logger.info(f"Stored new cancellation info for {provider_name}")
+            logger.info(
+                f"Stored new cancellation info for {provider_name} "
+                f"(version: {prompt_version}, quality: {validation.get('quality_score', 0):.2f})"
+            )
             return new_info
 
 
