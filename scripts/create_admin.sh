@@ -32,17 +32,17 @@ if [ -f "docker-compose.prod.yml" ] && docker compose -f docker-compose.prod.yml
     echo "Running in production mode (Docker)..."
     if [ -n "$NAME" ]; then
         docker compose -f docker-compose.prod.yml --env-file .env.production exec -T backend \
-            python scripts/create_admin.py --email "$EMAIL" --password "$PASSWORD" --name "$NAME"
+            python -m scripts.create_admin --email "$EMAIL" --password "$PASSWORD" --name "$NAME"
     else
         docker compose -f docker-compose.prod.yml --env-file .env.production exec -T backend \
-            python scripts/create_admin.py --email "$EMAIL" --password "$PASSWORD"
+            python -m scripts.create_admin --email "$EMAIL" --password "$PASSWORD"
     fi
 elif [ -f "docker-compose.yml" ] && docker compose ps --quiet backend 2>/dev/null | grep -q .; then
     echo "Running in development mode (Docker)..."
     if [ -n "$NAME" ]; then
-        docker compose exec -T backend python scripts/create_admin.py --email "$EMAIL" --password "$PASSWORD" --name "$NAME"
+        docker compose exec -T backend python -m scripts.create_admin --email "$EMAIL" --password "$PASSWORD" --name "$NAME"
     else
-        docker compose exec -T backend python scripts/create_admin.py --email "$EMAIL" --password "$PASSWORD"
+        docker compose exec -T backend python -m scripts.create_admin --email "$EMAIL" --password "$PASSWORD"
     fi
 else
     echo "No running Docker containers found."
