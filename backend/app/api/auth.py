@@ -78,9 +78,47 @@ async def register(
     Raises:
         HTTPException: If email already exists or verification fails
     """
+    from app.models.invite_token import InviteToken
+
     # Get client info
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
+
+    # Check invite token if required
+    invite = None
+    if settings.REQUIRE_INVITE_TOKEN:
+        if not user_data.invite_token:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Registration requires an invite token. Please contact an administrator."
+            )
+
+        invite = db.query(InviteToken).filter(InviteToken.token == user_data.invite_token).first()
+
+        if not invite:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid invite token"
+            )
+
+        if not invite.is_valid:
+            if invite.is_used:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This invite token has already been used"
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This invite token has expired"
+                )
+
+        # Check if invite is for specific email
+        if invite.invited_email and invite.invited_email.lower() != user_data.email.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"This invite is for a different email address"
+            )
 
     # Check if user already exists
     existing_user = db.query(User).filter(User.email == user_data.email).first()
@@ -118,6 +156,13 @@ async def register(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    # Mark invite as used
+    if invite:
+        invite.is_used = True
+        invite.used_by_id = new_user.id
+        invite.used_at = datetime.utcnow()
+        db.commit()
 
     logger.info(f"New user registered (unverified): {new_user.email}")
 

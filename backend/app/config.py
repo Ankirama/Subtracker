@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str
     CELERY_RESULT_BACKEND: str
 
+    # Registration Control
+    REQUIRE_INVITE_TOKEN: bool = True  # Require invite token for registration in production
+
     # SendGrid
     SENDGRID_API_KEY: str = "your_sendgrid_api_key_here"
     SENDGRID_FROM_EMAIL: str = "noreply@subscriptiontracker.app"

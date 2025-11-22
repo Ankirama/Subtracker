@@ -11,5 +11,6 @@ from app.models.ip_block import IPBlock
 from app.models.ip_whitelist import IPWhitelist
 from app.models.budget import Budget
 from app.models.notification import Notification, NotificationPreference
+from app.models.invite_token import InviteToken
 
-__all__ = ["User", "Mailbox", "Subscription", "EmailMessage", "subscription_emails", "SubscriptionFeedback", "CancellationFeedback", "SyncHistory", "ProviderCancellationInfo", "IPBlock", "IPWhitelist", "Budget", "Notification", "NotificationPreference"]
+__all__ = ["User", "Mailbox", "Subscription", "EmailMessage", "subscription_emails", "SubscriptionFeedback", "CancellationFeedback", "SyncHistory", "ProviderCancellationInfo", "IPBlock", "IPWhitelist", "Budget", "Notification", "NotificationPreference", "InviteToken"]

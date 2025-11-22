@@ -12,6 +12,7 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=100)
     display_name: Optional[str] = Field(None, max_length=255, description="Optional display name for personalization")
+    invite_token: Optional[str] = Field(None, description="Required invite token for registration (when enabled)")
 
     @field_validator('password')
     @classmethod
