@@ -40,6 +40,7 @@ celery_app.conf.update(
     task_acks_late=True,  # Acknowledge tasks after completion (safer)
     task_reject_on_worker_lost=True,  # Reject tasks if worker dies
     beat_schedule_filename="/tmp/celerybeat-schedule",  # Writable location for beat schedule
+    broker_connection_retry_on_startup=True,  # Retry broker connection on startup (Celery 6.0+)
 )
 
 # Task routes (use default 'celery' queue for now)

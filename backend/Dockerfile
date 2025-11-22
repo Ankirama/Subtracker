@@ -32,6 +32,9 @@ RUN pip install --no-cache /wheels/*
 # Copy application code
 COPY --chown=appuser:appuser . .
 
+# Create logs directory with proper permissions
+RUN mkdir -p /app/logs && chown appuser:appuser /app/logs
+
 # Switch to non-root user
 USER appuser
 
