@@ -484,36 +484,60 @@ class TestAuthenticationDependencies:
     @pytest.mark.asyncio
     async def test_get_current_admin_user_success(self, db_session, test_user):
         """get_current_admin_user succeeds for admin user."""
+        from unittest.mock import MagicMock
+
         # Make user admin
         test_user.is_admin = True
         db_session.commit()
 
-        admin_user = await get_current_admin_user(test_user)
+        # Mock Request object
+        mock_request = MagicMock()
+        mock_request.client.host = "127.0.0.1"
+        mock_request.headers.get.return_value = "test-agent"
+        mock_request.url.path = "/api/test"
+
+        admin_user = await get_current_admin_user(mock_request, test_user, db_session)
 
         assert admin_user.id == test_user.id
         assert admin_user.is_admin is True
 
     @pytest.mark.asyncio
-    async def test_get_current_admin_user_non_admin_fails(self, test_user):
+    async def test_get_current_admin_user_non_admin_fails(self, db_session, test_user):
         """get_current_admin_user raises HTTPException for non-admin user."""
+        from unittest.mock import MagicMock
+
         # Ensure user is not admin
         test_user.is_admin = False
 
+        # Mock Request object
+        mock_request = MagicMock()
+        mock_request.client.host = "127.0.0.1"
+        mock_request.headers.get.return_value = "test-agent"
+        mock_request.url.path = "/api/test"
+
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_admin_user(test_user)
+            await get_current_admin_user(mock_request, test_user, db_session)
 
         assert exc_info.value.status_code == 403
         assert "admin" in exc_info.value.detail.lower()
 
     @pytest.mark.asyncio
-    async def test_get_current_admin_user_inactive_fails(self, test_user):
+    async def test_get_current_admin_user_inactive_fails(self, db_session, test_user):
         """get_current_admin_user raises HTTPException for inactive admin."""
+        from unittest.mock import MagicMock
+
         # Make user admin but inactive
         test_user.is_admin = True
         test_user.is_active = False
 
+        # Mock Request object
+        mock_request = MagicMock()
+        mock_request.client.host = "127.0.0.1"
+        mock_request.headers.get.return_value = "test-agent"
+        mock_request.url.path = "/api/test"
+
         with pytest.raises(HTTPException) as exc_info:
-            await get_current_admin_user(test_user)
+            await get_current_admin_user(mock_request, test_user, db_session)
 
         assert exc_info.value.status_code == 403
         assert "inactive" in exc_info.value.detail.lower()

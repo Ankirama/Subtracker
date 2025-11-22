@@ -292,7 +292,8 @@ class TestMailboxList:
             email="nomail@example.com",
             password_hash=password_hash,
             salt=salt,
-            is_active=True
+            is_active=True,
+            email_verified=True
         )
         db_session.add(new_user)
         db_session.commit()
@@ -349,7 +350,8 @@ class TestMailboxGetById:
             email="other@example.com",
             password_hash=password_hash,
             salt=salt,
-            is_active=True
+            is_active=True,
+            email_verified=True
         )
         db_session.add(other_user)
         db_session.commit()
