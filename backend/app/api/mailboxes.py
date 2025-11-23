@@ -114,22 +114,11 @@ async def create_mailbox(
             detail=f"Mailbox with email {mailbox_data.email_address} already exists"
         )
 
-    # Test connection before saving
-    try:
-        provider = get_email_provider(mailbox_data.provider_type, mailbox_data.credentials)
-        test_result = await provider.test_connection()
-        await provider.close()
-
-        if not test_result['success']:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Connection test failed: {test_result['message']}"
-            )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Connection test failed: {str(e)}"
-        )
+    # Note: Connection test is skipped here because:
+    # 1. Frontend requires successful /mailboxes/test call before allowing create
+    # 2. Redundant auth calls can trigger rate limiting (e.g., Fastmail)
+    # 3. Credentials are verified on first sync anyway
+    # If validation is needed, use the /mailboxes/test endpoint first
 
     # Encrypt credentials
     encrypted_creds = encrypt_credentials(mailbox_data.credentials)
