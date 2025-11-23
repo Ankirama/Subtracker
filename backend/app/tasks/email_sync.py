@@ -344,39 +344,68 @@ async def _sync_mailbox_async(
                                 logger.warning(f"Price update detected but no existing subscription found for {subscription_data['provider']}, creating new subscription")
                                 # Fall through to normal creation logic
 
-                        # NORMAL PROCESSING: Check if subscription already exists using composite key
-                        # Strategy: Match on stable fields (provider, billing_cycle, email_sender)
-                        # Note: Amount is NOT used for matching since prices can change over time
-                        # Only use custom_label for genuinely different subscriptions (Twitch channels, specific tiers)
+                        # NORMAL PROCESSING: Check if subscription already exists
+                        # Strategy: Match LOOSELY on provider first, then use other fields for disambiguation
+                        # This prevents duplicates from:
+                        # - Different email_senders (e.g., PayPal vs direct provider email)
+                        # - Different billing_cycle values in emails
+                        # - AI-generated description variations
 
-                        # Start with base query: mailbox + provider
-                        query = db.query(Subscription).filter(
+                        # Check if email is from a payment processor (PayPal, Stripe, etc.)
+                        # These should update existing subscriptions, not create new ones
+                        email_sender = subscription_data.get('email_sender', '')
+                        is_payment_processor_email = any(
+                            processor in email_sender.lower()
+                            for processor in ['paypal', 'stripe', 'paddle', 'gumroad', 'fastspring']
+                        )
+
+                        # Primary match: Just provider + mailbox (most forgiving)
+                        base_query = db.query(Subscription).filter(
                             Subscription.mailbox_id == mailbox.id,
                             Subscription.provider == subscription_data['provider']
                         )
 
-                        # Add stable matching fields to prevent AI-description-based duplicates
-                        # Note: We removed amount matching to handle price changes gracefully
+                        # Get all potential matches for this provider
+                        potential_matches = base_query.all()
 
-                        if subscription_data.get('billing_cycle'):
-                            query = query.filter(Subscription.billing_cycle == subscription_data['billing_cycle'])
-
-                        if subscription_data.get('email_sender'):
-                            query = query.filter(Subscription.email_sender == subscription_data['email_sender'])
-
-                        # Only use custom_label for meaningful distinctions (Twitch channels, specific plans)
-                        # Ignore generic descriptions like "renewal", "payment", "subscription notification"
+                        existing_sub = None
                         custom_label = subscription_data.get('custom_label')
-                        if custom_label:
-                            # Check if custom_label is meaningful (contains tier/channel info)
-                            meaningful_keywords = ['tier', 'channel', 'plan', 'premium', 'basic', 'pro', 'plus', 'family', 'individual', 'student']
-                            is_meaningful = any(keyword in custom_label.lower() for keyword in meaningful_keywords)
 
-                            if is_meaningful:
-                                # Use custom_label for matching (different tiers/channels)
-                                query = query.filter(Subscription.custom_label == custom_label)
+                        if len(potential_matches) == 1:
+                            # Only one subscription for this provider - use it
+                            existing_sub = potential_matches[0]
+                            logger.debug(f"Found single match for {subscription_data['provider']}")
+                        elif len(potential_matches) > 1:
+                            # Multiple subscriptions for this provider - try to disambiguate
+                            # Priority: 1) email_sender match, 2) billing_cycle match, 3) meaningful custom_label
 
-                        existing_sub = query.first()
+                            # If from payment processor, match ANY existing (payment processors don't disambiguate)
+                            if is_payment_processor_email:
+                                existing_sub = potential_matches[0]  # Take the first/oldest
+                                logger.debug(f"Payment processor email - using first existing subscription for {subscription_data['provider']}")
+                            else:
+                                # Try exact email_sender match
+                                for match in potential_matches:
+                                    if match.email_sender == email_sender:
+                                        existing_sub = match
+                                        logger.debug(f"Found email_sender match for {subscription_data['provider']}")
+                                        break
+
+                                # If no email match, check for meaningful custom_label
+                                if not existing_sub and custom_label:
+                                    meaningful_keywords = ['tier', 'channel', 'plan', 'premium', 'basic', 'pro', 'plus', 'family', 'individual', 'student']
+                                    is_meaningful = any(keyword in custom_label.lower() for keyword in meaningful_keywords)
+                                    if is_meaningful:
+                                        for match in potential_matches:
+                                            if match.custom_label == custom_label:
+                                                existing_sub = match
+                                                logger.debug(f"Found custom_label match for {subscription_data['provider']}")
+                                                break
+
+                                # If still no match, use the first one (avoid creating duplicates)
+                                if not existing_sub:
+                                    existing_sub = potential_matches[0]
+                                    logger.debug(f"No specific match - using first existing subscription for {subscription_data['provider']}")
 
                         subscription_record = None
                         if existing_sub:
