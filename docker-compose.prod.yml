@@ -90,6 +90,9 @@ services:
       - traefik.http.middlewares.subtracker-headers.headers.STSIncludeSubdomains=true
       - traefik.http.middlewares.subtracker-headers.headers.STSPreload=true
       - traefik.http.routers.subtracker-api.middlewares=subtracker-headers@docker
+      - traefik.http.routers.subtracker-api.priority=100
+      - traefik.http.routers.subtracker-health.priority=100
+      - traefik.http.routers.subtracker-docs.priority=100
       - traefik.docker.network=proxy
     restart: always
 
@@ -170,11 +173,8 @@ services:
       - traefik.http.routers.subtracker-frontend.tls.certresolver=mytlschallenge
       - traefik.http.routers.subtracker-frontend.service=subtracker-frontend-svc
       - traefik.http.services.subtracker-frontend-svc.loadbalancer.server.port=80
-      # Lower priority than API routes
+      # Lower priority than API routes (API has priority=100)
       - traefik.http.routers.subtracker-frontend.priority=1
-      - traefik.http.routers.subtracker-api.priority=2
-      - traefik.http.routers.subtracker-health.priority=2
-      - traefik.http.routers.subtracker-docs.priority=2
       # Security headers
       - traefik.http.routers.subtracker-frontend.middlewares=subtracker-headers@docker
       - traefik.docker.network=proxy
