@@ -68,14 +68,14 @@ export const LoginPage = () => {
         localStorage.setItem('access_token', response.access_token)
         localStorage.setItem('refresh_token', response.refresh_token)
 
-        // Get current user and navigate
-        const currentUser = await authAPI.getCurrentUser()
         toast({
           title: 'Login successful',
           status: 'success',
           duration: 3000,
         })
-        navigate('/dashboard')
+
+        // Complete login by fetching user into context and navigating
+        await completeLogin()
       }
     } catch (err: any) {
       const message = err.response?.data?.detail || 'Login failed. Please check your credentials.'
