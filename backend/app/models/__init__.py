@@ -12,5 +12,13 @@ from app.models.ip_whitelist import IPWhitelist
 from app.models.budget import Budget
 from app.models.notification import Notification, NotificationPreference
 from app.models.invite_token import InviteToken
+from app.models.push_subscription import PushSubscription
+from app.models.two_factor import EmailOTP
 
-__all__ = ["User", "Mailbox", "Subscription", "EmailMessage", "subscription_emails", "SubscriptionFeedback", "CancellationFeedback", "SyncHistory", "ProviderCancellationInfo", "IPBlock", "IPWhitelist", "Budget", "Notification", "NotificationPreference", "InviteToken"]
+__all__ = [
+    "User", "Mailbox", "Subscription", "EmailMessage", "subscription_emails",
+    "SubscriptionFeedback", "CancellationFeedback", "SyncHistory",
+    "ProviderCancellationInfo", "IPBlock", "IPWhitelist", "Budget",
+    "Notification", "NotificationPreference", "InviteToken",
+    "PushSubscription", "EmailOTP"
+]
