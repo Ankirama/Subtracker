@@ -72,7 +72,12 @@ class TOTPManager:
 
         # Convert to base64
         buffer = io.BytesIO()
-        img.save(buffer, format='PNG')
+        # PyPNGImage doesn't support format argument, PIL Image does
+        try:
+            img.save(buffer, format='PNG')
+        except TypeError:
+            # Fallback for PyPNGImage (pypng backend)
+            img.save(buffer)
         buffer.seek(0)
         img_base64 = base64.b64encode(buffer.read()).decode()
 
