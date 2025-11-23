@@ -27,6 +27,23 @@ from app.services.email_filter import should_process_email
 
 logger = logging.getLogger(__name__)
 
+# Fields that are valid for the Subscription model
+# Used to filter out metadata fields from AI extraction (e.g., is_price_update, old_amount, new_amount)
+VALID_SUBSCRIPTION_FIELDS = {
+    'provider', 'email_sender', 'amount', 'currency', 'billing_cycle',
+    'renewal_date', 'next_billing_date', 'is_active', 'manual_status_override',
+    'trial_status', 'trial_end_date', 'is_confirmed', 'category', 'tags',
+    'custom_label', 'notes', 'cancellation_status', 'cancellation_requested_at',
+    'cancellation_confirmed_at', 'cancellation_notes', 'suggested_cancellation_status',
+    'cancellation_suggestion_reason', 'cancellation_suggestion_created_at',
+    'confidence_score', 'extraction_method', 'extraction_metadata', 'payment_processor'
+}
+
+
+def filter_subscription_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Filter subscription data to only include valid model fields."""
+    return {k: v for k, v in data.items() if k in VALID_SUBSCRIPTION_FIELDS}
+
 
 class DatabaseTask(Task):
     """
@@ -372,8 +389,9 @@ async def _sync_mailbox_async(
                                 float(old_amount) != float(new_amount)
                             )
 
-                            # Update existing subscription
-                            for key, value in subscription_data.items():
+                            # Update existing subscription (filter out metadata fields like is_price_update)
+                            filtered_data = filter_subscription_data(subscription_data)
+                            for key, value in filtered_data.items():
                                 setattr(existing_sub, key, value)
                             existing_sub.updated_at = datetime.now(timezone.utc)
                             subscription_record = existing_sub
@@ -399,11 +417,12 @@ async def _sync_mailbox_async(
                             else:
                                 logger.info(f"Updated subscription: {subscription_data['provider']} - {custom_label or 'No label'}")
                         else:
-                            # Create new subscription
+                            # Create new subscription (filter out metadata fields like is_price_update)
+                            filtered_data = filter_subscription_data(subscription_data)
                             new_subscription = Subscription(
                                 user_id=mailbox.user_id,
                                 mailbox_id=mailbox.id,
-                                **subscription_data
+                                **filtered_data
                             )
                             db.add(new_subscription)
                             db.flush()  # Get the ID
