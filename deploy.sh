@@ -2,11 +2,10 @@
 
 # Subscription Tracker - Full Deployment Script
 # This script pulls latest changes, rebuilds containers, and restarts services
+# Usage: ./deploy.sh [dev|prod]
+# Default: prod
 
 set -e  # Exit on error
-
-echo "🚀 Starting deployment..."
-echo ""
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -14,9 +13,23 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Check if running from project root
-if [ ! -f "docker-compose.yml" ]; then
-    echo "❌ Error: docker-compose.yml not found. Please run from project root."
+# Determine environment (default to prod for safety)
+ENV=${1:-prod}
+
+if [ "$ENV" != "dev" ] && [ "$ENV" != "prod" ]; then
+    echo "❌ Error: Environment must be 'dev' or 'prod'"
+    echo "Usage: ./deploy.sh [dev|prod]"
+    exit 1
+fi
+
+COMPOSE_FILE="docker-compose.${ENV}.yml"
+
+echo "🚀 Starting deployment for ${ENV} environment..."
+echo ""
+
+# Check if compose file exists
+if [ ! -f "$COMPOSE_FILE" ]; then
+    echo "❌ Error: $COMPOSE_FILE not found. Please run from project root."
     exit 1
 fi
 
@@ -27,17 +40,17 @@ echo ""
 
 # Step 2: Stop containers
 echo -e "${BLUE}🛑 Stopping containers...${NC}"
-docker-compose down
+docker-compose -f "$COMPOSE_FILE" down
 echo ""
 
 # Step 3: Rebuild containers (in case dependencies changed)
 echo -e "${BLUE}🔨 Rebuilding containers...${NC}"
-docker-compose build --no-cache
+docker-compose -f "$COMPOSE_FILE" build --no-cache
 echo ""
 
 # Step 4: Start containers
 echo -e "${BLUE}🚀 Starting containers...${NC}"
-docker-compose up -d
+docker-compose -f "$COMPOSE_FILE" up -d
 echo ""
 
 # Step 5: Wait for services to be ready
@@ -67,7 +80,7 @@ fi
 # Check container status
 echo ""
 echo -e "${BLUE}📊 Container Status:${NC}"
-docker-compose ps
+docker-compose -f "$COMPOSE_FILE" ps
 
 echo ""
 echo -e "${GREEN}✅ Deployment complete!${NC}"

@@ -6,9 +6,28 @@ This guide explains how to deploy updates to your Subscription Tracker applicati
 
 | Script | Use Case | What It Does |
 |--------|----------|--------------|
-| `./deploy.sh` | Full deployment with dependency changes | Pull → Rebuild → Restart → Health Check |
-| `./update.sh` | Quick code updates (no dependency changes) | Pull → Copy files → Restart → Health Check |
-| `./restart.sh` | Simple restart (no changes) | Restart all containers → Health Check |
+| `./deploy.sh [env]` | Full deployment with dependency changes | Pull → Rebuild → Restart → Health Check |
+| `./update.sh [env]` | Quick code updates (no dependency changes) | Pull → Copy files → Restart → Health Check |
+| `./restart.sh [env]` | Simple restart (no changes) | Restart all containers → Health Check |
+
+**Note**: `[env]` can be `dev` or `prod`. Defaults to `prod` if not specified.
+
+## Environment Selection
+
+All deployment scripts support both development and production environments:
+
+```bash
+# Production (default)
+./deploy.sh
+./deploy.sh prod
+
+# Development
+./deploy.sh dev
+```
+
+The scripts automatically use the correct docker-compose file:
+- `dev` → docker-compose.dev.yml
+- `prod` → docker-compose.prod.yml
 
 ## Deployment Scenarios
 
@@ -21,7 +40,12 @@ Use this when:
 - After major updates
 
 ```bash
+# Production
 ./deploy.sh
+./deploy.sh prod
+
+# Development
+./deploy.sh dev
 ```
 
 **What happens:**
@@ -43,7 +67,12 @@ Use this when:
 - Quick bug fixes or feature updates
 
 ```bash
+# Production
 ./update.sh
+./update.sh prod
+
+# Development
+./update.sh dev
 ```
 
 **What happens:**
@@ -66,7 +95,12 @@ Use this when:
 - No code changes needed
 
 ```bash
+# Production
 ./restart.sh
+./restart.sh prod
+
+# Development
+./restart.sh dev
 ```
 
 **What happens:**
@@ -84,13 +118,17 @@ If you prefer manual control, here's what each script does:
 
 ### Full Deployment (Manual)
 ```bash
+# Set environment (dev or prod)
+ENV=prod  # or dev
+COMPOSE_FILE="docker-compose.${ENV}.yml"
+
 # Pull latest changes
 git pull origin main
 
 # Rebuild and restart
-docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
+docker-compose -f $COMPOSE_FILE down
+docker-compose -f $COMPOSE_FILE build --no-cache
+docker-compose -f $COMPOSE_FILE up -d
 
 # Check health
 curl http://localhost:8000/health
@@ -99,6 +137,10 @@ curl http://localhost:5173
 
 ### Quick Update (Manual)
 ```bash
+# Set environment (dev or prod)
+ENV=prod  # or dev
+COMPOSE_FILE="docker-compose.${ENV}.yml"
+
 # Pull latest changes
 git pull origin main
 
@@ -107,7 +149,7 @@ docker cp backend/app/. subscriptions_backend:/app/app/
 docker cp backend/app/. subscriptions_celery:/app/app/
 
 # Restart services
-docker-compose restart backend celery
+docker-compose -f $COMPOSE_FILE restart backend celery
 
 # Check health
 curl http://localhost:8000/health
@@ -120,8 +162,12 @@ curl http://localhost:8000/health
 After any deployment, you can check:
 
 ```bash
+# Set environment
+ENV=prod  # or dev
+COMPOSE_FILE="docker-compose.${ENV}.yml"
+
 # Container status
-docker-compose ps
+docker-compose -f $COMPOSE_FILE ps
 
 # Backend health
 curl http://localhost:8000/health
@@ -130,9 +176,9 @@ curl http://localhost:8000/health
 curl http://localhost:5173
 
 # View logs
-docker-compose logs -f backend
-docker-compose logs -f celery
-docker-compose logs -f frontend
+docker-compose -f $COMPOSE_FILE logs -f backend
+docker-compose -f $COMPOSE_FILE logs -f celery
+docker-compose -f $COMPOSE_FILE logs -f frontend
 ```
 
 ---
@@ -142,25 +188,27 @@ docker-compose logs -f frontend
 ### Services Won't Start
 
 ```bash
-# Check logs for errors
-docker-compose logs backend
-docker-compose logs celery
+# Check logs for errors (replace ENV with dev or prod)
+ENV=prod
+docker-compose -f docker-compose.${ENV}.yml logs backend
+docker-compose -f docker-compose.${ENV}.yml logs celery
 
 # Try a full rebuild
-./deploy.sh
+./deploy.sh $ENV
 ```
 
 ### Database Connection Issues
 
 ```bash
-# Check PostgreSQL is running
-docker-compose ps postgres
+# Check PostgreSQL is running (replace ENV with dev or prod)
+ENV=prod
+docker-compose -f docker-compose.${ENV}.yml ps postgres
 
 # Restart database
-docker-compose restart postgres
+docker-compose -f docker-compose.${ENV}.yml restart postgres
 
 # Check database logs
-docker-compose logs postgres
+docker-compose -f docker-compose.${ENV}.yml logs postgres
 ```
 
 ### Port Already in Use
@@ -177,14 +225,15 @@ lsof -i :5432  # PostgreSQL
 ### Celery Tasks Not Running
 
 ```bash
-# Check Celery status
-docker-compose logs celery
+# Check Celery status (replace ENV with dev or prod)
+ENV=prod
+docker-compose -f docker-compose.${ENV}.yml logs celery
 
 # Restart Celery
-docker-compose restart celery
+docker-compose -f docker-compose.${ENV}.yml restart celery
 
 # Check Redis connection
-docker-compose logs redis
+docker-compose -f docker-compose.${ENV}.yml logs redis
 ```
 
 ---
@@ -235,12 +284,13 @@ SMTP_PASSWORD=your-password
    - Run tests: `docker exec subscriptions_backend pytest`
 
 2. **Use appropriate script**
-   - Code-only changes → `./update.sh` (fast)
-   - Dependency changes → `./deploy.sh` (full rebuild)
-   - Just restarting → `./restart.sh` (quick)
+   - Code-only changes → `./update.sh [env]` (fast)
+   - Dependency changes → `./deploy.sh [env]` (full rebuild)
+   - Just restarting → `./restart.sh [env]` (quick)
+   - Always specify environment (dev/prod), defaults to prod
 
 3. **Monitor after deployment**
-   - Check logs: `docker-compose logs -f`
+   - Check logs: `docker-compose -f docker-compose.[env].yml logs -f`
    - Test critical features
    - Monitor error rates
 
