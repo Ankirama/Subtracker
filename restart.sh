@@ -35,7 +35,7 @@ fi
 
 # Restart all services
 echo -e "${BLUE}🔄 Restarting all containers...${NC}"
-docker-compose -f "$COMPOSE_FILE" restart
+docker compose -f "$COMPOSE_FILE" restart
 echo ""
 
 # Wait for services
@@ -66,4 +66,4 @@ echo -e "${GREEN}✅ Restart complete!${NC}"
 # Show container status
 echo ""
 echo -e "${BLUE}📊 Container Status:${NC}"
-docker-compose -f "$COMPOSE_FILE" ps
+docker compose -f "$COMPOSE_FILE" ps

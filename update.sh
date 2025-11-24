@@ -58,7 +58,7 @@ echo ""
 
 # Step 3: Restart services
 echo -e "${BLUE}🔄 Restarting services...${NC}"
-docker-compose -f "$COMPOSE_FILE" restart backend celery
+docker compose -f "$COMPOSE_FILE" restart backend celery
 echo ""
 
 # Step 4: Wait for services

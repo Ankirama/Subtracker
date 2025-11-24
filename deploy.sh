@@ -40,17 +40,17 @@ echo ""
 
 # Step 2: Stop containers
 echo -e "${BLUE}🛑 Stopping containers...${NC}"
-docker-compose -f "$COMPOSE_FILE" down
+docker compose -f "$COMPOSE_FILE" down
 echo ""
 
 # Step 3: Rebuild containers (in case dependencies changed)
 echo -e "${BLUE}🔨 Rebuilding containers...${NC}"
-docker-compose -f "$COMPOSE_FILE" build --no-cache
+docker compose -f "$COMPOSE_FILE" build --no-cache
 echo ""
 
 # Step 4: Start containers
 echo -e "${BLUE}🚀 Starting containers...${NC}"
-docker-compose -f "$COMPOSE_FILE" up -d
+docker compose -f "$COMPOSE_FILE" up -d
 echo ""
 
 # Step 5: Wait for services to be ready
@@ -80,7 +80,7 @@ fi
 # Check container status
 echo ""
 echo -e "${BLUE}📊 Container Status:${NC}"
-docker-compose -f "$COMPOSE_FILE" ps
+docker compose -f "$COMPOSE_FILE" ps
 
 echo ""
 echo -e "${GREEN}✅ Deployment complete!${NC}"

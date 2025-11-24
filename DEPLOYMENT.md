@@ -126,9 +126,9 @@ COMPOSE_FILE="docker-compose.${ENV}.yml"
 git pull origin main
 
 # Rebuild and restart
-docker-compose -f $COMPOSE_FILE down
-docker-compose -f $COMPOSE_FILE build --no-cache
-docker-compose -f $COMPOSE_FILE up -d
+docker compose -f $COMPOSE_FILE down
+docker compose -f $COMPOSE_FILE build --no-cache
+docker compose -f $COMPOSE_FILE up -d
 
 # Check health
 curl http://localhost:8000/health
@@ -149,7 +149,7 @@ docker cp backend/app/. subscriptions_backend:/app/app/
 docker cp backend/app/. subscriptions_celery:/app/app/
 
 # Restart services
-docker-compose -f $COMPOSE_FILE restart backend celery
+docker compose -f $COMPOSE_FILE restart backend celery
 
 # Check health
 curl http://localhost:8000/health
@@ -167,7 +167,7 @@ ENV=prod  # or dev
 COMPOSE_FILE="docker-compose.${ENV}.yml"
 
 # Container status
-docker-compose -f $COMPOSE_FILE ps
+docker compose -f $COMPOSE_FILE ps
 
 # Backend health
 curl http://localhost:8000/health
@@ -176,9 +176,9 @@ curl http://localhost:8000/health
 curl http://localhost:5173
 
 # View logs
-docker-compose -f $COMPOSE_FILE logs -f backend
-docker-compose -f $COMPOSE_FILE logs -f celery
-docker-compose -f $COMPOSE_FILE logs -f frontend
+docker compose -f $COMPOSE_FILE logs -f backend
+docker compose -f $COMPOSE_FILE logs -f celery
+docker compose -f $COMPOSE_FILE logs -f frontend
 ```
 
 ---
@@ -190,8 +190,8 @@ docker-compose -f $COMPOSE_FILE logs -f frontend
 ```bash
 # Check logs for errors (replace ENV with dev or prod)
 ENV=prod
-docker-compose -f docker-compose.${ENV}.yml logs backend
-docker-compose -f docker-compose.${ENV}.yml logs celery
+docker compose -f docker-compose.${ENV}.yml logs backend
+docker compose -f docker-compose.${ENV}.yml logs celery
 
 # Try a full rebuild
 ./deploy.sh $ENV
@@ -202,13 +202,13 @@ docker-compose -f docker-compose.${ENV}.yml logs celery
 ```bash
 # Check PostgreSQL is running (replace ENV with dev or prod)
 ENV=prod
-docker-compose -f docker-compose.${ENV}.yml ps postgres
+docker compose -f docker-compose.${ENV}.yml ps postgres
 
 # Restart database
-docker-compose -f docker-compose.${ENV}.yml restart postgres
+docker compose -f docker-compose.${ENV}.yml restart postgres
 
 # Check database logs
-docker-compose -f docker-compose.${ENV}.yml logs postgres
+docker compose -f docker-compose.${ENV}.yml logs postgres
 ```
 
 ### Port Already in Use
@@ -227,13 +227,13 @@ lsof -i :5432  # PostgreSQL
 ```bash
 # Check Celery status (replace ENV with dev or prod)
 ENV=prod
-docker-compose -f docker-compose.${ENV}.yml logs celery
+docker compose -f docker-compose.${ENV}.yml logs celery
 
 # Restart Celery
-docker-compose -f docker-compose.${ENV}.yml restart celery
+docker compose -f docker-compose.${ENV}.yml restart celery
 
 # Check Redis connection
-docker-compose -f docker-compose.${ENV}.yml logs redis
+docker compose -f docker-compose.${ENV}.yml logs redis
 ```
 
 ---
@@ -290,7 +290,7 @@ SMTP_PASSWORD=your-password
    - Always specify environment (dev/prod), defaults to prod
 
 3. **Monitor after deployment**
-   - Check logs: `docker-compose -f docker-compose.[env].yml logs -f`
+   - Check logs: `docker compose -f docker-compose.[env].yml logs -f`
    - Test critical features
    - Monitor error rates
 
