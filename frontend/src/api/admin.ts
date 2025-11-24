@@ -60,6 +60,7 @@ export interface User {
   email: string
   is_active: boolean
   is_admin: boolean
+  email_verified: boolean
   created_at: string
   updated_at: string
 }
@@ -147,6 +148,29 @@ export interface SecurityStats {
     high: number
     critical: number
   }
+}
+
+// Invite Management Types
+export interface Invite {
+  id: string
+  token: string
+  invite_url: string
+  invited_email?: string
+  note?: string
+  is_used: boolean
+  used_at?: string
+  expires_at: string
+  created_at: string
+}
+
+export interface InviteCreate {
+  email?: string
+  note?: string
+  expires_in_days?: number
+}
+
+export interface InviteListResponse {
+  invites: Invite[]
 }
 
 // IP Whitelist Management Types
@@ -282,6 +306,11 @@ export const adminApi = {
     return response.data
   },
 
+  async verifyUser(userId: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post(`/admin/users/${userId}/verify`)
+    return response.data
+  },
+
   // Log Management
   async getLogs(params?: {
     page?: number
@@ -380,5 +409,20 @@ export const adminApi = {
 
   async removeIPFromWhitelist(ipAddress: string): Promise<void> {
     await apiClient.delete(`/admin/security/ip-whitelist/${encodeURIComponent(ipAddress)}`)
+  },
+
+  // Invite Management
+  async listInvites(): Promise<InviteListResponse> {
+    const response = await apiClient.get('/admin/invites')
+    return response.data
+  },
+
+  async createInvite(data: InviteCreate): Promise<Invite> {
+    const response = await apiClient.post('/admin/invites', data)
+    return response.data
+  },
+
+  async revokeInvite(inviteId: string): Promise<void> {
+    await apiClient.delete(`/admin/invites/${inviteId}`)
   },
 }

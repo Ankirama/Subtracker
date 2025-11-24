@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str
     VAPID_CLAIM_EMAIL: str = "mailto:noreply@subscriptiontracker.app"
 
+    # Google OAuth (Gmail integration)
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "http://localhost:8000/api/oauth/google/callback"
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]

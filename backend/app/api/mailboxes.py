@@ -29,7 +29,7 @@ from app.schemas.sync_history import (
 )
 from app.security.dependencies import get_current_user
 from app.security.encryption import encrypt_credentials, decrypt_credentials
-from app.email_providers import JMAPProvider
+from app.email_providers import JMAPProvider, GmailProvider
 import logging
 
 logger = logging.getLogger(__name__)
@@ -44,11 +44,7 @@ def get_email_provider(provider_type: str, credentials: dict):
     if provider_type == 'jmap':
         return JMAPProvider(credentials)
     elif provider_type == 'gmail':
-        # TODO: Implement GmailProvider in Phase 2
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Gmail provider not yet implemented. Coming in Phase 2."
-        )
+        return GmailProvider(credentials)
     elif provider_type == 'outlook':
         # TODO: Implement OutlookProvider in Phase 2
         raise HTTPException(

@@ -59,6 +59,8 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiChevronsRight,
+  FiMail,
+  FiCheckCircle,
 } from 'react-icons/fi'
 import {
   adminApi,
@@ -225,6 +227,27 @@ export const AdminUsersPage = () => {
       toast({
         title: 'Error Deactivating User',
         description: error instanceof Error ? error.message : 'Unknown error',
+        status: 'error',
+        duration: 5000,
+      })
+    }
+  }
+
+  // Handle verify user email
+  const handleVerifyUser = async (user: User) => {
+    try {
+      await adminApi.verifyUser(user.id)
+      toast({
+        title: 'Email Verified',
+        description: `${user.email} has been manually verified`,
+        status: 'success',
+        duration: 3000,
+      })
+      loadUsers()
+    } catch (error: any) {
+      toast({
+        title: 'Error Verifying User',
+        description: error.response?.data?.detail || 'Unknown error',
         status: 'error',
         duration: 5000,
       })
@@ -400,6 +423,7 @@ export const AdminUsersPage = () => {
                     <Tr>
                       <Th>Email</Th>
                       <Th>Status</Th>
+                      <Th>Verified</Th>
                       <Th>Role</Th>
                       <Th>Created</Th>
                       <Th>Actions</Th>
@@ -414,6 +438,11 @@ export const AdminUsersPage = () => {
                         <Td>
                           <Badge colorScheme={user.is_active ? 'green' : 'red'}>
                             {user.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </Td>
+                        <Td>
+                          <Badge colorScheme={user.email_verified ? 'green' : 'orange'}>
+                            {user.email_verified ? 'Verified' : 'Unverified'}
                           </Badge>
                         </Td>
                         <Td>
@@ -447,6 +476,18 @@ export const AdminUsersPage = () => {
                                 onClick={() => handleEditUser(user)}
                               />
                             </Tooltip>
+                            {!user.email_verified && (
+                              <Tooltip label="Verify Email">
+                                <IconButton
+                                  aria-label="Verify email"
+                                  icon={<FiCheckCircle />}
+                                  size="sm"
+                                  variant="ghost"
+                                  colorScheme="green"
+                                  onClick={() => handleVerifyUser(user)}
+                                />
+                              </Tooltip>
+                            )}
                             <Tooltip label="Deactivate User">
                               <IconButton
                                 aria-label="Delete user"
@@ -583,13 +624,22 @@ export const AdminUsersPage = () => {
                   <Text>{selectedUser.email}</Text>
                 </Box>
 
-                <SimpleGrid columns={2} spacing={4}>
+                <SimpleGrid columns={3} spacing={4}>
                   <Box>
                     <Text fontWeight="bold" mb={2}>
                       Status
                     </Text>
                     <Badge colorScheme={selectedUser.is_active ? 'green' : 'red'}>
                       {selectedUser.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </Box>
+
+                  <Box>
+                    <Text fontWeight="bold" mb={2}>
+                      Email Verified
+                    </Text>
+                    <Badge colorScheme={selectedUser.email_verified ? 'green' : 'orange'}>
+                      {selectedUser.email_verified ? 'Verified' : 'Unverified'}
                     </Badge>
                   </Box>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Box,
@@ -37,9 +38,56 @@ export const MailboxesPage = () => {
   const pollingIntervalRef = useRef<number | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { isOpen: isSyncOpen, onOpen: onSyncOpen, onClose: onSyncClose } = useDisclosure()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const queryClient = useQueryClient()
   const toast = useToast()
+
+  // Handle OAuth callback query params
+  useEffect(() => {
+    const success = searchParams.get('success')
+    const error = searchParams.get('error')
+
+    if (success === 'gmail_connected') {
+      toast({
+        title: 'Gmail Connected',
+        description: 'Your Gmail account has been connected successfully. You can now sync your emails.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+      queryClient.invalidateQueries({ queryKey: ['mailboxes'] })
+      // Clear the query params
+      setSearchParams({})
+    } else if (success === 'gmail_updated') {
+      toast({
+        title: 'Gmail Updated',
+        description: 'Your Gmail connection has been updated.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      })
+      queryClient.invalidateQueries({ queryKey: ['mailboxes'] })
+      setSearchParams({})
+    } else if (error) {
+      const errorMessages: Record<string, string> = {
+        'invalid_state': 'OAuth session expired. Please try again.',
+        'token_exchange_failed': 'Failed to exchange authorization code.',
+        'userinfo_failed': 'Failed to get Gmail account information.',
+        'no_email': 'Could not retrieve email address from Google.',
+        'callback_failed': 'OAuth callback failed. Please try again.',
+        'access_denied': 'Access was denied. Please grant Gmail access to continue.',
+      }
+      toast({
+        title: 'Gmail Connection Failed',
+        description: errorMessages[error] || `Error: ${error}`,
+        status: 'error',
+        duration: 7000,
+        isClosable: true,
+      })
+      setSearchParams({})
+    }
+  }, [searchParams, setSearchParams, toast, queryClient])
 
   const { data: mailboxes, isLoading, error } = useQuery({
     queryKey: ['mailboxes'],

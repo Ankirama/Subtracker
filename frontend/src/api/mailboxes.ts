@@ -56,4 +56,20 @@ export const mailboxesAPI = {
     })
     return response.data
   },
+
+  // Google OAuth
+  getGoogleAuthUrl: async (): Promise<{ authorization_url: string; state: string }> => {
+    const response = await apiClient.get('/oauth/google/authorize')
+    return response.data
+  },
+
+  refreshGoogleToken: async (mailboxId: string): Promise<{ message: string }> => {
+    const response = await apiClient.post('/oauth/google/refresh', { mailbox_id: mailboxId })
+    return response.data
+  },
+
+  disconnectGoogle: async (mailboxId: string): Promise<{ message: string }> => {
+    const response = await apiClient.delete(`/oauth/google/disconnect/${mailboxId}`)
+    return response.data
+  },
 }

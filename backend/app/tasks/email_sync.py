@@ -16,7 +16,7 @@ from app.models.subscription import Subscription
 from app.models.email_message import EmailMessage, subscription_emails
 from app.models.price_history import PriceHistory
 from app.models.sync_history import SyncHistory
-from app.email_providers import JMAPProvider
+from app.email_providers import JMAPProvider, GmailProvider
 from app.security.encryption import decrypt_credentials
 from app.config import settings
 from app.utils.config_helper import get_config_value
@@ -94,6 +94,8 @@ async def _sync_mailbox_async(
         # Get email provider
         if mailbox.provider_type == 'jmap':
             provider = JMAPProvider(credentials)
+        elif mailbox.provider_type == 'gmail':
+            provider = GmailProvider(credentials)
         else:
             raise ValueError(f"Unsupported provider type: {mailbox.provider_type}")
         

@@ -34,6 +34,11 @@ beautifulsoup4==4.12.3  # For HTML email parsing
 lxml==5.1.0  # For XML/HTML parsing
 sendgrid==6.11.0  # SendGrid for transactional emails
 
+# Google APIs (Gmail integration)
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+google-api-python-client==2.116.0
+
 # Utilities
 python-dotenv==1.0.1
 email-validator==2.1.0

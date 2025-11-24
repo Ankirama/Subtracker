@@ -119,7 +119,7 @@ async def root():
 
 
 # Import and include routers
-from app.api import auth, mailboxes, subscriptions, ai_sandbox, notifications, optimize, export, budgets, categories, cancellation, reviews, feedback, providers
+from app.api import auth, mailboxes, subscriptions, ai_sandbox, notifications, optimize, export, budgets, categories, cancellation, reviews, feedback, providers, oauth
 from app.api.endpoints import push_notifications
 from app.api.admin import config as admin_config, announcements as admin_announcements, users as admin_users, logs as admin_logs, security as admin_security, invites as admin_invites
 
@@ -143,6 +143,7 @@ app.include_router(admin_users.router, prefix="/api", tags=["Admin"])
 app.include_router(admin_logs.router, prefix="/api", tags=["Admin"])
 app.include_router(admin_security.router, prefix="/api", tags=["Admin"])
 app.include_router(admin_invites.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(oauth.router, prefix="/api/oauth", tags=["OAuth"])
 
 # Additional routers (will be added as we create them)
 # from app.api import reviews, analytics, budgets

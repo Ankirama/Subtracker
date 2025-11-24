@@ -68,6 +68,7 @@ async def list_users(
                 "email": user.email,
                 "is_active": user.is_active,
                 "is_admin": user.is_admin,
+                "email_verified": user.email_verified,
                 "created_at": user.created_at.isoformat(),
                 "updated_at": user.updated_at.isoformat(),
             }
@@ -138,6 +139,7 @@ async def get_user(
         "email": user.email,
         "is_active": user.is_active,
         "is_admin": user.is_admin,
+        "email_verified": user.email_verified,
         "settings": user.settings,
         "created_at": user.created_at.isoformat(),
         "updated_at": user.updated_at.isoformat(),
@@ -195,6 +197,7 @@ async def update_user(
         "email": user.email,
         "is_active": user.is_active,
         "is_admin": user.is_admin,
+        "email_verified": user.email_verified,
         "settings": user.settings,
         "created_at": user.created_at.isoformat(),
         "updated_at": user.updated_at.isoformat(),
@@ -228,3 +231,35 @@ async def delete_user(
     db.commit()
 
     return {"success": True, "message": "User deactivated successfully"}
+
+
+@router.post("/{user_id}/verify", dependencies=[Depends(get_current_admin_user)])
+async def verify_user_email(
+    user_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually verify a user's email address.
+
+    This is useful when users can't click the verification link.
+    """
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user ID format")
+
+    user = db.query(User).filter(User.id == user_uuid).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.email_verified:
+        raise HTTPException(status_code=400, detail="User email is already verified")
+
+    # Verify the user's email
+    user.email_verified = True
+    user.email_verified_at = datetime.utcnow()
+    user.email_verification_token = None
+    db.commit()
+
+    return {"success": True, "message": "User email verified successfully"}

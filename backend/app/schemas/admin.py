@@ -272,6 +272,7 @@ class UserBase(BaseModel):
     email: str
     is_active: bool
     is_admin: bool
+    email_verified: bool
 
 
 class UserResponse(UserBase):
