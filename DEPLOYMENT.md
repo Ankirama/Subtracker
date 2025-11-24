@@ -149,7 +149,7 @@ docker cp backend/app/. subscriptions_backend:/app/app/
 docker cp backend/app/. subscriptions_celery:/app/app/
 
 # Restart services
-docker compose -f $COMPOSE_FILE restart backend celery
+docker compose -f $COMPOSE_FILE restart backend celery_worker celery_beat
 
 # Check health
 curl http://localhost:8000/health
@@ -177,7 +177,8 @@ curl http://localhost:5173
 
 # View logs
 docker compose -f $COMPOSE_FILE logs -f backend
-docker compose -f $COMPOSE_FILE logs -f celery
+docker compose -f $COMPOSE_FILE logs -f celery_worker
+docker compose -f $COMPOSE_FILE logs -f celery_beat
 docker compose -f $COMPOSE_FILE logs -f frontend
 ```
 
@@ -191,7 +192,8 @@ docker compose -f $COMPOSE_FILE logs -f frontend
 # Check logs for errors (replace ENV with dev or prod)
 ENV=prod
 docker compose -f docker-compose.${ENV}.yml logs backend
-docker compose -f docker-compose.${ENV}.yml logs celery
+docker compose -f docker-compose.${ENV}.yml logs celery_worker
+docker compose -f docker-compose.${ENV}.yml logs celery_beat
 
 # Try a full rebuild
 ./deploy.sh $ENV
@@ -227,10 +229,11 @@ lsof -i :5432  # PostgreSQL
 ```bash
 # Check Celery status (replace ENV with dev or prod)
 ENV=prod
-docker compose -f docker-compose.${ENV}.yml logs celery
+docker compose -f docker-compose.${ENV}.yml logs celery_worker
+docker compose -f docker-compose.${ENV}.yml logs celery_beat
 
 # Restart Celery
-docker compose -f docker-compose.${ENV}.yml restart celery
+docker compose -f docker-compose.${ENV}.yml restart celery_worker celery_beat
 
 # Check Redis connection
 docker compose -f docker-compose.${ENV}.yml logs redis
