@@ -16,7 +16,7 @@ export const subscriptionsAPI = {
     page?: number
     page_size?: number
     category?: string
-    is_active?: boolean
+    status?: string
     search?: string
     sort_by?: string
     exclude_trials?: boolean

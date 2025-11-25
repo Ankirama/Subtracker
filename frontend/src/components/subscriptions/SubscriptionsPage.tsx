@@ -66,6 +66,7 @@ export const SubscriptionsPage = () => {
     queryFn: () =>
       subscriptionsAPI.getAll({
         category: categoryFilter || undefined,
+        status: activeFilter || undefined,
         exclude_trials: excludeTrials,
       }),
   })
