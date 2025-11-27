@@ -65,10 +65,10 @@ class ConfigHelper:
         # Fall back to environment variables
         # Admin-configurable settings (can be overridden in database)
         env_mapping = {
-            # SendGrid configuration
-            'sendgrid.api_key': settings.SENDGRID_API_KEY,
-            'sendgrid.from_email': settings.SENDGRID_FROM_EMAIL,
-            'sendgrid.from_name': settings.SENDGRID_FROM_NAME,
+            # Resend configuration
+            'resend.api_key': settings.RESEND_API_KEY,
+            'resend.from_email': settings.RESEND_FROM_EMAIL,
+            'resend.from_name': settings.RESEND_FROM_NAME,
 
             # OpenAI configuration
             'openai.api_key': settings.OPENAI_API_KEY,
