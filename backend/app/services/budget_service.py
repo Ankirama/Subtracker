@@ -130,9 +130,7 @@ class BudgetService:
 
         # Build query for active subscriptions
         query = db.query(Subscription).filter(
-            and_(
-                Subscription.mailbox_id.in_(mailbox_ids), Subscription.is_active
-            )
+            and_(Subscription.mailbox_id.in_(mailbox_ids), Subscription.is_active)
         )
 
         # Apply category filter if specified

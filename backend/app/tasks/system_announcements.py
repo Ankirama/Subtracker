@@ -244,11 +244,7 @@ def broadcast_system_announcement(
 
             # Convert string UUIDs to UUID objects
             user_uuids = [uuid.UUID(uid) for uid in target_user_ids]
-            users = (
-                db.query(User)
-                .filter(User.id.in_(user_uuids), User.is_active)
-                .all()
-            )
+            users = db.query(User).filter(User.id.in_(user_uuids), User.is_active).all()
             logger.info(f"Broadcasting to {len(users)} specified users")
 
         total_notifications = 0

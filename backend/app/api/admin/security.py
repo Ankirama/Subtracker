@@ -122,9 +122,7 @@ async def get_security_stats(db: Session = Depends(get_db)):
     # Critical unresolved events
     critical_unresolved = (
         db.query(func.count(SecurityEvent.id))
-        .filter(
-            SecurityEvent.severity == "critical", not SecurityEvent.is_resolved
-        )
+        .filter(SecurityEvent.severity == "critical", not SecurityEvent.is_resolved)
         .scalar()
     )
 
@@ -133,9 +131,7 @@ async def get_security_stats(db: Session = Depends(get_db)):
     for severity in ["low", "medium", "high", "critical"]:
         count = (
             db.query(func.count(SecurityEvent.id))
-            .filter(
-                SecurityEvent.severity == severity, not SecurityEvent.is_resolved
-            )
+            .filter(SecurityEvent.severity == severity, not SecurityEvent.is_resolved)
             .scalar()
         )
         severity_counts[severity] = count

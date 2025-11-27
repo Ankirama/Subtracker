@@ -51,9 +51,7 @@ async def get_optimization_recommendations(
         # Get active subscriptions
         active_subscriptions = (
             db.query(Subscription)
-            .filter(
-                Subscription.mailbox_id.in_(mailbox_ids), Subscription.is_active
-            )
+            .filter(Subscription.mailbox_id.in_(mailbox_ids), Subscription.is_active)
             .all()
         )
 

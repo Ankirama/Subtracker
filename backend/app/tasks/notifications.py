@@ -148,9 +148,7 @@ def send_weekly_summaries_deprecated():
             # Get user's active subscriptions
             subscriptions = (
                 db.query(Subscription)
-                .filter(
-                    Subscription.user_id == pref.user_id, Subscription.is_active
-                )
+                .filter(Subscription.user_id == pref.user_id, Subscription.is_active)
                 .all()
             )
 
@@ -258,9 +256,7 @@ def send_monthly_summaries_deprecated():
             # Get user's active subscriptions
             subscriptions = (
                 db.query(Subscription)
-                .filter(
-                    Subscription.user_id == pref.user_id, Subscription.is_active
-                )
+                .filter(Subscription.user_id == pref.user_id, Subscription.is_active)
                 .all()
             )
 

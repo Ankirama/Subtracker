@@ -10,7 +10,6 @@ Tests cover:
 - Brute force protection bypass for whitelisted IPs
 """
 
-
 from app.models.ip_whitelist import IPWhitelist
 from app.security.email_verification import VerificationRateLimiter
 

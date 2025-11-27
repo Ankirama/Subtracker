@@ -134,9 +134,7 @@ class PushNotificationService:
         # Get all active subscriptions for user
         subscriptions = (
             db.query(PushSubscription)
-            .filter(
-                PushSubscription.user_id == user_id, PushSubscription.is_active
-            )
+            .filter(PushSubscription.user_id == user_id, PushSubscription.is_active)
             .all()
         )
 

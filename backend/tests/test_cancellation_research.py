@@ -548,9 +548,7 @@ class TestResearchCancellationConvenienceFunction:
         ) as mock_research:
             mock_research.return_value = sample_research_data
 
-            await research_cancellation(
-                "Spotify", db_session, force_refresh=True
-            )
+            await research_cancellation("Spotify", db_session, force_refresh=True)
 
             # Should call OpenAI even with cache present
             mock_research.assert_called_once()
