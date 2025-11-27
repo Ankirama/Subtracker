@@ -9,6 +9,7 @@ Tests cover:
 - Reactivation scenarios
 - Edge cases and error handling
 """
+
 import pytest
 from datetime import datetime, timedelta, timezone
 from dateutil.relativedelta import relativedelta
@@ -25,17 +26,16 @@ class TestRenewalCalculatorTrialDetection:
 
         email_dates = [datetime.now(timezone.utc)]
         email_contents = ["Your free trial starts today!"]
-        trial_metadata = {
-            'trial_detected': True,
-            'trial_keywords': ['free trial']
-        }
+        trial_metadata = {"trial_detected": True, "trial_keywords": ["free trial"]}
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=trial_metadata
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=trial_metadata,
+            )
         )
 
         assert trial_status == "trial"
@@ -50,19 +50,18 @@ class TestRenewalCalculatorTrialDetection:
         email_dates = [now, now - timedelta(days=15)]
         email_contents = [
             "Your subscription has been renewed",
-            "Your free trial starts today!"
+            "Your free trial starts today!",
         ]
-        trial_metadata = {
-            'trial_detected': True,
-            'trial_keywords': ['free trial']
-        }
+        trial_metadata = {"trial_detected": True, "trial_keywords": ["free trial"]}
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=trial_metadata
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=trial_metadata,
+            )
         )
 
         assert trial_status == "converted"
@@ -76,12 +75,14 @@ class TestRenewalCalculatorTrialDetection:
         email_dates = [datetime.now(timezone.utc)]
         email_contents = ["Your subscription has been created"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert trial_status == "none"
@@ -96,15 +97,17 @@ class TestRenewalCalculatorTrialDetection:
         email_dates = [now, now - timedelta(days=30)]
         email_contents = [
             "Your subscription has been renewed",
-            "Your subscription has been created"
+            "Your subscription has been created",
         ]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert trial_status == "none"
@@ -121,17 +124,16 @@ class TestRenewalCalculatorPatternExtraction:
 
         now = datetime.now(timezone.utc)
         email_dates = [now, now - timedelta(days=30)]
-        email_contents = [
-            "Your subscription Renews 25 December 2025",
-            "Previous email"
-        ]
+        email_contents = ["Your subscription Renews 25 December 2025", "Previous email"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="Apple",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="Apple",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert renewal_date is not None
@@ -147,15 +149,17 @@ class TestRenewalCalculatorPatternExtraction:
         email_dates = [now, now - timedelta(days=30)]
         email_contents = [
             "Your next payment will be processed on January 15, 2026",
-            "Previous email"
+            "Previous email",
         ]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="GenericProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="GenericProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert renewal_date is not None
@@ -169,17 +173,16 @@ class TestRenewalCalculatorPatternExtraction:
 
         now = datetime.now(timezone.utc)
         email_dates = [now, now - timedelta(days=30)]
-        email_contents = [
-            "Billing date: 2025-12-20",
-            "Previous email"
-        ]
+        email_contents = ["Billing date: 2025-12-20", "Previous email"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="GenericProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="GenericProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert renewal_date is not None
@@ -200,12 +203,14 @@ class TestRenewalCalculatorBillingCycle:
         email_dates = [last_email_date, last_email_date - timedelta(days=30)]
         email_contents = ["Subscription renewed", "Subscription renewed"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert renewal_date is not None
@@ -221,12 +226,14 @@ class TestRenewalCalculatorBillingCycle:
         email_dates = [last_email_date, last_email_date - timedelta(days=365)]
         email_contents = ["Yearly renewal", "Yearly renewal"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="yearly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="yearly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert renewal_date is not None
@@ -241,12 +248,14 @@ class TestRenewalCalculatorBillingCycle:
         email_dates = [last_email_date, last_email_date - timedelta(days=90)]
         email_contents = ["Quarterly renewal", "Quarterly renewal"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="quarterly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="quarterly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert renewal_date is not None
@@ -266,12 +275,14 @@ class TestRenewalCalculatorInactivityDetection:
         email_dates = [last_email_date, last_email_date - timedelta(days=30)]
         email_contents = ["Renewal", "Renewal"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert is_active is False  # > 2 cycles = inactive
@@ -285,12 +296,14 @@ class TestRenewalCalculatorInactivityDetection:
         email_dates = [last_email_date, last_email_date - timedelta(days=30)]
         email_contents = ["Renewal", "Renewal"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert is_active is True
@@ -304,12 +317,14 @@ class TestRenewalCalculatorInactivityDetection:
         email_dates = [last_email_date, last_email_date - timedelta(days=365)]
         email_contents = ["Annual renewal", "Annual renewal"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="yearly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="yearly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert is_active is False
@@ -327,12 +342,14 @@ class TestRenewalCalculatorReactivation:
         email_dates = [now, now - timedelta(days=180)]
         email_contents = ["Welcome back!", "Previous renewal"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         # Should be active again due to recent email
@@ -347,12 +364,14 @@ class TestRenewalCalculatorEdgeCases:
         """Empty email list should return inactive/unconfirmed."""
         calculator = RenewalCalculator(db_session)
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="monthly",
-            email_dates=[],
-            email_contents=[],
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="monthly",
+                email_dates=[],
+                email_contents=[],
+                extraction_metadata=None,
+            )
         )
 
         assert renewal_date is None
@@ -368,15 +387,17 @@ class TestRenewalCalculatorEdgeCases:
         email_dates = [now, now - timedelta(days=30)]
         email_contents = [
             "Your next payment will be on January 15, 2026",
-            "Previous email"
+            "Previous email",
         ]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle=None,  # No billing cycle provided
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle=None,  # No billing cycle provided
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         # Should extract from pattern even without billing cycle
@@ -393,15 +414,17 @@ class TestRenewalCalculatorEdgeCases:
         # Old pattern with past date
         email_contents = [
             "Your next payment will be on January 15, 2024",  # Past date
-            "Previous email"
+            "Previous email",
         ]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="yearly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="yearly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         # Should fall back to billing cycle calculation
@@ -416,17 +439,16 @@ class TestRenewalCalculatorEdgeCases:
         last_email = now - timedelta(days=25)
         email_dates = [last_email, last_email - timedelta(days=30)]
         # No renewal date patterns in content
-        email_contents = [
-            "Thank you for your subscription",
-            "Welcome to our service"
-        ]
+        email_contents = ["Thank you for your subscription", "Welcome to our service"]
 
-        renewal_date, is_active, trial_status, is_confirmed = calculator.calculate_renewal_info(
-            provider="TestProvider",
-            billing_cycle="monthly",
-            email_dates=email_dates,
-            email_contents=email_contents,
-            extraction_metadata=None
+        renewal_date, is_active, trial_status, is_confirmed = (
+            calculator.calculate_renewal_info(
+                provider="TestProvider",
+                billing_cycle="monthly",
+                email_dates=email_dates,
+                email_contents=email_contents,
+                extraction_metadata=None,
+            )
         )
 
         assert renewal_date is not None  # Calculated from billing cycle
@@ -439,16 +461,18 @@ class TestRenewalCalculatorEdgeCases:
 class TestRenewalCalculatorHelperFunctions:
     """Test helper functions and utilities."""
 
-    def test_get_subscription_emails_function(self, db_session, test_subscription, test_email):
+    def test_get_subscription_emails_function(
+        self, db_session, test_subscription, test_email
+    ):
         """Test the get_subscription_emails helper function."""
         from app.services.renewal_calculator import get_subscription_emails
 
         # Link the email to the subscription
         from app.models.email_message import subscription_emails
+
         db_session.execute(
             subscription_emails.insert().values(
-                subscription_id=test_subscription.id,
-                email_id=test_email.id
+                subscription_id=test_subscription.id, email_id=test_email.id
             )
         )
         db_session.commit()
@@ -457,6 +481,6 @@ class TestRenewalCalculatorHelperFunctions:
         emails = get_subscription_emails(db_session, test_subscription.id)
 
         assert len(emails) == 1
-        assert emails[0]['body_text'] == test_email.body_text
-        assert 'date' in emails[0]
-        assert 'body_html' in emails[0]
+        assert emails[0]["body_text"] == test_email.body_text
+        assert "date" in emails[0]
+        assert "body_html" in emails[0]

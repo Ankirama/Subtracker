@@ -13,14 +13,16 @@ sys.path.insert(0, str(backend_path))
 
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.services.cancellation_research import CancellationResearchService, research_cancellation
+from app.services.cancellation_research import (
+    CancellationResearchService,
+    research_cancellation,
+)
 from app.models.provider_cancellation import ProviderCancellationInfo
 import logging
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -41,26 +43,28 @@ def print_research_result(result: dict, title: str = "Research Result"):
     print(f"Estimated Time: {result.get('estimated_minutes', 'N/A')} minutes")
 
     print(f"\nInstructions ({len(result.get('instructions', []))} steps):")
-    for i, step in enumerate(result.get('instructions', []), 1):
+    for i, step in enumerate(result.get("instructions", []), 1):
         print(f"  {i}. {step}")
 
-    if result.get('pause_instructions'):
+    if result.get("pause_instructions"):
         print(f"\nPause Instructions ({len(result['pause_instructions'])} steps):")
-        for i, step in enumerate(result['pause_instructions'], 1):
+        for i, step in enumerate(result["pause_instructions"], 1):
             print(f"  {i}. {step}")
 
-    if result.get('gotchas'):
+    if result.get("gotchas"):
         print(f"\n⚠️ Gotchas:")
-        for gotcha in result['gotchas']:
+        for gotcha in result["gotchas"]:
             print(f"  - {gotcha}")
 
-    if result.get('additional_notes'):
+    if result.get("additional_notes"):
         print(f"\n📝 Notes: {result['additional_notes']}")
 
     print(f"{'='*80}\n")
 
 
-async def test_provider_research(db: Session, provider: str, force_refresh: bool = False):
+async def test_provider_research(
+    db: Session, provider: str, force_refresh: bool = False
+):
     """Test research for a single provider"""
     try:
         logger.info(f"Testing research for {provider} (force_refresh={force_refresh})")
@@ -71,7 +75,14 @@ async def test_provider_research(db: Session, provider: str, force_refresh: bool
         print_research_result(result, f"✅ Research Result: {provider}")
 
         # Validate required fields
-        required_fields = ['difficulty', 'instructions', 'requires_phone', 'requires_chat', 'allows_pause', 'confidence']
+        required_fields = [
+            "difficulty",
+            "instructions",
+            "requires_phone",
+            "requires_chat",
+            "allows_pause",
+            "confidence",
+        ]
         missing_fields = [field for field in required_fields if field not in result]
 
         if missing_fields:
@@ -79,12 +90,16 @@ async def test_provider_research(db: Session, provider: str, force_refresh: bool
             return False
 
         # Validate data types
-        if not isinstance(result['instructions'], list):
-            logger.error(f"❌ Instructions should be a list, got {type(result['instructions'])}")
+        if not isinstance(result["instructions"], list):
+            logger.error(
+                f"❌ Instructions should be a list, got {type(result['instructions'])}"
+            )
             return False
 
-        if not (0.0 <= result['confidence'] <= 1.0):
-            logger.error(f"❌ Confidence should be between 0.0 and 1.0, got {result['confidence']}")
+        if not (0.0 <= result["confidence"] <= 1.0):
+            logger.error(
+                f"❌ Confidence should be between 0.0 and 1.0, got {result['confidence']}"
+            )
             return False
 
         logger.info(f"✅ {provider} research validation passed")
@@ -104,7 +119,7 @@ async def test_caching(db: Session, provider: str):
     # First call - should hit API
     logger.info("📡 First call (should hit OpenAI API)...")
     result1 = await research_cancellation(provider, db, force_refresh=False)
-    cached1 = result1.get('cached', False)
+    cached1 = result1.get("cached", False)
 
     if cached1:
         logger.warning("⚠️ First call was cached (unexpected if database was empty)")
@@ -114,7 +129,7 @@ async def test_caching(db: Session, provider: str):
     # Second call - should use cache
     logger.info("\n💾 Second call (should use cache)...")
     result2 = await research_cancellation(provider, db, force_refresh=False)
-    cached2 = result2.get('cached', False)
+    cached2 = result2.get("cached", False)
 
     if cached2:
         logger.info("✅ Second call used cache as expected")
@@ -125,7 +140,7 @@ async def test_caching(db: Session, provider: str):
     # Force refresh - should hit API again
     logger.info("\n🔄 Third call with force_refresh (should hit API)...")
     result3 = await research_cancellation(provider, db, force_refresh=True)
-    cached3 = result3.get('cached', False)
+    cached3 = result3.get("cached", False)
 
     if not cached3:
         logger.info("✅ Force refresh hit API as expected")
@@ -156,7 +171,9 @@ async def test_error_handling(db: Session):
     # Test whitespace-only provider name
     try:
         await service.research_provider("   ")
-        logger.error("❌ Should have raised ValueError for whitespace-only provider name")
+        logger.error(
+            "❌ Should have raised ValueError for whitespace-only provider name"
+        )
         return False
     except ValueError as e:
         logger.info(f"✅ Correctly raised ValueError for whitespace: {e}")
@@ -176,6 +193,7 @@ async def test_database_storage(db: Session, provider: str):
 
     # Query database
     from sqlalchemy import select
+
     stmt = select(ProviderCancellationInfo).where(
         ProviderCancellationInfo.provider_name.ilike(provider)
     )
@@ -240,21 +258,27 @@ async def main():
         db_test_passed = await test_database_storage(db, "Spotify")
 
         # Summary
-        logger.info("\n" + "="*80)
+        logger.info("\n" + "=" * 80)
         logger.info("📊 TEST SUMMARY")
-        logger.info("="*80)
-        logger.info(f"Error Handling: {'✅ PASSED' if error_test_passed else '❌ FAILED'}")
+        logger.info("=" * 80)
+        logger.info(
+            f"Error Handling: {'✅ PASSED' if error_test_passed else '❌ FAILED'}"
+        )
         for provider, passed in research_results:
-            logger.info(f"Research ({provider}): {'✅ PASSED' if passed else '❌ FAILED'}")
+            logger.info(
+                f"Research ({provider}): {'✅ PASSED' if passed else '❌ FAILED'}"
+            )
         logger.info(f"Caching: {'✅ PASSED' if cache_test_passed else '❌ FAILED'}")
-        logger.info(f"Database Storage: {'✅ PASSED' if db_test_passed else '❌ FAILED'}")
-        logger.info("="*80)
+        logger.info(
+            f"Database Storage: {'✅ PASSED' if db_test_passed else '❌ FAILED'}"
+        )
+        logger.info("=" * 80)
 
         all_passed = (
-            error_test_passed and
-            all(passed for _, passed in research_results) and
-            cache_test_passed and
-            db_test_passed
+            error_test_passed
+            and all(passed for _, passed in research_results)
+            and cache_test_passed
+            and db_test_passed
         )
 
         if all_passed:

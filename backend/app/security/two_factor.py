@@ -2,6 +2,7 @@
 Two-Factor Authentication utilities.
 Supports TOTP (Time-based One-Time Password) and Email OTP.
 """
+
 import pyotp
 import qrcode
 import io
@@ -43,10 +44,7 @@ class TOTPManager:
             Provisioning URI for authenticator apps
         """
         totp = pyotp.TOTP(secret)
-        return totp.provisioning_uri(
-            name=email,
-            issuer_name=settings.APP_NAME
-        )
+        return totp.provisioning_uri(name=email, issuer_name=settings.APP_NAME)
 
     @staticmethod
     def generate_qr_code(secret: str, email: str) -> str:
@@ -74,7 +72,7 @@ class TOTPManager:
         buffer = io.BytesIO()
         # PyPNGImage doesn't support format argument, PIL Image does
         try:
-            img.save(buffer, format='PNG')
+            img.save(buffer, format="PNG")
         except TypeError:
             # Fallback for PyPNGImage (pypng backend)
             img.save(buffer)
@@ -117,7 +115,9 @@ class EmailOTPManager:
         Returns:
             6-digit numeric code as string
         """
-        return ''.join([str(secrets.randbelow(10)) for _ in range(EmailOTPManager.OTP_LENGTH)])
+        return "".join(
+            [str(secrets.randbelow(10)) for _ in range(EmailOTPManager.OTP_LENGTH)]
+        )
 
     @staticmethod
     def create_otp(db: Session, user_id: str) -> str:
@@ -132,25 +132,23 @@ class EmailOTPManager:
             Generated OTP code
         """
         # Invalidate any existing unused codes
-        existing_codes = db.query(EmailOTP).filter(
-            EmailOTP.user_id == user_id,
-            EmailOTP.is_used == 'N'
-        ).all()
+        existing_codes = (
+            db.query(EmailOTP)
+            .filter(EmailOTP.user_id == user_id, EmailOTP.is_used == "N")
+            .all()
+        )
 
         for code in existing_codes:
-            code.is_used = 'Y'
+            code.is_used = "Y"
 
         # Generate new code
         code = EmailOTPManager.generate_code()
-        expires_at = datetime.utcnow() + timedelta(minutes=EmailOTPManager.OTP_VALIDITY_MINUTES)
+        expires_at = datetime.utcnow() + timedelta(
+            minutes=EmailOTPManager.OTP_VALIDITY_MINUTES
+        )
 
         # Store in database
-        otp = EmailOTP(
-            user_id=user_id,
-            code=code,
-            expires_at=expires_at,
-            is_used='N'
-        )
+        otp = EmailOTP(user_id=user_id, code=code, expires_at=expires_at, is_used="N")
 
         db.add(otp)
         db.commit()
@@ -170,11 +168,15 @@ class EmailOTPManager:
         Returns:
             True if code is valid, False otherwise
         """
-        otp = db.query(EmailOTP).filter(
-            EmailOTP.user_id == user_id,
-            EmailOTP.code == code,
-            EmailOTP.is_used == 'N'
-        ).first()
+        otp = (
+            db.query(EmailOTP)
+            .filter(
+                EmailOTP.user_id == user_id,
+                EmailOTP.code == code,
+                EmailOTP.is_used == "N",
+            )
+            .first()
+        )
 
         if not otp:
             return False
@@ -184,7 +186,7 @@ class EmailOTPManager:
             return False
 
         # Mark as used
-        otp.is_used = 'Y'
+        otp.is_used = "Y"
         db.commit()
 
         return True
@@ -198,9 +200,7 @@ class EmailOTPManager:
         Args:
             db: Database session
         """
-        db.query(EmailOTP).filter(
-            EmailOTP.expires_at < datetime.utcnow()
-        ).delete()
+        db.query(EmailOTP).filter(EmailOTP.expires_at < datetime.utcnow()).delete()
         db.commit()
 
 
@@ -221,8 +221,10 @@ class BackupCodesManager:
         codes = []
         for _ in range(BackupCodesManager.CODE_COUNT):
             # Generate random alphanumeric code
-            code = ''.join(secrets.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
-                          for _ in range(BackupCodesManager.CODE_LENGTH))
+            code = "".join(
+                secrets.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+                for _ in range(BackupCodesManager.CODE_LENGTH)
+            )
             # Format as XXXX-XXXX
             formatted_code = f"{code[:4]}-{code[4:]}"
             codes.append(formatted_code)
@@ -240,7 +242,7 @@ class BackupCodesManager:
             SHA-256 hash of the code
         """
         # Remove formatting dashes before hashing
-        code = code.replace('-', '')
+        code = code.replace("-", "")
         return hashlib.sha256(code.encode()).hexdigest()
 
     @staticmethod
@@ -310,10 +312,7 @@ class TwoFactorAuth:
 
     @staticmethod
     def enable_two_factor(
-        db: Session,
-        user: User,
-        method: str,
-        secret: Optional[str] = None
+        db: Session, user: User, method: str, secret: Optional[str] = None
     ) -> List[str]:
         """
         Enable two-factor authentication for a user.
@@ -359,10 +358,7 @@ class TwoFactorAuth:
 
     @staticmethod
     def verify_two_factor(
-        db: Session,
-        user: User,
-        code: str,
-        is_backup_code: bool = False
+        db: Session, user: User, code: str, is_backup_code: bool = False
     ) -> bool:
         """
         Verify a 2FA code for a user.
@@ -380,23 +376,24 @@ class TwoFactorAuth:
             return False
 
         # Check backup code first
-        if is_backup_code or '-' in code:
-            is_valid, used_hash = BackupCodesManager.verify_code(code, user.backup_codes)
+        if is_backup_code or "-" in code:
+            is_valid, used_hash = BackupCodesManager.verify_code(
+                code, user.backup_codes
+            )
             if is_valid and used_hash:
                 # Remove used backup code
                 user.backup_codes = BackupCodesManager.remove_used_code(
-                    user.backup_codes,
-                    used_hash
+                    user.backup_codes, used_hash
                 )
                 db.commit()
                 return True
             return False
 
         # Verify based on method
-        if user.two_factor_method == 'totp':
+        if user.two_factor_method == "totp":
             return TOTPManager.verify_code(user.two_factor_secret, code)
 
-        elif user.two_factor_method == 'email':
+        elif user.two_factor_method == "email":
             return EmailOTPManager.verify_code(db, str(user.id), code)
 
         return False

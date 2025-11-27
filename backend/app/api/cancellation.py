@@ -2,6 +2,7 @@
 Cancellation workflow API endpoints.
 Provides AI-powered cancellation research and subscription cancellation management.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
@@ -22,7 +23,7 @@ from app.schemas.cancellation import (
     SubscriptionCancellationInfo,
     SubscriptionCancellationStatusUpdate,
     CancellationStatus,
-    DifficultyRating
+    DifficultyRating,
 )
 from app.services.cancellation_research import CancellationResearchService
 import logging
@@ -31,7 +32,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def verify_subscription_ownership(subscription_id: UUID, user_id: UUID, db: Session) -> Subscription:
+def verify_subscription_ownership(
+    subscription_id: UUID, user_id: UUID, db: Session
+) -> Subscription:
     """
     Verify that the subscription belongs to the current user.
 
@@ -46,26 +49,29 @@ def verify_subscription_ownership(subscription_id: UUID, user_id: UUID, db: Sess
     Raises:
         HTTPException: 404 if not found, 403 if not owned
     """
-    stmt = select(Subscription).join(Mailbox).where(
-        Subscription.id == subscription_id,
-        Mailbox.user_id == user_id
+    stmt = (
+        select(Subscription)
+        .join(Mailbox)
+        .where(Subscription.id == subscription_id, Mailbox.user_id == user_id)
     )
     subscription = db.execute(stmt).scalar_one_or_none()
 
     if not subscription:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Subscription {subscription_id} not found or access denied"
+            detail=f"Subscription {subscription_id} not found or access denied",
         )
 
     return subscription
 
 
-@router.post("/research", response_model=AIResearchResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/research", response_model=AIResearchResponse, status_code=status.HTTP_200_OK
+)
 async def research_cancellation(
     request: AIResearchRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Research cancellation instructions for a provider using AI.
@@ -90,13 +96,14 @@ async def research_cancellation(
     }
     ```
     """
-    logger.info(f"User {current_user.id} researching cancellation for {request.provider_name}")
+    logger.info(
+        f"User {current_user.id} researching cancellation for {request.provider_name}"
+    )
 
     try:
         service = CancellationResearchService(db)
         result = await service.research_provider(
-            provider_name=request.provider_name,
-            force_refresh=request.force_refresh
+            provider_name=request.provider_name, force_refresh=request.force_refresh
         )
 
         # Convert service result to response schema
@@ -113,29 +120,32 @@ async def research_cancellation(
             estimated_time_minutes=result.get("estimated_minutes"),
             cancellation_gotchas=result.get("gotchas"),
             ai_confidence_score=result.get("confidence", 0.0),
-            sources_consulted=result.get("sources") if isinstance(result.get("sources"), list) else None,
-            research_timestamp=datetime.utcnow()
+            sources_consulted=(
+                result.get("sources")
+                if isinstance(result.get("sources"), list)
+                else None
+            ),
+            research_timestamp=datetime.utcnow(),
         )
 
     except ValueError as e:
         logger.error(f"Invalid research request: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Research failed for {request.provider_name}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to research cancellation instructions. Please try again later."
+            detail="Failed to research cancellation instructions. Please try again later.",
         )
 
 
-@router.get("/providers/{provider_name}", response_model=ProviderCancellationInfoResponse)
+@router.get(
+    "/providers/{provider_name}", response_model=ProviderCancellationInfoResponse
+)
 async def get_provider_cancellation_info(
     provider_name: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Get cached cancellation information for a specific provider.
@@ -153,7 +163,9 @@ async def get_provider_cancellation_info(
 
     **Note:** Data may be up to 90 days old. Check `needs_reverification` field.
     """
-    logger.info(f"User {current_user.id} fetching cancellation info for {provider_name}")
+    logger.info(
+        f"User {current_user.id} fetching cancellation info for {provider_name}"
+    )
 
     stmt = select(ProviderCancellationInfo).where(
         ProviderCancellationInfo.provider_name.ilike(provider_name)
@@ -164,17 +176,19 @@ async def get_provider_cancellation_info(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No cancellation information found for {provider_name}. "
-                   f"Use the /research endpoint to generate instructions."
+            f"Use the /research endpoint to generate instructions.",
         )
 
     return provider_info
 
 
-@router.get("/subscriptions/{subscription_id}", response_model=SubscriptionCancellationInfo)
+@router.get(
+    "/subscriptions/{subscription_id}", response_model=SubscriptionCancellationInfo
+)
 async def get_subscription_cancellation_info(
     subscription_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Get cancellation information for a specific subscription.
@@ -191,7 +205,9 @@ async def get_subscription_cancellation_info(
 
     **Authorization:** User must own the subscription's mailbox
     """
-    logger.info(f"User {current_user.id} fetching cancellation info for subscription {subscription_id}")
+    logger.info(
+        f"User {current_user.id} fetching cancellation info for subscription {subscription_id}"
+    )
 
     # Verify ownership
     subscription = verify_subscription_ownership(subscription_id, current_user.id, db)
@@ -211,16 +227,19 @@ async def get_subscription_cancellation_info(
         cancellation_requested_at=subscription.cancellation_requested_at,
         cancellation_confirmed_at=subscription.cancellation_confirmed_at,
         cancellation_notes=subscription.cancellation_notes,
-        provider_info=provider_info
+        provider_info=provider_info,
     )
 
 
-@router.patch("/subscriptions/{subscription_id}/status", response_model=SubscriptionCancellationInfo)
+@router.patch(
+    "/subscriptions/{subscription_id}/status",
+    response_model=SubscriptionCancellationInfo,
+)
 async def update_subscription_cancellation_status(
     subscription_id: UUID,
     update: SubscriptionCancellationStatusUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Update a subscription's cancellation status.
@@ -243,7 +262,9 @@ async def update_subscription_cancellation_status(
 
     **Authorization:** User must own the subscription's mailbox
     """
-    logger.info(f"User {current_user.id} updating cancellation status for subscription {subscription_id}")
+    logger.info(
+        f"User {current_user.id} updating cancellation status for subscription {subscription_id}"
+    )
 
     # Verify ownership
     subscription = verify_subscription_ownership(subscription_id, current_user.id, db)
@@ -263,13 +284,17 @@ async def update_subscription_cancellation_status(
         # User has requested cancellation
         if not subscription.cancellation_requested_at:
             subscription.cancellation_requested_at = now
-            logger.info(f"Subscription {subscription_id} cancellation requested at {now}")
+            logger.info(
+                f"Subscription {subscription_id} cancellation requested at {now}"
+            )
 
     elif update.cancellation_status == CancellationStatus.CANCELLED:
         # Cancellation confirmed
         if not subscription.cancellation_confirmed_at:
             subscription.cancellation_confirmed_at = now
-            logger.info(f"Subscription {subscription_id} cancellation confirmed at {now}")
+            logger.info(
+                f"Subscription {subscription_id} cancellation confirmed at {now}"
+            )
         if not subscription.cancellation_requested_at:
             subscription.cancellation_requested_at = now
 
@@ -282,7 +307,9 @@ async def update_subscription_cancellation_status(
     db.commit()
     db.refresh(subscription)
 
-    logger.info(f"Subscription {subscription_id} status updated: {old_status} → {update.cancellation_status.value}")
+    logger.info(
+        f"Subscription {subscription_id} status updated: {old_status} → {update.cancellation_status.value}"
+    )
 
     # Get provider info for response
     provider_info = None
@@ -299,5 +326,5 @@ async def update_subscription_cancellation_status(
         cancellation_requested_at=subscription.cancellation_requested_at,
         cancellation_confirmed_at=subscription.cancellation_confirmed_at,
         cancellation_notes=subscription.cancellation_notes,
-        provider_info=provider_info
+        provider_info=provider_info,
     )

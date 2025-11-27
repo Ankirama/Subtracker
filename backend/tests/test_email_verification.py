@@ -9,6 +9,7 @@ Tests cover:
 - Multi-tier brute force protection
 - Unverified account cleanup task
 """
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, MagicMock
@@ -17,7 +18,10 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.models.ip_block import IPBlock
 from app.security.password import hash_password
-from app.security.email_verification import EmailVerificationManager, VerificationRateLimiter
+from app.security.email_verification import (
+    EmailVerificationManager,
+    VerificationRateLimiter,
+)
 
 
 @pytest.fixture
@@ -31,7 +35,7 @@ def verified_user(db_session: Session) -> User:
         is_active=True,
         email_verified=True,
         email_verified_at=datetime.utcnow(),
-        settings={}
+        settings={},
     )
     db_session.add(user)
     db_session.commit()
@@ -54,7 +58,7 @@ def unverified_user(db_session: Session) -> User:
         email_verification_token=verification_token,
         email_verification_sent_at=datetime.utcnow(),
         display_name="Test User",
-        settings={}
+        settings={},
     )
     db_session.add(user)
     db_session.commit()
@@ -65,7 +69,9 @@ def unverified_user(db_session: Session) -> User:
 @pytest.fixture
 def mock_email_service():
     """Mock email service to prevent actual email sending."""
-    with patch('app.services.email_service.EmailService.send_email_verification') as mock:
+    with patch(
+        "app.services.email_service.EmailService.send_email_verification"
+    ) as mock:
         mock.return_value = (True, None)  # Success, no error
         yield mock
 
@@ -73,7 +79,7 @@ def mock_email_service():
 @pytest.fixture
 def mock_redis():
     """Mock Redis client for rate limiting tests."""
-    with patch('app.security.email_verification.redis_client') as mock:
+    with patch("app.security.email_verification.redis_client") as mock:
         # Setup mock Redis with proper methods
         mock_instance = MagicMock()
         mock_instance.get.return_value = None
@@ -93,7 +99,7 @@ class TestUserRegistration:
         user_data = {
             "email": "newuser@example.com",
             "password": "securepassword123",
-            "display_name": "New User"
+            "display_name": "New User",
         }
 
         response = client.post("/api/auth/register", json=user_data)
@@ -119,7 +125,7 @@ class TestUserRegistration:
         user_data = {
             "email": "personalized@example.com",
             "password": "securepassword123",
-            "display_name": "Fabien"
+            "display_name": "Fabien",
         }
 
         response = client.post("/api/auth/register", json=user_data)
@@ -127,46 +133,49 @@ class TestUserRegistration:
         assert response.status_code == 201
 
         # Check user in database has display name
-        user = db_session.query(User).filter(User.email == "personalized@example.com").first()
+        user = (
+            db_session.query(User)
+            .filter(User.email == "personalized@example.com")
+            .first()
+        )
         assert user is not None
         assert user.display_name == "Fabien"
         assert user.email_verified is False
         assert user.email_verification_token is not None
 
-    def test_register_without_display_name(self, client, db_session, mock_email_service):
+    def test_register_without_display_name(
+        self, client, db_session, mock_email_service
+    ):
         """Registration works without display name (optional field)."""
-        user_data = {
-            "email": "nodisplay@example.com",
-            "password": "securepassword123"
-        }
+        user_data = {"email": "nodisplay@example.com", "password": "securepassword123"}
 
         response = client.post("/api/auth/register", json=user_data)
 
         assert response.status_code == 201
 
         # Check user in database has no display name
-        user = db_session.query(User).filter(User.email == "nodisplay@example.com").first()
+        user = (
+            db_session.query(User).filter(User.email == "nodisplay@example.com").first()
+        )
         assert user is not None
         assert user.display_name is None
 
-    def test_register_duplicate_verified_email(self, client, verified_user, mock_email_service):
+    def test_register_duplicate_verified_email(
+        self, client, verified_user, mock_email_service
+    ):
         """Cannot register with email that's already verified."""
-        user_data = {
-            "email": verified_user.email,
-            "password": "somepassword123"
-        }
+        user_data = {"email": verified_user.email, "password": "somepassword123"}
 
         response = client.post("/api/auth/register", json=user_data)
 
         assert response.status_code == 400
         assert "already registered" in response.json()["detail"].lower()
 
-    def test_register_duplicate_unverified_email(self, client, unverified_user, mock_email_service):
+    def test_register_duplicate_unverified_email(
+        self, client, unverified_user, mock_email_service
+    ):
         """Cannot register with email that has unverified account."""
-        user_data = {
-            "email": unverified_user.email,
-            "password": "somepassword123"
-        }
+        user_data = {"email": unverified_user.email, "password": "somepassword123"}
 
         response = client.post("/api/auth/register", json=user_data)
 
@@ -175,19 +184,20 @@ class TestUserRegistration:
         assert "unverified" in detail
         assert "verify" in detail
 
-    def test_register_creates_verification_token(self, client, db_session, mock_email_service):
+    def test_register_creates_verification_token(
+        self, client, db_session, mock_email_service
+    ):
         """Registration creates unique verification token."""
-        user_data = {
-            "email": "tokentest@example.com",
-            "password": "securepassword123"
-        }
+        user_data = {"email": "tokentest@example.com", "password": "securepassword123"}
 
         response = client.post("/api/auth/register", json=user_data)
 
         assert response.status_code == 201
 
         # Check token was created
-        user = db_session.query(User).filter(User.email == "tokentest@example.com").first()
+        user = (
+            db_session.query(User).filter(User.email == "tokentest@example.com").first()
+        )
         assert user.email_verification_token is not None
         assert len(user.email_verification_token) >= 32  # Cryptographically secure
         assert user.email_verification_sent_at is not None
@@ -198,9 +208,7 @@ class TestEmailVerification:
 
     def test_verify_email_success(self, client, unverified_user, db_session):
         """Successfully verify email with valid token."""
-        verification_data = {
-            "token": unverified_user.email_verification_token
-        }
+        verification_data = {"token": unverified_user.email_verification_token}
 
         response = client.post("/api/auth/verify-email", json=verification_data)
 
@@ -221,9 +229,7 @@ class TestEmailVerification:
 
     def test_verify_email_invalid_token(self, client):
         """Cannot verify with invalid token."""
-        verification_data = {
-            "token": "invalid-token-that-does-not-exist"
-        }
+        verification_data = {"token": "invalid-token-that-does-not-exist"}
 
         response = client.post("/api/auth/verify-email", json=verification_data)
 
@@ -237,9 +243,7 @@ class TestEmailVerification:
         verified_user.email_verification_token = valid_length_token
         db_session.commit()
 
-        verification_data = {
-            "token": valid_length_token
-        }
+        verification_data = {"token": valid_length_token}
 
         response = client.post("/api/auth/verify-email", json=verification_data)
 
@@ -259,15 +263,14 @@ class TestEmailVerification:
             is_active=True,
             email_verified=False,
             email_verification_token=old_token,
-            email_verification_sent_at=datetime.utcnow() - timedelta(hours=25),  # Expired
-            settings={}
+            email_verification_sent_at=datetime.utcnow()
+            - timedelta(hours=25),  # Expired
+            settings={},
         )
         db_session.add(user)
         db_session.commit()
 
-        verification_data = {
-            "token": old_token
-        }
+        verification_data = {"token": old_token}
 
         response = client.post("/api/auth/verify-email", json=verification_data)
 
@@ -277,9 +280,7 @@ class TestEmailVerification:
 
     def test_verify_email_token_is_single_use(self, client, unverified_user):
         """Verification token can only be used once."""
-        verification_data = {
-            "token": unverified_user.email_verification_token
-        }
+        verification_data = {"token": unverified_user.email_verification_token}
 
         # First verification - should succeed
         response1 = client.post("/api/auth/verify-email", json=verification_data)
@@ -295,10 +296,7 @@ class TestLoginWithVerification:
 
     def test_login_verified_user_success(self, client, verified_user):
         """Verified users can login normally."""
-        login_data = {
-            "email": verified_user.email,
-            "password": "testpassword123"
-        }
+        login_data = {"email": verified_user.email, "password": "testpassword123"}
 
         response = client.post("/api/auth/login", json=login_data)
 
@@ -309,10 +307,7 @@ class TestLoginWithVerification:
 
     def test_login_unverified_user_blocked(self, client, unverified_user):
         """Unverified users cannot login."""
-        login_data = {
-            "email": unverified_user.email,
-            "password": "testpassword123"
-        }
+        login_data = {"email": unverified_user.email, "password": "testpassword123"}
 
         response = client.post("/api/auth/login", json=login_data)
 
@@ -322,10 +317,7 @@ class TestLoginWithVerification:
 
     def test_login_unverified_wrong_password(self, client, unverified_user):
         """Wrong password error takes precedence over unverified (security)."""
-        login_data = {
-            "email": unverified_user.email,
-            "password": "wrongpassword"
-        }
+        login_data = {"email": unverified_user.email, "password": "wrongpassword"}
 
         response = client.post("/api/auth/login", json=login_data)
 
@@ -336,8 +328,10 @@ class TestLoginWithVerification:
 class TestResendVerification:
     """Test resend verification email endpoint."""
 
-    @patch('app.security.email_verification.redis_client')
-    def test_resend_verification_success(self, mock_redis, client, unverified_user, db_session, mock_email_service):
+    @patch("app.security.email_verification.redis_client")
+    def test_resend_verification_success(
+        self, mock_redis, client, unverified_user, db_session, mock_email_service
+    ):
         """Successfully resend verification email."""
         # Mock Redis to allow request
         mock_redis.get.return_value = None
@@ -346,9 +340,7 @@ class TestResendVerification:
 
         old_token = unverified_user.email_verification_token
 
-        resend_data = {
-            "email": unverified_user.email
-        }
+        resend_data = {"email": unverified_user.email}
 
         response = client.post("/api/auth/resend-verification", json=resend_data)
 
@@ -365,17 +357,17 @@ class TestResendVerification:
         # Email should have been sent
         mock_email_service.assert_called_once()
 
-    @patch('app.security.email_verification.redis_client')
-    def test_resend_verification_rate_limited(self, mock_redis, client, unverified_user):
+    @patch("app.security.email_verification.redis_client")
+    def test_resend_verification_rate_limited(
+        self, mock_redis, client, unverified_user
+    ):
         """Rate limit prevents too many resend requests (12/hour)."""
         # Mock Redis to indicate rate limit exceeded
-        mock_redis.get.return_value = b'12'  # Already at limit
+        mock_redis.get.return_value = b"12"  # Already at limit
         mock_redis.ttl.return_value = 1800  # 30 minutes remaining
         mock_redis.exists.return_value = False
 
-        resend_data = {
-            "email": unverified_user.email
-        }
+        resend_data = {"email": unverified_user.email}
 
         response = client.post("/api/auth/resend-verification", json=resend_data)
 
@@ -383,17 +375,17 @@ class TestResendVerification:
         detail = response.json()["detail"].lower()
         assert "rate limit" in detail or "too many" in detail
 
-    @patch('app.security.email_verification.redis_client')
-    def test_resend_verification_nonexistent_email(self, mock_redis, client, mock_email_service):
+    @patch("app.security.email_verification.redis_client")
+    def test_resend_verification_nonexistent_email(
+        self, mock_redis, client, mock_email_service
+    ):
         """Resending for non-existent email doesn't reveal existence."""
         # Mock Redis to allow request
         mock_redis.get.return_value = None
         mock_redis.setex.return_value = True
         mock_redis.exists.return_value = False
 
-        resend_data = {
-            "email": "nonexistent@example.com"
-        }
+        resend_data = {"email": "nonexistent@example.com"}
 
         response = client.post("/api/auth/resend-verification", json=resend_data)
 
@@ -404,12 +396,16 @@ class TestResendVerification:
         # No email should be sent
         mock_email_service.assert_not_called()
 
-    @patch('app.security.email_verification.redis_client')
-    def test_resend_verification_already_verified(self, mock_redis, client, verified_user, mock_email_service):
+    @patch("app.security.email_verification.redis_client")
+    def test_resend_verification_already_verified(
+        self, mock_redis, client, verified_user, mock_email_service
+    ):
         """Resending for verified user doesn't reveal status."""
         # Note: This test validates security behavior - resending for verified
         # users returns success message without revealing account status
-        pytest.skip("Redis mocking complex in integration tests - verified by manual testing")
+        pytest.skip(
+            "Redis mocking complex in integration tests - verified by manual testing"
+        )
 
 
 class TestBruteForceProtection:
@@ -425,9 +421,9 @@ class TestBruteForceProtection:
     def test_rate_limiter_utility_methods(self):
         """Test that rate limiter utility methods exist and are callable."""
         # Verify VerificationRateLimiter class has expected methods
-        assert hasattr(VerificationRateLimiter, 'check_rate_limit')
-        assert hasattr(VerificationRateLimiter, 'is_ip_blocked')
-        assert hasattr(VerificationRateLimiter, 'track_verification_attempt')
+        assert hasattr(VerificationRateLimiter, "check_rate_limit")
+        assert hasattr(VerificationRateLimiter, "is_ip_blocked")
+        assert hasattr(VerificationRateLimiter, "track_verification_attempt")
 
         # Verify constants are defined
         assert VerificationRateLimiter.TIER_1_ATTEMPTS == 5
@@ -440,7 +436,7 @@ class TestBruteForceProtection:
         ip_block = IPBlock(
             ip_address="192.168.1.100",
             reason="email_verification_brute_force",
-            attempt_count=25
+            attempt_count=25,
         )
         db_session.add(ip_block)
         db_session.commit()
@@ -467,8 +463,7 @@ class TestVerificationManagement:
     def test_verify_token_success(self, db_session, unverified_user):
         """Token verification succeeds with valid token."""
         success, user, error = EmailVerificationManager.verify_token(
-            db_session,
-            unverified_user.email_verification_token
+            db_session, unverified_user.email_verification_token
         )
 
         assert success is True
@@ -479,8 +474,7 @@ class TestVerificationManagement:
     def test_verify_token_invalid(self, db_session):
         """Token verification fails with invalid token."""
         success, user, error = EmailVerificationManager.verify_token(
-            db_session,
-            "invalid-token-does-not-exist"
+            db_session, "invalid-token-does-not-exist"
         )
 
         assert success is False
@@ -502,14 +496,13 @@ class TestVerificationManagement:
             email_verified=False,
             email_verification_token=old_token,
             email_verification_sent_at=datetime.utcnow() - timedelta(hours=25),
-            settings={}
+            settings={},
         )
         db_session.add(user)
         db_session.commit()
 
         success, returned_user, error = EmailVerificationManager.verify_token(
-            db_session,
-            old_token
+            db_session, old_token
         )
 
         assert success is False
@@ -546,7 +539,7 @@ class TestUnverifiedAccountCleanup:
             email_verified=False,
             email_verification_token="some-token",
             email_verification_sent_at=datetime.utcnow() - timedelta(days=8),
-            settings={}
+            settings={},
         )
         old_user.created_at = datetime.utcnow() - timedelta(days=8)
         db_session.add(old_user)
@@ -558,8 +551,9 @@ class TestUnverifiedAccountCleanup:
             yield db_session
 
         # Run cleanup task with mocked database session
-        with patch('app.tasks.email_verification.get_db', mock_get_db):
+        with patch("app.tasks.email_verification.get_db", mock_get_db):
             from app.tasks.email_verification import cleanup_unverified_users
+
             result = cleanup_unverified_users()
 
         # Check user was deleted
@@ -568,20 +562,29 @@ class TestUnverifiedAccountCleanup:
 
         # Refresh session to get latest state
         db_session.expire_all()
-        deleted_user = db_session.query(User).filter(User.email == old_user_email).first()
+        deleted_user = (
+            db_session.query(User).filter(User.email == old_user_email).first()
+        )
         assert deleted_user is None
 
-    def test_cleanup_keeps_recent_unverified_accounts(self, db_session, unverified_user):
+    def test_cleanup_keeps_recent_unverified_accounts(
+        self, db_session, unverified_user
+    ):
         """Cleanup task keeps unverified accounts <7 days old."""
-        initial_count = db_session.query(User).filter(User.email == unverified_user.email).count()
+        initial_count = (
+            db_session.query(User).filter(User.email == unverified_user.email).count()
+        )
 
         # Run cleanup task
         from app.tasks.email_verification import cleanup_unverified_users
+
         result = cleanup_unverified_users()
 
         # Check user still exists
         assert result["success"] is True
-        final_count = db_session.query(User).filter(User.email == unverified_user.email).count()
+        final_count = (
+            db_session.query(User).filter(User.email == unverified_user.email).count()
+        )
         assert final_count == initial_count
 
     def test_cleanup_keeps_verified_accounts(self, db_session, verified_user):
@@ -592,9 +595,12 @@ class TestUnverifiedAccountCleanup:
 
         # Run cleanup task
         from app.tasks.email_verification import cleanup_unverified_users
+
         result = cleanup_unverified_users()
 
         # Verified user should still exist
         assert result["success"] is True
-        still_exists = db_session.query(User).filter(User.id == verified_user.id).first()
+        still_exists = (
+            db_session.query(User).filter(User.id == verified_user.id).first()
+        )
         assert still_exists is not None

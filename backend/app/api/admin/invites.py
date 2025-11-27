@@ -1,6 +1,7 @@
 """
 Admin API endpoints for managing invite tokens.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
@@ -50,17 +51,18 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     """Dependency to ensure user is admin."""
     if not current_user.is_admin:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
         )
     return current_user
 
 
-@router.post("/invites", response_model=InviteResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/invites", response_model=InviteResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_invite(
     invite_data: CreateInviteRequest,
     admin_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Create a new invite token (admin only).
@@ -72,17 +74,19 @@ async def create_invite(
         created_by_id=admin_user.id,
         invited_email=invite_data.email,
         note=invite_data.note,
-        expires_in_days=invite_data.expires_in_days
+        expires_in_days=invite_data.expires_in_days,
     )
 
     db.add(invite)
     db.commit()
     db.refresh(invite)
 
-    logger.info(f"Admin {admin_user.email} created invite token for {invite_data.email or 'anyone'}")
+    logger.info(
+        f"Admin {admin_user.email} created invite token for {invite_data.email or 'anyone'}"
+    )
 
     # Build invite URL
-    frontend_url = settings.FRONTEND_URL.rstrip('/')
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
     invite_url = f"{frontend_url}/register?invite={invite.token}"
 
     return InviteResponse(
@@ -94,7 +98,7 @@ async def create_invite(
         is_used=invite.is_used,
         used_at=invite.used_at,
         expires_at=invite.expires_at,
-        created_at=invite.created_at
+        created_at=invite.created_at,
     )
 
 
@@ -102,7 +106,7 @@ async def create_invite(
 async def list_invites(
     include_used: bool = False,
     admin_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     List all invite tokens (admin only).
@@ -114,7 +118,7 @@ async def list_invites(
 
     invites = query.order_by(InviteToken.created_at.desc()).all()
 
-    frontend_url = settings.FRONTEND_URL.rstrip('/')
+    frontend_url = settings.FRONTEND_URL.rstrip("/")
 
     invite_responses = [
         InviteResponse(
@@ -126,7 +130,7 @@ async def list_invites(
             is_used=invite.is_used,
             used_at=invite.used_at,
             expires_at=invite.expires_at,
-            created_at=invite.created_at
+            created_at=invite.created_at,
         )
         for invite in invites
     ]
@@ -138,7 +142,7 @@ async def list_invites(
 async def revoke_invite(
     invite_id: UUID,
     admin_user: User = Depends(require_admin),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Revoke/delete an invite token (admin only).
@@ -147,14 +151,13 @@ async def revoke_invite(
 
     if not invite:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invite not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found"
         )
 
     if invite.is_used:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot revoke an already used invite"
+            detail="Cannot revoke an already used invite",
         )
 
     db.delete(invite)
@@ -166,10 +169,7 @@ async def revoke_invite(
 
 
 @router.get("/invites/{token}/validate")
-async def validate_invite(
-    token: str,
-    db: Session = Depends(get_db)
-):
+async def validate_invite(token: str, db: Session = Depends(get_db)):
     """
     Validate an invite token (public endpoint for registration form).
     """
@@ -177,24 +177,22 @@ async def validate_invite(
 
     if not invite:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invalid invite token"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite token"
         )
 
     if invite.is_used:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This invite has already been used"
+            detail="This invite has already been used",
         )
 
     if datetime.utcnow() >= invite.expires_at:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This invite has expired"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="This invite has expired"
         )
 
     return {
         "valid": True,
         "invited_email": invite.invited_email,
-        "expires_at": invite.expires_at
+        "expires_at": invite.expires_at,
     }

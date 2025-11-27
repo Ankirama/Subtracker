@@ -1,6 +1,7 @@
 """
 Authentication API endpoints.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from jose import JWTError
@@ -27,7 +28,7 @@ from app.schemas.auth import (
     ProfileUpdateRequest,
     PasswordChangeRequest,
     UserPreferencesUpdate,
-    DeleteAccountRequest
+    DeleteAccountRequest,
 )
 from app.security.password import hash_password, verify_password
 from app.security.jwt import create_access_token, create_refresh_token, verify_token
@@ -35,18 +36,18 @@ from app.security.dependencies import get_current_user
 from app.security.events import (
     SecurityEventLogger,
     track_failed_login,
-    clear_failed_login_attempts
+    clear_failed_login_attempts,
 )
 from app.security.two_factor import (
     TwoFactorAuth,
     TOTPManager,
     EmailOTPManager,
-    BackupCodesManager
+    BackupCodesManager,
 )
 from app.services.email_service import EmailService
 from app.security.email_verification import (
     EmailVerificationManager,
-    VerificationRateLimiter
+    VerificationRateLimiter,
 )
 from app.config import settings
 from app.utils.config_helper import get_config_value
@@ -58,11 +59,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/register", response_model=EmailVerificationResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=EmailVerificationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def register(
-    user_data: UserRegister,
-    request: Request,
-    db: Session = Depends(get_db)
+    user_data: UserRegister, request: Request, db: Session = Depends(get_db)
 ):
     """
     Register a new user and send email verification.
@@ -90,34 +93,40 @@ async def register(
         if not user_data.invite_token:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Registration requires an invite token. Please contact an administrator."
+                detail="Registration requires an invite token. Please contact an administrator.",
             )
 
-        invite = db.query(InviteToken).filter(InviteToken.token == user_data.invite_token).first()
+        invite = (
+            db.query(InviteToken)
+            .filter(InviteToken.token == user_data.invite_token)
+            .first()
+        )
 
         if not invite:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid invite token"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid invite token"
             )
 
         if not invite.is_valid:
             if invite.is_used:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="This invite token has already been used"
+                    detail="This invite token has already been used",
                 )
             else:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="This invite token has expired"
+                    detail="This invite token has expired",
                 )
 
         # Check if invite is for specific email
-        if invite.invited_email and invite.invited_email.lower() != user_data.email.lower():
+        if (
+            invite.invited_email
+            and invite.invited_email.lower() != user_data.email.lower()
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"This invite is for a different email address"
+                detail=f"This invite is for a different email address",
             )
 
     # Check if user already exists
@@ -127,11 +136,10 @@ async def register(
         if not existing_user.email_verified:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="An unverified account with this email already exists. Please verify your email or request a new verification link."
+                detail="An unverified account with this email already exists. Please verify your email or request a new verification link.",
             )
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
     # Hash password
@@ -150,7 +158,7 @@ async def register(
         email_verification_token=verification_token,
         email_verification_sent_at=datetime.utcnow(),
         display_name=user_data.display_name,
-        settings={}
+        settings={},
     )
 
     db.add(new_user)
@@ -167,16 +175,16 @@ async def register(
     logger.info(f"New user registered (unverified): {new_user.email}")
 
     # Build verification URL
-    frontend_url = get_config_value('frontend.url', settings.FRONTEND_URL, db)
+    frontend_url = get_config_value("frontend.url", settings.FRONTEND_URL, db)
     verification_url = f"{frontend_url}/verify-email/{verification_token}"
 
     # Send verification email
     email_service = EmailService(db)
-    display_name = user_data.display_name or user_data.email.split('@')[0]
+    display_name = user_data.display_name or user_data.email.split("@")[0]
     success, error = email_service.send_email_verification(
         to_email=new_user.email,
         user_name=display_name,
-        verification_url=verification_url
+        verification_url=verification_url,
     )
 
     if not success:
@@ -185,21 +193,17 @@ async def register(
         # But log the issue
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Account created but failed to send verification email. Please try resending."
+            detail="Account created but failed to send verification email. Please try resending.",
         )
 
     return EmailVerificationResponse(
         message="Registration successful! Please check your email to verify your account.",
-        email=new_user.email
+        email=new_user.email,
     )
 
 
 @router.post("/login")
-async def login(
-    user_data: UserLogin,
-    request: Request,
-    db: Session = Depends(get_db)
-):
+async def login(user_data: UserLogin, request: Request, db: Session = Depends(get_db)):
     """
     Login user and return JWT tokens or 2FA challenge.
 
@@ -229,7 +233,7 @@ async def login(
                 db=db,
                 email=user_data.email,
                 ip_address=ip_address,
-                attempt_count=failed_attempts
+                attempt_count=failed_attempts,
             )
 
             raise HTTPException(
@@ -248,7 +252,7 @@ async def login(
             email=user_data.email,
             ip_address=ip_address,
             user_agent=user_agent,
-            reason="invalid_credentials"
+            reason="invalid_credentials",
         )
 
         raise HTTPException(
@@ -265,12 +269,12 @@ async def login(
             email=user_data.email,
             ip_address=ip_address,
             user_agent=user_agent,
-            reason="email_not_verified"
+            reason="email_not_verified",
         )
 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Email not verified. Please verify your email before logging in."
+            detail="Email not verified. Please verify your email before logging in.",
         )
 
     # Check if user is active
@@ -281,12 +285,11 @@ async def login(
             email=user_data.email,
             ip_address=ip_address,
             user_agent=user_agent,
-            reason="account_inactive"
+            reason="account_inactive",
         )
 
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
+            status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
         )
 
     # Clear failed login attempts on successful password verification
@@ -305,27 +308,27 @@ async def login(
             email_service = EmailService(db)
             success, error = email_service.send_2fa_otp_email(
                 to_email=user.email,
-                user_name=user.email.split('@')[0],
-                otp_code=otp_code
+                user_name=user.email.split("@")[0],
+                otp_code=otp_code,
             )
 
             if not success:
                 logger.error(f"Failed to send 2FA OTP email to {user.email}: {error}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to send verification email"
+                    detail="Failed to send verification email",
                 )
 
             return TwoFactorRequiredResponse(
                 requires_2fa=True,
                 method="email",
-                message=f"Verification code sent to {user.email}. Please enter the code to complete login."
+                message=f"Verification code sent to {user.email}. Please enter the code to complete login.",
             )
         else:  # totp
             return TwoFactorRequiredResponse(
                 requires_2fa=True,
                 method="totp",
-                message="Enter the verification code from your authenticator app to complete login."
+                message="Enter the verification code from your authenticator app to complete login.",
             )
 
     # No 2FA - proceed with normal login
@@ -337,7 +340,7 @@ async def login(
         user_id=str(user.id),
         email=user.email,
         ip_address=ip_address,
-        user_agent=user_agent
+        user_agent=user_agent,
     )
 
     # Create tokens
@@ -347,15 +350,13 @@ async def login(
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user=UserResponse.model_validate(user)
+        user=UserResponse.model_validate(user),
     )
 
 
 @router.post("/refresh", response_model=dict)
 async def refresh_access_token(
-    token_data: RefreshTokenRequest,
-    request: Request,
-    db: Session = Depends(get_db)
+    token_data: RefreshTokenRequest, request: Request, db: Session = Depends(get_db)
 ):
     """
     Refresh access token using refresh token.
@@ -386,12 +387,11 @@ async def refresh_access_token(
                 db=db,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                error="invalid_token_type"
+                error="invalid_token_type",
             )
 
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type"
             )
 
         user_id = payload.get("user_id")
@@ -401,12 +401,11 @@ async def refresh_access_token(
                 db=db,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                error="invalid_token_payload"
+                error="invalid_token_payload",
             )
 
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload"
             )
 
         # Verify user still exists and is active
@@ -417,12 +416,12 @@ async def refresh_access_token(
                 db=db,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                error="user_not_found_or_inactive"
+                error="user_not_found_or_inactive",
             )
 
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found or inactive"
+                detail="User not found or inactive",
             )
 
         # Create new access token
@@ -438,12 +437,12 @@ async def refresh_access_token(
             db=db,
             ip_address=ip_address,
             user_agent=user_agent,
-            error=f"jwt_error: {str(e)}"
+            error=f"jwt_error: {str(e)}",
         )
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid refresh token: {str(e)}"
+            detail=f"Invalid refresh token: {str(e)}",
         )
 
 
@@ -483,11 +482,12 @@ async def logout(current_user: User = Depends(get_current_user)):
 
 # Account Management Endpoints
 
+
 @router.put("/me/profile", response_model=UserResponse)
 async def update_profile(
     profile_data: ProfileUpdateRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Update user profile (display_name, email).
@@ -511,7 +511,7 @@ async def update_profile(
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
+                detail="Email already registered",
             )
         current_user.email = profile_data.email
         current_user.email_verified = False  # Re-verify new email
@@ -527,7 +527,7 @@ async def update_profile(
 async def change_password(
     password_data: PasswordChangeRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Change user password.
@@ -544,7 +544,7 @@ async def change_password(
     if not verify_password(password_data.current_password, current_user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect"
+            detail="Current password is incorrect",
         )
 
     # Hash new password
@@ -562,7 +562,7 @@ async def change_password(
 async def update_preferences(
     preferences_data: UserPreferencesUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Update user preferences (theme, language, currency, etc.).
@@ -580,15 +580,15 @@ async def update_preferences(
 
     # Update preferences
     if preferences_data.theme is not None:
-        settings['theme'] = preferences_data.theme
+        settings["theme"] = preferences_data.theme
     if preferences_data.language is not None:
-        settings['language'] = preferences_data.language
+        settings["language"] = preferences_data.language
     if preferences_data.currency is not None:
-        settings['currency'] = preferences_data.currency
+        settings["currency"] = preferences_data.currency
     if preferences_data.date_format is not None:
-        settings['date_format'] = preferences_data.date_format
+        settings["date_format"] = preferences_data.date_format
     if preferences_data.timezone is not None:
-        settings['timezone'] = preferences_data.timezone
+        settings["timezone"] = preferences_data.timezone
 
     current_user.settings = settings
     db.commit()
@@ -602,7 +602,7 @@ async def update_preferences(
 async def delete_account(
     delete_data: DeleteAccountRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Delete user account (requires password confirmation).
@@ -621,15 +621,14 @@ async def delete_account(
     # Verify password
     if not verify_password(delete_data.password, current_user.password_hash):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password is incorrect"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Password is incorrect"
         )
 
     # Verify confirmation
     if not delete_data.confirm:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Account deletion not confirmed"
+            detail="Account deletion not confirmed",
         )
 
     email = current_user.email
@@ -642,11 +641,10 @@ async def delete_account(
 
 # Two-Factor Authentication Endpoints
 
+
 @router.post("/2fa/verify-login", response_model=TokenResponse)
 async def verify_2fa_login(
-    verify_data: TwoFactorVerifyRequest,
-    request: Request,
-    db: Session = Depends(get_db)
+    verify_data: TwoFactorVerifyRequest, request: Request, db: Session = Depends(get_db)
 ):
     """
     Verify 2FA code and complete login.
@@ -671,14 +669,13 @@ async def verify_2fa_login(
 
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
         )
 
     if not user.two_factor_enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Two-factor authentication is not enabled for this account"
+            detail="Two-factor authentication is not enabled for this account",
         )
 
     # Verify 2FA code
@@ -686,7 +683,7 @@ async def verify_2fa_login(
         db=db,
         user=user,
         code=verify_data.code,
-        is_backup_code=verify_data.is_backup_code
+        is_backup_code=verify_data.is_backup_code,
     )
 
     if not is_valid:
@@ -696,12 +693,11 @@ async def verify_2fa_login(
             email=user.email,
             ip_address=ip_address,
             user_agent=user_agent,
-            reason="invalid_2fa_code"
+            reason="invalid_2fa_code",
         )
 
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid verification code"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid verification code"
         )
 
     logger.info(f"2FA verification successful for user: {user.email}")
@@ -712,7 +708,7 @@ async def verify_2fa_login(
         user_id=str(user.id),
         email=user.email,
         ip_address=ip_address,
-        user_agent=user_agent
+        user_agent=user_agent,
     )
 
     # Create tokens
@@ -722,7 +718,7 @@ async def verify_2fa_login(
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user=UserResponse.model_validate(user)
+        user=UserResponse.model_validate(user),
     )
 
 
@@ -730,7 +726,7 @@ async def verify_2fa_login(
 async def setup_2fa(
     setup_data: TwoFactorSetupRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Initiate 2FA setup.
@@ -749,7 +745,7 @@ async def setup_2fa(
     if current_user.two_factor_enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Two-factor authentication is already enabled"
+            detail="Two-factor authentication is already enabled",
         )
 
     if setup_data.method == "totp":
@@ -762,7 +758,7 @@ async def setup_2fa(
             method="totp",
             secret=secret,
             qr_code=qr_code,
-            message="Scan the QR code with your authenticator app and enter the code to enable 2FA"
+            message="Scan the QR code with your authenticator app and enter the code to enable 2FA",
         )
 
     elif setup_data.method == "email":
@@ -773,28 +769,30 @@ async def setup_2fa(
         email_service = EmailService(db)
         success, error = email_service.send_2fa_otp_email(
             to_email=current_user.email,
-            user_name=current_user.email.split('@')[0],
-            otp_code=otp_code
+            user_name=current_user.email.split("@")[0],
+            otp_code=otp_code,
         )
 
         if not success:
-            logger.error(f"Failed to send 2FA OTP email to {current_user.email}: {error}")
+            logger.error(
+                f"Failed to send 2FA OTP email to {current_user.email}: {error}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to send verification email"
+                detail="Failed to send verification email",
             )
 
         logger.info(f"Email OTP sent for 2FA setup to: {current_user.email}")
 
         return TwoFactorSetupResponse(
             method="email",
-            message=f"Verification code sent to {current_user.email}. Enter the code to enable 2FA"
+            message=f"Verification code sent to {current_user.email}. Enter the code to enable 2FA",
         )
 
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid 2FA method. Must be 'totp' or 'email'"
+            detail="Invalid 2FA method. Must be 'totp' or 'email'",
         )
 
 
@@ -802,7 +800,7 @@ async def setup_2fa(
 async def enable_2fa(
     enable_data: TwoFactorEnableRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Enable 2FA after verifying the code.
@@ -818,7 +816,7 @@ async def enable_2fa(
     if current_user.two_factor_enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Two-factor authentication is already enabled"
+            detail="Two-factor authentication is already enabled",
         )
 
     # Verify the code based on method
@@ -826,58 +824,55 @@ async def enable_2fa(
         if not enable_data.secret:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="TOTP secret is required"
+                detail="TOTP secret is required",
             )
 
         # Verify TOTP code
-        is_valid = TOTPManager.verify_code(enable_data.secret, enable_data.verification_code)
+        is_valid = TOTPManager.verify_code(
+            enable_data.secret, enable_data.verification_code
+        )
 
         if not is_valid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid verification code"
+                detail="Invalid verification code",
             )
 
         # Enable 2FA with TOTP
         backup_codes = TwoFactorAuth.enable_two_factor(
-            db=db,
-            user=current_user,
-            method="totp",
-            secret=enable_data.secret
+            db=db, user=current_user, method="totp", secret=enable_data.secret
         )
 
         logger.info(f"TOTP 2FA enabled for user: {current_user.email}")
 
     elif enable_data.method == "email":
         # Verify Email OTP
-        is_valid = EmailOTPManager.verify_code(db, str(current_user.id), enable_data.verification_code)
+        is_valid = EmailOTPManager.verify_code(
+            db, str(current_user.id), enable_data.verification_code
+        )
 
         if not is_valid:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired verification code"
+                detail="Invalid or expired verification code",
             )
 
         # Enable 2FA with Email
         backup_codes = TwoFactorAuth.enable_two_factor(
-            db=db,
-            user=current_user,
-            method="email",
-            secret=None
+            db=db, user=current_user, method="email", secret=None
         )
 
         logger.info(f"Email 2FA enabled for user: {current_user.email}")
 
     else:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid 2FA method"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid 2FA method"
         )
 
     return TwoFactorEnableResponse(
         success=True,
         message="Two-factor authentication enabled successfully. Save your backup codes in a safe place.",
-        backup_codes=backup_codes
+        backup_codes=backup_codes,
     )
 
 
@@ -885,7 +880,7 @@ async def enable_2fa(
 async def disable_2fa(
     disable_data: TwoFactorDisableRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Disable 2FA (requires password confirmation).
@@ -901,14 +896,13 @@ async def disable_2fa(
     if not current_user.two_factor_enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Two-factor authentication is not enabled"
+            detail="Two-factor authentication is not enabled",
         )
 
     # Verify password
     if not verify_password(disable_data.password, current_user.password_hash):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid password"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password"
         )
 
     # Disable 2FA
@@ -916,13 +910,14 @@ async def disable_2fa(
 
     logger.info(f"2FA disabled for user: {current_user.email}")
 
-    return {"success": True, "message": "Two-factor authentication disabled successfully"}
+    return {
+        "success": True,
+        "message": "Two-factor authentication disabled successfully",
+    }
 
 
 @router.get("/2fa/status", response_model=TwoFactorStatusResponse)
-async def get_2fa_status(
-    current_user: User = Depends(get_current_user)
-):
+async def get_2fa_status(current_user: User = Depends(get_current_user)):
     """
     Get current 2FA status.
 
@@ -935,14 +930,17 @@ async def get_2fa_status(
     return TwoFactorStatusResponse(
         enabled=current_user.two_factor_enabled,
         method=current_user.two_factor_method,
-        backup_codes_remaining=len(current_user.backup_codes) if current_user.backup_codes else 0
+        backup_codes_remaining=(
+            len(current_user.backup_codes) if current_user.backup_codes else 0
+        ),
     )
 
 
-@router.post("/2fa/backup-codes/regenerate", response_model=BackupCodesRegenerateResponse)
+@router.post(
+    "/2fa/backup-codes/regenerate", response_model=BackupCodesRegenerateResponse
+)
 async def regenerate_backup_codes(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     """
     Regenerate backup codes (replaces old ones).
@@ -957,7 +955,7 @@ async def regenerate_backup_codes(
     if not current_user.two_factor_enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Two-factor authentication is not enabled"
+            detail="Two-factor authentication is not enabled",
         )
 
     # Generate new backup codes
@@ -973,17 +971,18 @@ async def regenerate_backup_codes(
     return BackupCodesRegenerateResponse(
         success=True,
         message="Backup codes regenerated successfully. Save them in a safe place.",
-        backup_codes=new_codes
+        backup_codes=new_codes,
     )
 
 
 # Email Verification Endpoints
 
+
 @router.post("/verify-email", response_model=TokenResponse)
 async def verify_email(
     verification_data: EmailVerificationRequest,
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Verify user's email address with token.
@@ -1007,26 +1006,27 @@ async def verify_email(
         is_blocked, block_reason = VerificationRateLimiter.is_ip_blocked(db, ip_address)
         if is_blocked:
             raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=block_reason
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=block_reason
             )
 
     # Verify token
-    success, user, error_message = EmailVerificationManager.verify_token(db, verification_data.token)
+    success, user, error_message = EmailVerificationManager.verify_token(
+        db, verification_data.token
+    )
 
     if not success:
         # Track failed attempt for brute force protection
         if ip_address:
-            block_error = VerificationRateLimiter.track_verification_attempt(db, ip_address)
+            block_error = VerificationRateLimiter.track_verification_attempt(
+                db, ip_address
+            )
             if block_error:
                 raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=block_error
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=block_error
                 )
 
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=error_message
+            status_code=status.HTTP_400_BAD_REQUEST, detail=error_message
         )
 
     # Mark email as verified
@@ -1040,7 +1040,7 @@ async def verify_email(
         user_id=str(user.id),
         email=user.email,
         ip_address=ip_address,
-        user_agent=request.headers.get("user-agent")
+        user_agent=request.headers.get("user-agent"),
     )
 
     # Create tokens for automatic login
@@ -1050,7 +1050,7 @@ async def verify_email(
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        user=UserResponse.model_validate(user)
+        user=UserResponse.model_validate(user),
     )
 
 
@@ -1058,7 +1058,7 @@ async def verify_email(
 async def resend_verification(
     resend_data: ResendVerificationRequest,
     request: Request,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Resend email verification link.
@@ -1082,16 +1082,14 @@ async def resend_verification(
         is_blocked, block_reason = VerificationRateLimiter.is_ip_blocked(db, ip_address)
         if is_blocked:
             raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=block_reason
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=block_reason
             )
 
     # Check rate limit (12 per hour)
     allowed, rate_error = VerificationRateLimiter.check_rate_limit(resend_data.email)
     if not allowed:
         raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=rate_error
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=rate_error
         )
 
     # Find user by email
@@ -1101,13 +1099,12 @@ async def resend_verification(
         # Don't reveal if email exists or not for security
         return EmailVerificationResponse(
             message="If an account with this email exists and is unverified, a verification email has been sent.",
-            email=resend_data.email
+            email=resend_data.email,
         )
 
     if user.email_verified:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already verified"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already verified"
         )
 
     # Generate new verification token
@@ -1117,28 +1114,25 @@ async def resend_verification(
     db.commit()
 
     # Build verification URL
-    frontend_url = get_config_value('frontend.url', settings.FRONTEND_URL, db)
+    frontend_url = get_config_value("frontend.url", settings.FRONTEND_URL, db)
     verification_url = f"{frontend_url}/verify-email/{new_token}"
 
     # Send verification email
     email_service = EmailService(db)
-    display_name = user.display_name or user.email.split('@')[0]
+    display_name = user.display_name or user.email.split("@")[0]
     success, error = email_service.send_email_verification(
-        to_email=user.email,
-        user_name=display_name,
-        verification_url=verification_url
+        to_email=user.email, user_name=display_name, verification_url=verification_url
     )
 
     if not success:
         logger.error(f"Failed to resend verification email to {user.email}: {error}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send verification email. Please try again later."
+            detail="Failed to send verification email. Please try again later.",
         )
 
     logger.info(f"Verification email resent to: {user.email}")
 
     return EmailVerificationResponse(
-        message="Verification email sent! Please check your inbox.",
-        email=user.email
+        message="Verification email sent! Please check your inbox.", email=user.email
     )

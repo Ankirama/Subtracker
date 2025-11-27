@@ -1,6 +1,7 @@
 """
 Email verification utilities for managing email verification tokens and rate limiting.
 """
+
 import secrets
 import redis
 from datetime import datetime, timedelta
@@ -36,11 +37,15 @@ class EmailVerificationManager:
     @staticmethod
     def is_token_expired(sent_at: datetime) -> bool:
         """Check if verification token has expired."""
-        expiry_time = sent_at + timedelta(hours=EmailVerificationManager.TOKEN_EXPIRY_HOURS)
+        expiry_time = sent_at + timedelta(
+            hours=EmailVerificationManager.TOKEN_EXPIRY_HOURS
+        )
         return datetime.utcnow() > expiry_time
 
     @staticmethod
-    def verify_token(db: Session, token: str) -> Tuple[bool, Optional[User], Optional[str]]:
+    def verify_token(
+        db: Session, token: str
+    ) -> Tuple[bool, Optional[User], Optional[str]]:
         """
         Verify email verification token.
 
@@ -48,9 +53,7 @@ class EmailVerificationManager:
             Tuple of (success: bool, user: Optional[User], error_message: Optional[str])
         """
         # Find user with this token
-        user = db.query(User).filter(
-            User.email_verification_token == token
-        ).first()
+        user = db.query(User).filter(User.email_verification_token == token).first()
 
         if not user:
             return False, None, "Invalid or expired verification token"
@@ -63,7 +66,11 @@ class EmailVerificationManager:
             return False, None, "Verification token is invalid"
 
         if EmailVerificationManager.is_token_expired(user.email_verification_sent_at):
-            return False, None, "Verification token has expired. Please request a new one."
+            return (
+                False,
+                None,
+                "Verification token has expired. Please request a new one.",
+            )
 
         return True, user, None
 
@@ -140,7 +147,10 @@ class VerificationRateLimiter:
             if count >= VerificationRateLimiter.RATE_LIMIT_MAX:
                 ttl = redis_client.ttl(key)
                 minutes = ttl // 60
-                return False, f"Rate limit exceeded. Please try again in {minutes} minutes."
+                return (
+                    False,
+                    f"Rate limit exceeded. Please try again in {minutes} minutes.",
+                )
 
             # Increment counter
             redis_client.incr(key)
@@ -159,13 +169,17 @@ class VerificationRateLimiter:
             Tuple of (blocked: bool, reason: Optional[str])
         """
         # Check if IP is whitelisted - whitelisted IPs bypass all blocking
-        whitelist_entry = db.query(IPWhitelist).filter(IPWhitelist.ip_address == ip).first()
+        whitelist_entry = (
+            db.query(IPWhitelist).filter(IPWhitelist.ip_address == ip).first()
+        )
         if whitelist_entry:
             # Update last_seen and access_count for tracking
             whitelist_entry.last_seen = datetime.utcnow()
             whitelist_entry.access_count += 1
             db.commit()
-            logger.info(f"Whitelisted IP {ip} accessed (count: {whitelist_entry.access_count})")
+            logger.info(
+                f"Whitelisted IP {ip} accessed (count: {whitelist_entry.access_count})"
+            )
             return False, None
 
         # Check permanent block in database
@@ -202,7 +216,9 @@ class VerificationRateLimiter:
             Error message if IP should be blocked, None otherwise
         """
         # Skip tracking for whitelisted IPs
-        whitelist_entry = db.query(IPWhitelist).filter(IPWhitelist.ip_address == ip).first()
+        whitelist_entry = (
+            db.query(IPWhitelist).filter(IPWhitelist.ip_address == ip).first()
+        )
         if whitelist_entry:
             logger.info(f"Skipping brute force tracking for whitelisted IP: {ip}")
             return None
@@ -221,8 +237,12 @@ class VerificationRateLimiter:
                 if tier1_count >= VerificationRateLimiter.TIER_1_ATTEMPTS:
                     # Apply Tier 1 block
                     block_key = VerificationRateLimiter.get_block_key(ip, 1)
-                    redis_client.setex(block_key, VerificationRateLimiter.TIER_1_BLOCK_DURATION, "1")
-                    logger.warning(f"IP {ip} blocked (Tier 1): {tier1_count} attempts in 3 minutes")
+                    redis_client.setex(
+                        block_key, VerificationRateLimiter.TIER_1_BLOCK_DURATION, "1"
+                    )
+                    logger.warning(
+                        f"IP {ip} blocked (Tier 1): {tier1_count} attempts in 3 minutes"
+                    )
                     return "Too many verification attempts. IP blocked for 1 hour."
                 redis_client.incr(tier1_key)
 
@@ -236,8 +256,12 @@ class VerificationRateLimiter:
                 if tier2_count >= VerificationRateLimiter.TIER_2_ATTEMPTS:
                     # Apply Tier 2 block
                     block_key = VerificationRateLimiter.get_block_key(ip, 2)
-                    redis_client.setex(block_key, VerificationRateLimiter.TIER_2_BLOCK_DURATION, "1")
-                    logger.warning(f"IP {ip} blocked (Tier 2): {tier2_count} attempts in 30 minutes")
+                    redis_client.setex(
+                        block_key, VerificationRateLimiter.TIER_2_BLOCK_DURATION, "1"
+                    )
+                    logger.warning(
+                        f"IP {ip} blocked (Tier 2): {tier2_count} attempts in 30 minutes"
+                    )
                     return "Too many verification attempts. IP blocked for 24 hours."
                 redis_client.incr(tier2_key)
 
@@ -250,16 +274,20 @@ class VerificationRateLimiter:
                 tier3_count = int(tier3_count)
                 if tier3_count >= VerificationRateLimiter.TIER_3_ATTEMPTS:
                     # Apply permanent block in database
-                    existing_block = db.query(IPBlock).filter(IPBlock.ip_address == ip).first()
+                    existing_block = (
+                        db.query(IPBlock).filter(IPBlock.ip_address == ip).first()
+                    )
                     if not existing_block:
                         permanent_block = IPBlock(
                             ip_address=ip,
                             reason="email_verification_brute_force",
-                            attempt_count=tier3_count
+                            attempt_count=tier3_count,
                         )
                         db.add(permanent_block)
                         db.commit()
-                        logger.error(f"IP {ip} permanently blocked: {tier3_count} attempts in 1 hour")
+                        logger.error(
+                            f"IP {ip} permanently blocked: {tier3_count} attempts in 1 hour"
+                        )
                     return "Too many verification attempts. IP permanently blocked."
                 redis_client.incr(tier3_key)
 

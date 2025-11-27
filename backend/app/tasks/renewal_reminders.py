@@ -3,6 +3,7 @@ Celery task for sending subscription renewal reminders.
 
 Checks for upcoming subscription renewals and sends notifications based on user preferences.
 """
+
 from datetime import datetime, timedelta, date
 from typing import List, Tuple
 from sqlalchemy import and_, or_
@@ -12,7 +13,12 @@ import logging
 from app.celery_app import celery_app
 from app.database import SessionLocal
 from app.models.subscription import Subscription
-from app.models.notification import Notification, NotificationPreference, NotificationType, NotificationPriority
+from app.models.notification import (
+    Notification,
+    NotificationPreference,
+    NotificationType,
+    NotificationPriority,
+)
 from app.models.user import User
 from app.services.email_service import EmailService
 
@@ -30,9 +36,7 @@ def get_renewal_date(subscription: Subscription) -> date | None:
 
 
 def should_send_reminder(
-    subscription: Subscription,
-    days_before: int,
-    db: Session
+    subscription: Subscription, days_before: int, db: Session
 ) -> bool:
     """
     Check if we should send a reminder for this subscription.
@@ -59,14 +63,18 @@ def should_send_reminder(
 
     # Check if we already sent a reminder for this renewal period
     # Look for notifications created in the last 24 hours for this subscription
-    recent_reminder = db.query(Notification).filter(
-        and_(
-            Notification.user_id == subscription.user_id,
-            Notification.related_subscription_id == subscription.id,
-            Notification.type == NotificationType.RENEWAL_REMINDER,
-            Notification.created_at >= datetime.now() - timedelta(days=1)
+    recent_reminder = (
+        db.query(Notification)
+        .filter(
+            and_(
+                Notification.user_id == subscription.user_id,
+                Notification.related_subscription_id == subscription.id,
+                Notification.type == NotificationType.RENEWAL_REMINDER,
+                Notification.created_at >= datetime.now() - timedelta(days=1),
+            )
         )
-    ).first()
+        .first()
+    )
 
     if recent_reminder:
         logger.debug(f"Already sent reminder for subscription {subscription.id}")
@@ -76,9 +84,7 @@ def should_send_reminder(
 
 
 def create_renewal_notification(
-    subscription: Subscription,
-    days_before: int,
-    db: Session
+    subscription: Subscription, days_before: int, db: Session
 ) -> Notification:
     """
     Create a renewal reminder notification.
@@ -101,29 +107,28 @@ def create_renewal_notification(
         priority=NotificationPriority.MEDIUM,
         title=f"{subscription.provider} Renewal Reminder",
         message=f"Your {subscription.provider} subscription will renew in {days_text} on {renewal_date.strftime('%B %d, %Y')}. "
-                f"Amount: {subscription.currency} {subscription.amount:.2f}",
+        f"Amount: {subscription.currency} {subscription.amount:.2f}",
         notification_metadata={
             "renewal_date": renewal_date.isoformat(),
             "days_before": days_before,
             "amount": float(subscription.amount) if subscription.amount else None,
             "currency": subscription.currency,
-            "billing_cycle": subscription.billing_cycle
-        }
+            "billing_cycle": subscription.billing_cycle,
+        },
     )
 
     db.add(notification)
     db.commit()
     db.refresh(notification)
 
-    logger.info(f"Created renewal reminder for {subscription.provider} (user: {subscription.user_id})")
+    logger.info(
+        f"Created renewal reminder for {subscription.provider} (user: {subscription.user_id})"
+    )
     return notification
 
 
 async def send_renewal_email(
-    notification: Notification,
-    user: User,
-    subscription: Subscription,
-    db: Session
+    notification: Notification, user: User, subscription: Subscription, db: Session
 ) -> Tuple[bool, str | None]:
     """
     Send renewal reminder email.
@@ -225,7 +230,7 @@ Manage settings: http://localhost:5173/notifications/settings
         to_email=user.email,
         subject=subject,
         html_content=html_content,
-        plain_content=plain_content
+        plain_content=plain_content,
     )
 
     # Update notification status
@@ -258,12 +263,17 @@ def check_renewal_reminders():
         logger.info("Starting renewal reminders check...")
 
         # Get all renewal reminder preferences
-        preferences = db.query(NotificationPreference).filter(
-            and_(
-                NotificationPreference.notification_type == NotificationType.RENEWAL_REMINDER,
-                NotificationPreference.enabled == True
+        preferences = (
+            db.query(NotificationPreference)
+            .filter(
+                and_(
+                    NotificationPreference.notification_type
+                    == NotificationType.RENEWAL_REMINDER,
+                    NotificationPreference.enabled == True,
+                )
             )
-        ).all()
+            .all()
+        )
 
         total_reminders = 0
         total_emails = 0
@@ -272,21 +282,27 @@ def check_renewal_reminders():
             days_before = pref.days_before_renewal or 3  # Default 3 days
 
             # Get active subscriptions for this user with upcoming renewals
-            subscriptions = db.query(Subscription).filter(
-                and_(
-                    Subscription.user_id == pref.user_id,
-                    Subscription.is_active == True,
-                    or_(
-                        Subscription.next_billing_date.isnot(None),
-                        Subscription.renewal_date.isnot(None)
+            subscriptions = (
+                db.query(Subscription)
+                .filter(
+                    and_(
+                        Subscription.user_id == pref.user_id,
+                        Subscription.is_active == True,
+                        or_(
+                            Subscription.next_billing_date.isnot(None),
+                            Subscription.renewal_date.isnot(None),
+                        ),
                     )
                 )
-            ).all()
+                .all()
+            )
 
             for subscription in subscriptions:
                 if should_send_reminder(subscription, days_before, db):
                     # Create notification
-                    notification = create_renewal_notification(subscription, days_before, db)
+                    notification = create_renewal_notification(
+                        subscription, days_before, db
+                    )
                     total_reminders += 1
 
                     # Send email if enabled
@@ -295,6 +311,7 @@ def check_renewal_reminders():
                         if user:
                             # Run async function synchronously in Celery task
                             import asyncio
+
                             loop = asyncio.new_event_loop()
                             asyncio.set_event_loop(loop)
                             success, _ = loop.run_until_complete(
@@ -305,19 +322,18 @@ def check_renewal_reminders():
                             if success:
                                 total_emails += 1
 
-        logger.info(f"Renewal reminders check complete: {total_reminders} notifications created, {total_emails} emails sent")
+        logger.info(
+            f"Renewal reminders check complete: {total_reminders} notifications created, {total_emails} emails sent"
+        )
         return {
             "status": "success",
             "notifications_created": total_reminders,
-            "emails_sent": total_emails
+            "emails_sent": total_emails,
         }
 
     except Exception as e:
         logger.error(f"Error in renewal reminders task: {e}", exc_info=True)
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+        return {"status": "error", "error": str(e)}
     finally:
         if db is not None:
             db.close()

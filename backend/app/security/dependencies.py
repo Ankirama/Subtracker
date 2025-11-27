@@ -1,6 +1,7 @@
 """
 FastAPI dependencies for authentication.
 """
+
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -16,7 +17,7 @@ security = HTTPBearer()
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
     """
     Dependency to get the current authenticated user.
@@ -51,15 +52,14 @@ async def get_current_user(
 
     if not user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
+            status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
         )
 
     return user
 
 
 async def get_current_active_user(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ) -> User:
     """
     Dependency to ensure user is active.
@@ -75,8 +75,7 @@ async def get_current_active_user(
     """
     if not current_user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
+            status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
         )
     return current_user
 
@@ -84,7 +83,7 @@ async def get_current_active_user(
 async def get_current_admin_user(
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> User:
     """
     Dependency to ensure user is an active admin.
@@ -114,12 +113,11 @@ async def get_current_admin_user(
             resource=str(request.url.path),
             ip_address=ip_address,
             user_agent=user_agent,
-            reason="account_inactive"
+            reason="account_inactive",
         )
 
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive"
+            status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive"
         )
 
     if not current_user.is_admin:
@@ -131,12 +129,11 @@ async def get_current_admin_user(
             resource=str(request.url.path),
             ip_address=ip_address,
             user_agent=user_agent,
-            reason="insufficient_privileges"
+            reason="insufficient_privileges",
         )
 
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin privileges required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
         )
 
     # Log successful admin access
@@ -146,7 +143,7 @@ async def get_current_admin_user(
         email=current_user.email,
         resource=str(request.url.path),
         ip_address=ip_address,
-        user_agent=user_agent
+        user_agent=user_agent,
     )
 
     return current_user

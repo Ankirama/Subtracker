@@ -1,6 +1,7 @@
 """
 Pydantic schemas for subscription endpoints.
 """
+
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, Literal
 from datetime import datetime
@@ -10,22 +11,44 @@ from uuid import UUID
 
 class SubscriptionBase(BaseModel):
     """Base schema with common subscription fields."""
-    provider: str = Field(..., min_length=1, max_length=255, description="Service provider name")
+
+    provider: str = Field(
+        ..., min_length=1, max_length=255, description="Service provider name"
+    )
     amount: Optional[float] = Field(None, ge=0, description="Subscription amount")
-    currency: Optional[str] = Field(None, max_length=3, description="Currency code (USD, EUR, etc.)")
-    billing_cycle: Optional[Literal['monthly', 'yearly', 'weekly', 'quarterly', 'biannual', 'one-time', 'none']] = None
+    currency: Optional[str] = Field(
+        None, max_length=3, description="Currency code (USD, EUR, etc.)"
+    )
+    billing_cycle: Optional[
+        Literal[
+            "monthly", "yearly", "weekly", "quarterly", "biannual", "one-time", "none"
+        ]
+    ] = None
     renewal_date: Optional[datetime] = None
-    notes: Optional[str] = Field(None, max_length=500, description="Optional notes about the subscription")
-    category: str = Field(default='other', max_length=100, description="Subscription category (default or custom)")
-    custom_label: Optional[str] = Field(None, max_length=255, description="Custom label to differentiate multiple accounts")
-    is_active: bool = Field(default=True, description="Whether the subscription is currently active")
+    notes: Optional[str] = Field(
+        None, max_length=500, description="Optional notes about the subscription"
+    )
+    category: str = Field(
+        default="other",
+        max_length=100,
+        description="Subscription category (default or custom)",
+    )
+    custom_label: Optional[str] = Field(
+        None,
+        max_length=255,
+        description="Custom label to differentiate multiple accounts",
+    )
+    is_active: bool = Field(
+        default=True, description="Whether the subscription is currently active"
+    )
 
 
 class SubscriptionCreate(SubscriptionBase):
     """Schema for creating a subscription manually."""
+
     mailbox_id: UUID
-    
-    @field_validator('currency')
+
+    @field_validator("currency")
     @classmethod
     def validate_currency(cls, v: Optional[str]) -> Optional[str]:
         if v:
@@ -35,19 +58,41 @@ class SubscriptionCreate(SubscriptionBase):
 
 class SubscriptionUpdate(BaseModel):
     """Schema for updating subscription."""
+
     provider: Optional[str] = Field(None, min_length=1, max_length=255)
     amount: Optional[float] = Field(None, ge=0)
     currency: Optional[str] = Field(None, max_length=3)
-    billing_cycle: Optional[Literal['monthly', 'yearly', 'weekly', 'quarterly', 'biannual', 'one-time', 'none']] = None
+    billing_cycle: Optional[
+        Literal[
+            "monthly", "yearly", "weekly", "quarterly", "biannual", "one-time", "none"
+        ]
+    ] = None
     renewal_date: Optional[datetime] = None
     description: Optional[str] = Field(None, max_length=500)
-    category: Optional[Literal['streaming', 'software', 'storage', 'productivity', 'entertainment', 'fitness', 'gaming', 'news', 'education', 'communication', 'finance', 'shopping', 'music', 'other']] = None
+    category: Optional[
+        Literal[
+            "streaming",
+            "software",
+            "storage",
+            "productivity",
+            "entertainment",
+            "fitness",
+            "gaming",
+            "news",
+            "education",
+            "communication",
+            "finance",
+            "shopping",
+            "music",
+            "other",
+        ]
+    ] = None
     custom_label: Optional[str] = Field(None, max_length=255)
     is_active: Optional[bool] = None
     manual_status_override: Optional[bool] = None
     notes: Optional[str] = None
 
-    @field_validator('currency')
+    @field_validator("currency")
     @classmethod
     def validate_currency(cls, v: Optional[str]) -> Optional[str]:
         if v:
@@ -57,6 +102,7 @@ class SubscriptionUpdate(BaseModel):
 
 class SubscriptionResponse(SubscriptionBase):
     """Schema for subscription response."""
+
     id: UUID
     mailbox_id: UUID
     confidence_score: float
@@ -67,13 +113,16 @@ class SubscriptionResponse(SubscriptionBase):
     last_confirmed_at: datetime
     created_at: datetime
     updated_at: datetime
-    next_renewal_date: Optional[datetime] = Field(None, description="Computed next future renewal date")
+    next_renewal_date: Optional[datetime] = Field(
+        None, description="Computed next future renewal date"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class SubscriptionListResponse(BaseModel):
     """Schema for paginated subscription list."""
+
     subscriptions: list[SubscriptionResponse]
     total: int
     page: int
@@ -83,12 +132,14 @@ class SubscriptionListResponse(BaseModel):
 
 class CategoryStats(BaseModel):
     """Stats for a subscription category."""
+
     count: int
     total: float
 
 
 class SubscriptionStats(BaseModel):
     """Schema for subscription statistics."""
+
     total_subscriptions: int
     active_subscriptions: int
     total_monthly_cost: float
@@ -100,6 +151,7 @@ class SubscriptionStats(BaseModel):
 
 class EmailMessageResponse(BaseModel):
     """Schema for email message response."""
+
     id: UUID
     mailbox_id: UUID
     message_id: str
@@ -120,6 +172,7 @@ class EmailMessageResponse(BaseModel):
 
 class SubscriptionEmailLink(BaseModel):
     """Schema for subscription-email relationship."""
+
     email: EmailMessageResponse
     extraction_role: Optional[str] = None
     extraction_data: Optional[dict] = None
@@ -130,6 +183,7 @@ class SubscriptionEmailLink(BaseModel):
 
 class SubscriptionDetailResponse(SubscriptionResponse):
     """Extended subscription response with source emails and metadata."""
+
     source_emails: list[SubscriptionEmailLink] = []
 
     model_config = ConfigDict(from_attributes=True)
@@ -137,6 +191,7 @@ class SubscriptionDetailResponse(SubscriptionResponse):
 
 class MonthlySpendingData(BaseModel):
     """Monthly spending analytics data point."""
+
     month: str  # Format: "2024-01" or "Jan 2024"
     year: int
     month_num: int
@@ -148,12 +203,14 @@ class MonthlySpendingData(BaseModel):
 
 class CategorySpendingTrend(BaseModel):
     """Category spending over time."""
+
     category: str
     monthly_data: list[dict]  # {month, amount}
 
 
 class AnalyticsResponse(BaseModel):
     """Analytics data response."""
+
     monthly_spending: list[MonthlySpendingData]
     category_trends: list[CategorySpendingTrend]
     total_spent: float
@@ -164,21 +221,25 @@ class AnalyticsResponse(BaseModel):
 
 class FeedbackCreate(BaseModel):
     """Schema for creating subscription feedback."""
+
     subscription_id: UUID
     feedback_type: Literal[
-        'not_subscription',
-        'duplicate',
-        'wrong_amount',
-        'wrong_provider',
-        'wrong_category',
-        'wrong_billing_cycle',
-        'other'
+        "not_subscription",
+        "duplicate",
+        "wrong_amount",
+        "wrong_provider",
+        "wrong_category",
+        "wrong_billing_cycle",
+        "other",
     ]
-    feedback_text: Optional[str] = Field(None, max_length=1000, description="Optional explanation")
+    feedback_text: Optional[str] = Field(
+        None, max_length=1000, description="Optional explanation"
+    )
 
 
 class FeedbackResponse(BaseModel):
     """Schema for feedback response."""
+
     id: UUID
     user_id: UUID
     subscription_id: UUID

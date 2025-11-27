@@ -1,6 +1,7 @@
 """
 Google OAuth2 endpoints for Gmail mailbox integration.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -42,9 +43,7 @@ except Exception as e:
 
 
 @router.get("/google/authorize")
-async def google_authorize(
-    current_user: User = Depends(get_current_user)
-):
+async def google_authorize(current_user: User = Depends(get_current_user)):
     """
     Initiate Google OAuth2 flow.
 
@@ -54,7 +53,7 @@ async def google_authorize(
     if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Google OAuth is not configured"
+            detail="Google OAuth is not configured",
         )
 
     # Generate state token for CSRF protection
@@ -65,7 +64,7 @@ async def google_authorize(
         try:
             state_data = {
                 "user_id": str(current_user.id),
-                "created_at": datetime.now(timezone.utc).isoformat()
+                "created_at": datetime.now(timezone.utc).isoformat(),
             }
             redis_key = f"oauth:state:{state}"
             redis_client.setex(redis_key, OAUTH_STATE_TTL, json.dumps(state_data))
@@ -74,13 +73,13 @@ async def google_authorize(
             logger.error(f"Failed to store OAuth state in Redis: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="OAuth state storage failed. Please try again."
+                detail="OAuth state storage failed. Please try again.",
             )
     else:
         logger.error("Redis client not available for OAuth state storage")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="OAuth service temporarily unavailable"
+            detail="OAuth service temporarily unavailable",
         )
 
     # Build authorization URL
@@ -91,15 +90,12 @@ async def google_authorize(
         "scope": " ".join(GMAIL_SCOPES),
         "access_type": "offline",  # Request refresh token
         "prompt": "consent",  # Force consent screen to get refresh token
-        "state": state
+        "state": state,
     }
 
     auth_url = f"{GOOGLE_AUTH_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
 
-    return {
-        "authorization_url": auth_url,
-        "state": state
-    }
+    return {"authorization_url": auth_url, "state": state}
 
 
 @router.get("/google/callback")
@@ -107,7 +103,7 @@ async def google_callback(
     code: str = Query(..., description="Authorization code from Google"),
     state: str = Query(..., description="State token for CSRF protection"),
     error: Optional[str] = Query(None, description="Error from Google"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Handle Google OAuth2 callback.
@@ -169,8 +165,8 @@ async def google_callback(
                     "client_id": settings.GOOGLE_CLIENT_ID,
                     "client_secret": settings.GOOGLE_CLIENT_SECRET,
                     "redirect_uri": settings.GOOGLE_REDIRECT_URI,
-                    "grant_type": "authorization_code"
-                }
+                    "grant_type": "authorization_code",
+                },
             )
 
             if token_response.status_code != 200:
@@ -184,7 +180,7 @@ async def google_callback(
             # Get user email from Google
             userinfo_response = await client.get(
                 GOOGLE_USERINFO_URL,
-                headers={"Authorization": f"Bearer {tokens['access_token']}"}
+                headers={"Authorization": f"Bearer {tokens['access_token']}"},
             )
 
             if userinfo_response.status_code != 200:
@@ -202,20 +198,28 @@ async def google_callback(
                 )
 
         # Check if mailbox already exists
-        existing = db.query(Mailbox).filter(
-            Mailbox.user_id == user_id,
-            Mailbox.email_address == email
-        ).first()
+        existing = (
+            db.query(Mailbox)
+            .filter(Mailbox.user_id == user_id, Mailbox.email_address == email)
+            .first()
+        )
 
         if existing:
             # Update existing mailbox credentials
             credentials = {
                 "access_token": tokens["access_token"],
-                "refresh_token": tokens.get("refresh_token", existing.encrypted_credentials.get("refresh_token") if existing.encrypted_credentials else None),
+                "refresh_token": tokens.get(
+                    "refresh_token",
+                    (
+                        existing.encrypted_credentials.get("refresh_token")
+                        if existing.encrypted_credentials
+                        else None
+                    ),
+                ),
                 "token_expiry": None,  # Will be set on first use
                 "client_id": settings.GOOGLE_CLIENT_ID,
                 "client_secret": settings.GOOGLE_CLIENT_SECRET,
-                "email_address": email
+                "email_address": email,
             }
 
             existing.encrypted_credentials = encrypt_credentials(credentials)
@@ -236,7 +240,7 @@ async def google_callback(
             "token_expiry": None,
             "client_id": settings.GOOGLE_CLIENT_ID,
             "client_secret": settings.GOOGLE_CLIENT_SECRET,
-            "email_address": email
+            "email_address": email,
         }
 
         new_mailbox = Mailbox(
@@ -249,7 +253,7 @@ async def google_callback(
             batch_size=100,
             import_date_filter=30,
             is_active=True,
-            last_sync_status=None
+            last_sync_status=None,
         )
 
         db.add(new_mailbox)
@@ -273,7 +277,7 @@ async def google_callback(
 async def refresh_google_token(
     mailbox_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Manually refresh Google OAuth tokens for a mailbox.
@@ -283,16 +287,19 @@ async def refresh_google_token(
     """
     from app.security.encryption import decrypt_credentials
 
-    mailbox = db.query(Mailbox).filter(
-        Mailbox.id == mailbox_id,
-        Mailbox.user_id == current_user.id,
-        Mailbox.provider_type == "gmail"
-    ).first()
+    mailbox = (
+        db.query(Mailbox)
+        .filter(
+            Mailbox.id == mailbox_id,
+            Mailbox.user_id == current_user.id,
+            Mailbox.provider_type == "gmail",
+        )
+        .first()
+    )
 
     if not mailbox:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Gmail mailbox not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gmail mailbox not found"
         )
 
     # Decrypt credentials
@@ -301,7 +308,7 @@ async def refresh_google_token(
     if not credentials.get("refresh_token"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No refresh token available. Please reconnect the mailbox."
+            detail="No refresh token available. Please reconnect the mailbox.",
         )
 
     try:
@@ -312,14 +319,14 @@ async def refresh_google_token(
                     "client_id": settings.GOOGLE_CLIENT_ID,
                     "client_secret": settings.GOOGLE_CLIENT_SECRET,
                     "refresh_token": credentials["refresh_token"],
-                    "grant_type": "refresh_token"
-                }
+                    "grant_type": "refresh_token",
+                },
             )
 
             if response.status_code != 200:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Token refresh failed: {response.text}"
+                    detail=f"Token refresh failed: {response.text}",
                 )
 
             new_tokens = response.json()
@@ -338,7 +345,7 @@ async def refresh_google_token(
         logger.error(f"Token refresh error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Token refresh failed: {str(e)}"
+            detail=f"Token refresh failed: {str(e)}",
         )
 
 
@@ -346,23 +353,26 @@ async def refresh_google_token(
 async def disconnect_google(
     mailbox_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Disconnect a Gmail mailbox and revoke OAuth access.
     """
     from app.security.encryption import decrypt_credentials
 
-    mailbox = db.query(Mailbox).filter(
-        Mailbox.id == mailbox_id,
-        Mailbox.user_id == current_user.id,
-        Mailbox.provider_type == "gmail"
-    ).first()
+    mailbox = (
+        db.query(Mailbox)
+        .filter(
+            Mailbox.id == mailbox_id,
+            Mailbox.user_id == current_user.id,
+            Mailbox.provider_type == "gmail",
+        )
+        .first()
+    )
 
     if not mailbox:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Gmail mailbox not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gmail mailbox not found"
         )
 
     # Decrypt credentials to get access token for revocation
@@ -373,7 +383,7 @@ async def disconnect_google(
         async with httpx.AsyncClient() as client:
             await client.post(
                 "https://oauth2.googleapis.com/revoke",
-                data={"token": credentials.get("access_token")}
+                data={"token": credentials.get("access_token")},
             )
     except Exception as e:
         logger.warning(f"Token revocation failed (continuing with deletion): {e}")

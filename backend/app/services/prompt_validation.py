@@ -1,6 +1,7 @@
 """
 AI response validation framework for cancellation research quality assurance.
 """
+
 from typing import Dict, Any, List
 from datetime import datetime
 import re
@@ -18,11 +19,7 @@ class ValidationWarning:
         self.field = field
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "severity": self.severity,
-            "message": self.message,
-            "field": self.field
-        }
+        return {"severity": self.severity, "message": self.message, "field": self.field}
 
 
 class ResearchValidator:
@@ -30,8 +27,16 @@ class ResearchValidator:
 
     def __init__(self):
         self.vague_terms = [
-            "settings", "account", "profile", "manage", "dashboard",
-            "menu", "options", "preferences", "page", "section"
+            "settings",
+            "account",
+            "profile",
+            "manage",
+            "dashboard",
+            "menu",
+            "options",
+            "preferences",
+            "page",
+            "section",
         ]
 
     def validate(self, research_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -70,7 +75,7 @@ class ResearchValidator:
             },
             "quality_score": quality_score,
             "recommended_action": action,
-            "validation_timestamp": datetime.utcnow().isoformat()
+            "validation_timestamp": datetime.utcnow().isoformat(),
         }
 
         # Log validation results
@@ -87,7 +92,9 @@ class ResearchValidator:
 
         return report
 
-    def _check_confidence_alignment(self, data: Dict[str, Any]) -> List[ValidationWarning]:
+    def _check_confidence_alignment(
+        self, data: Dict[str, Any]
+    ) -> List[ValidationWarning]:
         """Check if confidence score aligns with data completeness"""
         warnings = []
         confidence = data.get("confidence", 0.0)
@@ -95,62 +102,76 @@ class ResearchValidator:
         # High confidence without URL
         if confidence > 0.8:
             if not data.get("cancellation_url"):
-                warnings.append(ValidationWarning(
-                    severity="medium",
-                    message="High confidence (>0.8) but missing cancellation URL",
-                    field="cancellation_url"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="medium",
+                        message="High confidence (>0.8) but missing cancellation URL",
+                        field="cancellation_url",
+                    )
+                )
 
             # High confidence without sources (v2 format)
             sources = data.get("sources")
             if isinstance(sources, dict):
                 if not sources.get("primary_source"):
-                    warnings.append(ValidationWarning(
-                        severity="medium",
-                        message="High confidence but no source information provided",
-                        field="sources"
-                    ))
+                    warnings.append(
+                        ValidationWarning(
+                            severity="medium",
+                            message="High confidence but no source information provided",
+                            field="sources",
+                        )
+                    )
 
                 # Check source recency for high confidence
                 primary_source = sources.get("primary_source", "")
                 if "2024" not in primary_source and "2025" not in primary_source:
-                    warnings.append(ValidationWarning(
-                        severity="medium",
-                        message="High confidence but sources not from 2024-2025",
-                        field="sources"
-                    ))
+                    warnings.append(
+                        ValidationWarning(
+                            severity="medium",
+                            message="High confidence but sources not from 2024-2025",
+                            field="sources",
+                        )
+                    )
             elif isinstance(sources, str):
                 # v1 format - check for year mentions
                 if not sources or ("2024" not in sources and "2025" not in sources):
-                    warnings.append(ValidationWarning(
-                        severity="low",
-                        message="High confidence but sources not explicitly from 2024-2025",
-                        field="sources"
-                    ))
+                    warnings.append(
+                        ValidationWarning(
+                            severity="low",
+                            message="High confidence but sources not explicitly from 2024-2025",
+                            field="sources",
+                        )
+                    )
 
         # Low confidence with detailed instructions
         if confidence < 0.4:
             instructions = data.get("instructions", [])
             if len(instructions) > 5:
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="Low confidence (<0.4) but detailed instructions provided - verify alignment",
-                    field="confidence"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="Low confidence (<0.4) but detailed instructions provided - verify alignment",
+                        field="confidence",
+                    )
+                )
 
         return warnings
 
-    def _check_instruction_quality(self, data: Dict[str, Any]) -> List[ValidationWarning]:
+    def _check_instruction_quality(
+        self, data: Dict[str, Any]
+    ) -> List[ValidationWarning]:
         """Check if instructions are specific and actionable"""
         warnings = []
         instructions = data.get("instructions", [])
 
         if not instructions:
-            warnings.append(ValidationWarning(
-                severity="high",
-                message="No cancellation instructions provided",
-                field="instructions"
-            ))
+            warnings.append(
+                ValidationWarning(
+                    severity="high",
+                    message="No cancellation instructions provided",
+                    field="instructions",
+                )
+            )
             return warnings
 
         # Check for vague instructions
@@ -165,26 +186,32 @@ class ResearchValidator:
 
         vague_ratio = vague_count / len(instructions)
         if vague_ratio > 0.6:
-            warnings.append(ValidationWarning(
-                severity="medium",
-                message=f"Instructions may be too generic ({vague_ratio:.0%} vague steps)",
-                field="instructions"
-            ))
+            warnings.append(
+                ValidationWarning(
+                    severity="medium",
+                    message=f"Instructions may be too generic ({vague_ratio:.0%} vague steps)",
+                    field="instructions",
+                )
+            )
         elif vague_ratio > 0.4:
-            warnings.append(ValidationWarning(
-                severity="low",
-                message=f"Some instructions lack specificity ({vague_ratio:.0%} vague steps)",
-                field="instructions"
-            ))
+            warnings.append(
+                ValidationWarning(
+                    severity="low",
+                    message=f"Some instructions lack specificity ({vague_ratio:.0%} vague steps)",
+                    field="instructions",
+                )
+            )
 
         # Check instruction length
         avg_length = sum(len(str(i)) for i in instructions) / len(instructions)
         if avg_length < 20:
-            warnings.append(ValidationWarning(
-                severity="low",
-                message="Instructions are very brief - may lack necessary detail",
-                field="instructions"
-            ))
+            warnings.append(
+                ValidationWarning(
+                    severity="low",
+                    message="Instructions are very brief - may lack necessary detail",
+                    field="instructions",
+                )
+            )
 
         # Check for numbered/ordered clarity
         has_navigation = any(
@@ -193,11 +220,13 @@ class ResearchValidator:
             for word in ["click", "select", "go to", "navigate", "tap", "press"]
         )
         if not has_navigation and len(instructions) > 2:
-            warnings.append(ValidationWarning(
-                severity="low",
-                message="Instructions lack clear navigation verbs (click, select, etc.)",
-                field="instructions"
-            ))
+            warnings.append(
+                ValidationWarning(
+                    severity="low",
+                    message="Instructions lack clear navigation verbs (click, select, etc.)",
+                    field="instructions",
+                )
+            )
 
         return warnings
 
@@ -209,31 +238,39 @@ class ResearchValidator:
         if url:
             # Basic URL format check
             if not url.startswith(("http://", "https://")):
-                warnings.append(ValidationWarning(
-                    severity="high",
-                    message="Cancellation URL does not start with http:// or https://",
-                    field="cancellation_url"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="high",
+                        message="Cancellation URL does not start with http:// or https://",
+                        field="cancellation_url",
+                    )
+                )
 
             # Check for common issues
             if " " in url:
-                warnings.append(ValidationWarning(
-                    severity="high",
-                    message="Cancellation URL contains spaces",
-                    field="cancellation_url"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="high",
+                        message="Cancellation URL contains spaces",
+                        field="cancellation_url",
+                    )
+                )
 
             # Check for incomplete URLs
             if url.count("/") < 3:  # Should have at least https://domain.com/path
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="Cancellation URL may be incomplete (missing path)",
-                    field="cancellation_url"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="Cancellation URL may be incomplete (missing path)",
+                        field="cancellation_url",
+                    )
+                )
 
         return warnings
 
-    def _check_logical_consistency(self, data: Dict[str, Any]) -> List[ValidationWarning]:
+    def _check_logical_consistency(
+        self, data: Dict[str, Any]
+    ) -> List[ValidationWarning]:
         """Check for logical inconsistencies in the data"""
         warnings = []
 
@@ -246,49 +283,61 @@ class ResearchValidator:
         # Easy difficulty but requires phone/chat
         if difficulty == "easy":
             if requires_phone:
-                warnings.append(ValidationWarning(
-                    severity="medium",
-                    message="Marked as 'easy' but requires phone call - inconsistency detected",
-                    field="difficulty"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="medium",
+                        message="Marked as 'easy' but requires phone call - inconsistency detected",
+                        field="difficulty",
+                    )
+                )
             if requires_chat:
-                warnings.append(ValidationWarning(
-                    severity="medium",
-                    message="Marked as 'easy' but requires live chat - inconsistency detected",
-                    field="difficulty"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="medium",
+                        message="Marked as 'easy' but requires live chat - inconsistency detected",
+                        field="difficulty",
+                    )
+                )
 
         # Hard difficulty but has simple URL
         if difficulty == "hard" and cancellation_url:
             if not requires_phone and not requires_chat:
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="Marked as 'hard' with URL but doesn't require phone/chat - verify complexity",
-                    field="difficulty"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="Marked as 'hard' with URL but doesn't require phone/chat - verify complexity",
+                        field="difficulty",
+                    )
+                )
 
         # Time estimation alignment
         if estimated_minutes:
             if difficulty == "easy" and estimated_minutes > 5:
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="'Easy' difficulty but estimated >5 minutes - verify alignment",
-                    field="estimated_minutes"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="'Easy' difficulty but estimated >5 minutes - verify alignment",
+                        field="estimated_minutes",
+                    )
+                )
             if difficulty == "hard" and estimated_minutes < 10:
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="'Hard' difficulty but estimated <10 minutes - verify alignment",
-                    field="estimated_minutes"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="'Hard' difficulty but estimated <10 minutes - verify alignment",
+                        field="estimated_minutes",
+                    )
+                )
 
         # Pause instructions without allows_pause
         if data.get("pause_instructions") and not data.get("allows_pause"):
-            warnings.append(ValidationWarning(
-                severity="medium",
-                message="Pause instructions provided but allows_pause is false",
-                field="allows_pause"
-            ))
+            warnings.append(
+                ValidationWarning(
+                    severity="medium",
+                    message="Pause instructions provided but allows_pause is false",
+                    field="allows_pause",
+                )
+            )
 
         return warnings
 
@@ -300,11 +349,13 @@ class ResearchValidator:
 
         if not sources:
             if confidence > 0.5:
-                warnings.append(ValidationWarning(
-                    severity="medium",
-                    message="Moderate-high confidence but no sources provided",
-                    field="sources"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="medium",
+                        message="Moderate-high confidence but no sources provided",
+                        field="sources",
+                    )
+                )
             return warnings
 
         # V2 structured sources
@@ -315,42 +366,52 @@ class ResearchValidator:
 
             # Check source type alignment with confidence
             if primary_type == "official_documentation" and confidence < 0.7:
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="Official documentation cited but confidence <0.7 - verify alignment",
-                    field="confidence"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="Official documentation cited but confidence <0.7 - verify alignment",
+                        field="confidence",
+                    )
+                )
 
             if primary_type in ["speculation", "mixed"] and confidence > 0.6:
-                warnings.append(ValidationWarning(
-                    severity="medium",
-                    message="Speculation/mixed sources but confidence >0.6 - may be overconfident",
-                    field="confidence"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="medium",
+                        message="Speculation/mixed sources but confidence >0.6 - may be overconfident",
+                        field="confidence",
+                    )
+                )
 
             # Check for missing structured fields
             if not primary_source:
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="Source structure present but missing primary_source description",
-                    field="sources"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="Source structure present but missing primary_source description",
+                        field="sources",
+                    )
+                )
 
             if not verification and confidence > 0.7:
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="High confidence but missing verification details",
-                    field="sources"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="High confidence but missing verification details",
+                        field="sources",
+                    )
+                )
 
         # V1 string sources
         elif isinstance(sources, str):
             if len(sources) < 20:
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="Source description is very brief - may lack detail",
-                    field="sources"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="Source description is very brief - may lack detail",
+                        field="sources",
+                    )
+                )
 
         return warnings
 
@@ -360,50 +421,58 @@ class ResearchValidator:
 
         # Critical fields
         if not data.get("difficulty"):
-            warnings.append(ValidationWarning(
-                severity="high",
-                message="Missing required field: difficulty",
-                field="difficulty"
-            ))
+            warnings.append(
+                ValidationWarning(
+                    severity="high",
+                    message="Missing required field: difficulty",
+                    field="difficulty",
+                )
+            )
 
         if not data.get("instructions"):
-            warnings.append(ValidationWarning(
-                severity="high",
-                message="Missing required field: instructions",
-                field="instructions"
-            ))
+            warnings.append(
+                ValidationWarning(
+                    severity="high",
+                    message="Missing required field: instructions",
+                    field="instructions",
+                )
+            )
 
         # Important optional fields for completeness
         confidence = data.get("confidence", 0.0)
         if confidence > 0.7:
             # For high-confidence results, expect more complete data
             if not data.get("estimated_minutes"):
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="High confidence but missing time estimate",
-                    field="estimated_minutes"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="High confidence but missing time estimate",
+                        field="estimated_minutes",
+                    )
+                )
 
             if not data.get("gotchas"):
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="High confidence but no gotchas/warnings provided",
-                    field="gotchas"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="High confidence but no gotchas/warnings provided",
+                        field="gotchas",
+                    )
+                )
 
             if not data.get("additional_notes"):
-                warnings.append(ValidationWarning(
-                    severity="low",
-                    message="High confidence but no additional notes provided",
-                    field="additional_notes"
-                ))
+                warnings.append(
+                    ValidationWarning(
+                        severity="low",
+                        message="High confidence but no additional notes provided",
+                        field="additional_notes",
+                    )
+                )
 
         return warnings
 
     def _calculate_quality_score(
-        self,
-        warnings: List[ValidationWarning],
-        data: Dict[str, Any]
+        self, warnings: List[ValidationWarning], data: Dict[str, Any]
     ) -> float:
         """
         Calculate overall quality score (0.0 to 1.0).
@@ -427,8 +496,11 @@ class ResearchValidator:
 
         # Bonus for completeness
         optional_fields = [
-            "cancellation_url", "estimated_minutes", "gotchas",
-            "additional_notes", "pause_instructions"
+            "cancellation_url",
+            "estimated_minutes",
+            "gotchas",
+            "additional_notes",
+            "pause_instructions",
         ]
         filled_count = sum(1 for field in optional_fields if data.get(field))
         completeness_bonus = (filled_count / len(optional_fields)) * 0.15
@@ -437,7 +509,9 @@ class ResearchValidator:
         # Ensure score is in valid range
         return max(0.0, min(1.0, score))
 
-    def _recommend_action(self, warnings: List[ValidationWarning], quality_score: float) -> str:
+    def _recommend_action(
+        self, warnings: List[ValidationWarning], quality_score: float
+    ) -> str:
         """
         Recommend action based on validation results.
 

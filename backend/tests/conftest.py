@@ -1,12 +1,17 @@
 """
 Test configuration and fixtures for the subscription tracker backend.
 """
+
 import os
 import pytest
 import json
 from typing import Generator
 from sqlalchemy import create_engine, event, TypeDecorator, CHAR, Text
-from sqlalchemy.dialects.postgresql import UUID as PostgreSQL_UUID, JSONB as PostgreSQL_JSONB, ARRAY as PostgreSQL_ARRAY
+from sqlalchemy.dialects.postgresql import (
+    UUID as PostgreSQL_UUID,
+    JSONB as PostgreSQL_JSONB,
+    ARRAY as PostgreSQL_ARRAY,
+)
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
@@ -24,11 +29,12 @@ from app.security.password import hash_password
 # UUID type for SQLite compatibility
 class GUID(TypeDecorator):
     """Platform-independent GUID type that uses PostgreSQL's UUID or CHAR(36) in other databases."""
+
     impl = CHAR
     cache_ok = True
 
     def load_dialect_impl(self, dialect):
-        if dialect.name == 'postgresql':
+        if dialect.name == "postgresql":
             return dialect.type_descriptor(PostgreSQL_UUID())
         else:
             return dialect.type_descriptor(CHAR(36))
@@ -36,7 +42,7 @@ class GUID(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return value
-        elif dialect.name == 'postgresql':
+        elif dialect.name == "postgresql":
             return str(value)
         else:
             if not isinstance(value, uuid.UUID):
@@ -55,11 +61,12 @@ class GUID(TypeDecorator):
 # JSONB type for SQLite compatibility
 class JSON_SQLite(TypeDecorator):
     """Platform-independent JSON type that uses PostgreSQL's JSONB or TEXT in SQLite."""
+
     impl = Text
     cache_ok = True
 
     def load_dialect_impl(self, dialect):
-        if dialect.name == 'postgresql':
+        if dialect.name == "postgresql":
             return dialect.type_descriptor(PostgreSQL_JSONB())
         else:
             return dialect.type_descriptor(Text())
@@ -67,14 +74,14 @@ class JSON_SQLite(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return value
-        if dialect.name == 'sqlite':
+        if dialect.name == "sqlite":
             return json.dumps(value)
         return value
 
     def process_result_value(self, value, dialect):
         if value is None:
             return value
-        if dialect.name == 'sqlite':
+        if dialect.name == "sqlite":
             return json.loads(value)
         return value
 
@@ -82,11 +89,12 @@ class JSON_SQLite(TypeDecorator):
 # ARRAY type for SQLite compatibility
 class ARRAY_SQLite(TypeDecorator):
     """Platform-independent ARRAY type that uses PostgreSQL's ARRAY or TEXT in SQLite."""
+
     impl = Text
     cache_ok = True
 
     def load_dialect_impl(self, dialect):
-        if dialect.name == 'postgresql':
+        if dialect.name == "postgresql":
             # For PostgreSQL, we need to get the item type from the original ARRAY
             return dialect.type_descriptor(PostgreSQL_ARRAY(Text))
         else:
@@ -95,14 +103,14 @@ class ARRAY_SQLite(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return value
-        if dialect.name == 'sqlite':
+        if dialect.name == "sqlite":
             return json.dumps(value)
         return value
 
     def process_result_value(self, value, dialect):
         if value is None:
             return value
-        if dialect.name == 'sqlite':
+        if dialect.name == "sqlite":
             return json.loads(value) if value else []
         return value
 
@@ -123,16 +131,17 @@ def db_engine():
     # Replace PostgreSQL-specific types with SQLite-compatible types
     @event.listens_for(Base.metadata, "column_reflect")
     def receive_column_reflect(inspector, table, column_info):
-        if isinstance(column_info['type'], PostgreSQL_UUID):
-            column_info['type'] = GUID()
-        elif isinstance(column_info['type'], PostgreSQL_JSONB):
-            column_info['type'] = JSON_SQLite()
-        elif isinstance(column_info['type'], PostgreSQL_ARRAY):
-            column_info['type'] = ARRAY_SQLite()
+        if isinstance(column_info["type"], PostgreSQL_UUID):
+            column_info["type"] = GUID()
+        elif isinstance(column_info["type"], PostgreSQL_JSONB):
+            column_info["type"] = JSON_SQLite()
+        elif isinstance(column_info["type"], PostgreSQL_ARRAY):
+            column_info["type"] = ARRAY_SQLite()
 
     # Override UUID, JSONB, and ARRAY columns in models for SQLite
     from sqlalchemy.dialects import postgresql
     from sqlalchemy.sql.sqltypes import ARRAY as BaseARRAY
+
     for table in Base.metadata.tables.values():
         for column in table.columns:
             # Check type by class name to catch all variants
@@ -141,7 +150,10 @@ def db_engine():
                 column.type = GUID()
             elif isinstance(column.type, postgresql.JSONB):
                 column.type = JSON_SQLite()
-            elif isinstance(column.type, (postgresql.ARRAY, BaseARRAY)) or type_name == 'ARRAY':
+            elif (
+                isinstance(column.type, (postgresql.ARRAY, BaseARRAY))
+                or type_name == "ARRAY"
+            ):
                 column.type = ARRAY_SQLite()
 
     Base.metadata.create_all(bind=engine)
@@ -153,7 +165,9 @@ def db_engine():
 @pytest.fixture(scope="function")
 def db_session(db_engine) -> Generator[Session, None, None]:
     """Create a test database session."""
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=db_engine)
+    TestingSessionLocal = sessionmaker(
+        autocommit=False, autoflush=False, bind=db_engine
+    )
     session = TestingSessionLocal()
     try:
         yield session
@@ -189,7 +203,7 @@ def test_user(db_session: Session) -> User:
         salt=salt,
         is_active=True,
         email_verified=True,  # Verified by default for existing tests
-        settings={}
+        settings={},
     )
     db_session.add(user)
     db_session.commit()
@@ -205,7 +219,7 @@ def test_mailbox(db_session: Session, test_user: User) -> Mailbox:
         email_address="test@fastmail.com",
         provider_type="jmap",
         encrypted_credentials="test_encrypted_credentials",
-        is_active=True
+        is_active=True,
     )
     db_session.add(mailbox)
     db_session.commit()
@@ -231,7 +245,7 @@ def test_subscription(db_session: Session, test_mailbox: Mailbox) -> Subscriptio
         extraction_method="ai",
         confidence_score=0.95,
         first_detected_at=datetime.now(timezone.utc),
-        last_confirmed_at=datetime.now(timezone.utc)
+        last_confirmed_at=datetime.now(timezone.utc),
     )
     db_session.add(subscription)
     db_session.commit()
@@ -253,7 +267,7 @@ def test_email(db_session: Session, test_mailbox: Mailbox) -> EmailMessage:
         date=datetime.now(timezone.utc),
         body_text="Your subscription renews on December 5, 2025 for $15.99",
         is_subscription=True,
-        classification_confidence=0.95
+        classification_confidence=0.95,
     )
     db_session.add(email)
     db_session.commit()
@@ -266,10 +280,7 @@ def auth_headers(client: TestClient, test_user: User) -> dict:
     """Get authentication headers for API requests."""
     response = client.post(
         "/api/auth/login",
-        json={
-            "email": test_user.email,
-            "password": "testpassword123"
-        }
+        json={"email": test_user.email, "password": "testpassword123"},
     )
     assert response.status_code == 200
     token_data = response.json()
@@ -287,7 +298,7 @@ def admin_user(db_session: Session) -> User:
         is_active=True,
         is_admin=True,
         email_verified=True,
-        settings={}
+        settings={},
     )
     db_session.add(user)
     db_session.commit()
@@ -300,10 +311,7 @@ def admin_headers(client: TestClient, admin_user: User) -> dict:
     """Get authentication headers for admin API requests."""
     response = client.post(
         "/api/auth/login",
-        json={
-            "email": admin_user.email,
-            "password": "adminpassword123"
-        }
+        json={"email": admin_user.email, "password": "adminpassword123"},
     )
     assert response.status_code == 200
     token_data = response.json()
@@ -321,7 +329,7 @@ def sample_email_dates():
         now,
         now - timedelta(days=30),
         now - timedelta(days=60),
-        now - timedelta(days=90)
+        now - timedelta(days=90),
     ]
 
 
@@ -332,7 +340,7 @@ def sample_email_contents():
         "Your subscription renews on December 5, 2025 for $15.99",
         "Your next invoice will be on November 5, 2025",
         "Billing date: October 5, 2025",
-        "Your subscription has been renewed"
+        "Your subscription has been renewed",
     ]
 
 
@@ -340,7 +348,7 @@ def sample_email_contents():
 def sample_trial_metadata():
     """Sample trial detection metadata."""
     return {
-        'trial_detected': True,
-        'trial_keywords': ['free trial', 'trial period'],
-        'detected_at': '2025-11-01T00:00:00Z'
+        "trial_detected": True,
+        "trial_keywords": ["free trial", "trial period"],
+        "detected_at": "2025-11-01T00:00:00Z",
     }

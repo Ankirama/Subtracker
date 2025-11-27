@@ -1,25 +1,29 @@
 """Comprehensive tests for notifications task."""
+
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 from sqlalchemy.orm import Session
 
 from app.models.subscription import Subscription
-from app.models.notification import Notification, NotificationPreference, NotificationType
+from app.models.notification import (
+    Notification,
+    NotificationPreference,
+    NotificationType,
+)
 from app.models.user import User
 from app.tasks.notifications import (
     send_renewal_reminders,
     check_inactive_subscriptions,
-    _convert_to_monthly
+    _convert_to_monthly,
 )
-from app.tasks.summary_tasks import (
-    send_weekly_summaries,
-    send_monthly_summaries
-)
+from app.tasks.summary_tasks import send_weekly_summaries, send_monthly_summaries
 
 
 @pytest.fixture
-def subscription_renewing_in_7_days(db_session: Session, test_subscription: Subscription) -> Subscription:
+def subscription_renewing_in_7_days(
+    db_session: Session, test_subscription: Subscription
+) -> Subscription:
     """Create a subscription renewing in 7 days."""
     test_subscription.is_active = True
     test_subscription.next_billing_date = datetime.utcnow() + timedelta(days=7)
@@ -38,7 +42,7 @@ def renewal_preference(db_session: Session, test_user: User) -> NotificationPref
         user_id=test_user.id,
         notification_type=NotificationType.RENEWAL_REMINDER,
         enabled=True,
-        days_before_renewal=7
+        days_before_renewal=7,
     )
     db_session.add(pref)
     db_session.commit()
@@ -49,30 +53,30 @@ def renewal_preference(db_session: Session, test_user: User) -> NotificationPref
 class TestSendRenewalReminders:
     """Tests for send_renewal_reminders task."""
 
-    @patch('app.tasks.notifications.get_db')
+    @patch("app.tasks.notifications.get_db")
     def test_sends_reminder_for_upcoming_renewal(
         self,
         mock_get_db: MagicMock,
         db_session: Session,
         subscription_renewing_in_7_days: Subscription,
-        renewal_preference: NotificationPreference
+        renewal_preference: NotificationPreference,
     ):
         """Should send reminder for subscription renewing in target window."""
         mock_get_db.return_value = iter([db_session])
 
         result = send_renewal_reminders()
 
-        assert result['success'] is True
-        assert result['notifications_sent'] >= 0
+        assert result["success"] is True
+        assert result["notifications_sent"] >= 0
 
-    @patch('app.tasks.notifications.get_db')
+    @patch("app.tasks.notifications.get_db")
     def test_does_not_send_duplicate_reminder(
         self,
         mock_get_db: MagicMock,
         db_session: Session,
         subscription_renewing_in_7_days: Subscription,
         renewal_preference: NotificationPreference,
-        test_user: User
+        test_user: User,
     ):
         """Should not send duplicate reminder if one was sent recently."""
         mock_get_db.return_value = iter([db_session])
@@ -85,42 +89,36 @@ class TestSendRenewalReminders:
             priority="medium",
             title="Test",
             message="Test",
-            created_at=datetime.utcnow() - timedelta(days=1)
+            created_at=datetime.utcnow() - timedelta(days=1),
         )
         db_session.add(notification)
         db_session.commit()
 
         result = send_renewal_reminders()
 
-        assert result['success'] is True
-        assert result['notifications_sent'] == 0
+        assert result["success"] is True
+        assert result["notifications_sent"] == 0
 
-    @patch('app.tasks.notifications.get_db')
-    def test_handles_no_preferences(
-        self,
-        mock_get_db: MagicMock,
-        db_session: Session
-    ):
+    @patch("app.tasks.notifications.get_db")
+    def test_handles_no_preferences(self, mock_get_db: MagicMock, db_session: Session):
         """Should handle case with no renewal preferences."""
         mock_get_db.return_value = iter([db_session])
 
         result = send_renewal_reminders()
 
-        assert result['success'] is True
-        assert result['notifications_sent'] == 0
+        assert result["success"] is True
+        assert result["notifications_sent"] == 0
 
-    @patch('app.tasks.notifications.get_db')
-    def test_handles_errors_gracefully(
-        self,
-        mock_get_db: MagicMock
-    ):
+    @patch("app.tasks.notifications.get_db")
+    def test_handles_errors_gracefully(self, mock_get_db: MagicMock):
         """Should handle errors and return error status."""
         mock_get_db.side_effect = Exception("Database error")
 
         result = send_renewal_reminders()
 
-        assert result['success'] is False
-        assert 'error' in result
+        assert result["success"] is False
+        assert "error" in result
+
 
 # NOTE: Tests for send_weekly_summaries and send_monthly_summaries have been moved to
 # tests/test_summary_tasks.py which tests the newer implementation in app/tasks/summary_tasks.py
@@ -129,13 +127,13 @@ class TestSendRenewalReminders:
 class TestCheckInactiveSubscriptions:
     """Tests for check_inactive_subscriptions task."""
 
-    @patch('app.tasks.notifications.get_db')
+    @patch("app.tasks.notifications.get_db")
     def test_detects_inactive_subscription(
         self,
         mock_get_db: MagicMock,
         db_session: Session,
         test_user: User,
-        test_subscription: Subscription
+        test_subscription: Subscription,
     ):
         """Should detect subscription with no activity in 90+ days."""
         mock_get_db.return_value = iter([db_session])
@@ -149,23 +147,23 @@ class TestCheckInactiveSubscriptions:
         pref = NotificationPreference(
             user_id=test_user.id,
             notification_type=NotificationType.INACTIVE_SUBSCRIPTION,
-            enabled=True
+            enabled=True,
         )
         db_session.add(pref)
         db_session.commit()
 
         result = check_inactive_subscriptions()
 
-        assert result['success'] is True
-        assert result['notifications_sent'] >= 0
+        assert result["success"] is True
+        assert result["notifications_sent"] >= 0
 
-    @patch('app.tasks.notifications.get_db')
+    @patch("app.tasks.notifications.get_db")
     def test_does_not_send_duplicate_inactive_notification(
         self,
         mock_get_db: MagicMock,
         db_session: Session,
         test_user: User,
-        test_subscription: Subscription
+        test_subscription: Subscription,
     ):
         """Should not send duplicate inactive notification within 30 days."""
         mock_get_db.return_value = iter([db_session])
@@ -182,35 +180,32 @@ class TestCheckInactiveSubscriptions:
             priority="low",
             title="Test",
             message="Test",
-            created_at=datetime.utcnow() - timedelta(days=10)
+            created_at=datetime.utcnow() - timedelta(days=10),
         )
         db_session.add(notification)
 
         pref = NotificationPreference(
             user_id=test_user.id,
             notification_type=NotificationType.INACTIVE_SUBSCRIPTION,
-            enabled=True
+            enabled=True,
         )
         db_session.add(pref)
         db_session.commit()
 
         result = check_inactive_subscriptions()
 
-        assert result['success'] is True
-        assert result['notifications_sent'] == 0
+        assert result["success"] is True
+        assert result["notifications_sent"] == 0
 
-    @patch('app.tasks.notifications.get_db')
-    def test_handles_errors_gracefully(
-        self,
-        mock_get_db: MagicMock
-    ):
+    @patch("app.tasks.notifications.get_db")
+    def test_handles_errors_gracefully(self, mock_get_db: MagicMock):
         """Should handle errors and return error status."""
         mock_get_db.side_effect = Exception("Database error")
 
         result = check_inactive_subscriptions()
 
-        assert result['success'] is False
-        assert 'error' in result
+        assert result["success"] is False
+        assert "error" in result
 
 
 class TestConvertToMonthly:

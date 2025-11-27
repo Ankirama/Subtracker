@@ -10,6 +10,7 @@ Tests cover:
 - Budget status (current spending, alerts, percentages)
 - Budget alerts (warning, exceeded, none)
 """
+
 import pytest
 from datetime import datetime, timezone
 import uuid
@@ -29,7 +30,7 @@ class TestBudgetCreate:
             "limit_amount": 50.0,
             "currency": "EUR",
             "alert_threshold": 80,
-            "alert_enabled": True
+            "alert_enabled": True,
         }
 
         response = client.post("/api/budgets/", json=budget_data, headers=auth_headers)
@@ -52,7 +53,7 @@ class TestBudgetCreate:
             "name": "Overall Budget",
             "period": "monthly",
             "limit_amount": 500.0,
-            "currency": "EUR"
+            "currency": "EUR",
         }
 
         response = client.post("/api/budgets/", json=budget_data, headers=auth_headers)
@@ -68,7 +69,7 @@ class TestBudgetCreate:
             "name": "Quarterly Budget",
             "period": "quarterly",
             "limit_amount": 300.0,
-            "currency": "EUR"
+            "currency": "EUR",
         }
 
         response = client.post("/api/budgets/", json=budget_data, headers=auth_headers)
@@ -77,7 +78,9 @@ class TestBudgetCreate:
         data = response.json()
         assert data["period"] == "quarterly"
 
-    def test_create_budget_duplicate_name(self, client, auth_headers, db_session, test_user):
+    def test_create_budget_duplicate_name(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Cannot create budget with duplicate name."""
         # Create first budget
         budget = Budget(
@@ -87,7 +90,7 @@ class TestBudgetCreate:
             limit_amount=100.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         db_session.add(budget)
         db_session.commit()
@@ -97,7 +100,7 @@ class TestBudgetCreate:
             "name": "Test Budget",  # Duplicate
             "period": "monthly",
             "limit_amount": 200.0,
-            "currency": "EUR"
+            "currency": "EUR",
         }
 
         response = client.post("/api/budgets/", json=budget_data, headers=auth_headers)
@@ -111,7 +114,7 @@ class TestBudgetCreate:
             "name": "Test Budget",
             "period": "invalid",
             "limit_amount": 100.0,
-            "currency": "EUR"
+            "currency": "EUR",
         }
 
         response = client.post("/api/budgets/", json=budget_data, headers=auth_headers)
@@ -124,7 +127,7 @@ class TestBudgetCreate:
             "name": "Test Budget",
             "period": "monthly",
             "limit_amount": 0,  # Invalid
-            "currency": "EUR"
+            "currency": "EUR",
         }
 
         response = client.post("/api/budgets/", json=budget_data, headers=auth_headers)
@@ -137,7 +140,7 @@ class TestBudgetCreate:
             "name": "Test Budget",
             "period": "monthly",
             "limit_amount": 100.0,
-            "currency": "INVALID"  # Not 3 letters
+            "currency": "INVALID",  # Not 3 letters
         }
 
         response = client.post("/api/budgets/", json=budget_data, headers=auth_headers)
@@ -150,7 +153,7 @@ class TestBudgetCreate:
             "name": "Test Budget",
             "period": "monthly",
             "limit_amount": 100.0,
-            "currency": "EUR"
+            "currency": "EUR",
         }
 
         response = client.post("/api/budgets/", json=budget_data)
@@ -180,7 +183,7 @@ class TestBudgetList:
                 limit_amount=50.0,
                 currency="EUR",
                 alert_threshold=80,
-                alert_enabled='true'
+                alert_enabled="true",
             ),
             Budget(
                 user_id=test_user.id,
@@ -190,7 +193,7 @@ class TestBudgetList:
                 limit_amount=200.0,
                 currency="EUR",
                 alert_threshold=75,
-                alert_enabled='true'
+                alert_enabled="true",
             ),
             Budget(
                 user_id=test_user.id,
@@ -199,8 +202,8 @@ class TestBudgetList:
                 limit_amount=500.0,
                 currency="EUR",
                 alert_threshold=85,
-                alert_enabled='false'
-            )
+                alert_enabled="false",
+            ),
         ]
         db_session.add_all(budgets)
         db_session.commit()
@@ -215,7 +218,9 @@ class TestBudgetList:
         assert "Groceries" in names
         assert "Overall" in names
 
-    def test_list_budgets_user_isolation(self, client, auth_headers, db_session, test_user):
+    def test_list_budgets_user_isolation(
+        self, client, auth_headers, db_session, test_user
+    ):
         """List only shows user's own budgets."""
         from app.models.user import User
         from app.security.password import hash_password
@@ -226,7 +231,7 @@ class TestBudgetList:
             email="other@example.com",
             password_hash=password_hash,
             salt=salt,
-            is_active=True
+            is_active=True,
         )
         db_session.add(other_user)
         db_session.commit()
@@ -240,7 +245,7 @@ class TestBudgetList:
             limit_amount=100.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
 
         # Create budget for other_user
@@ -251,7 +256,7 @@ class TestBudgetList:
             limit_amount=200.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
 
         db_session.add_all([test_budget, other_budget])
@@ -278,7 +283,7 @@ class TestBudgetGet:
             limit_amount=100.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         db_session.add(budget)
         db_session.commit()
@@ -311,7 +316,7 @@ class TestBudgetGet:
             email="other@example.com",
             password_hash=password_hash,
             salt=salt,
-            is_active=True
+            is_active=True,
         )
         db_session.add(other_user)
         db_session.commit()
@@ -325,7 +330,7 @@ class TestBudgetGet:
             limit_amount=100.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         db_session.add(other_budget)
         db_session.commit()
@@ -348,7 +353,7 @@ class TestBudgetUpdate:
             limit_amount=100.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         db_session.add(budget)
         db_session.commit()
@@ -359,10 +364,12 @@ class TestBudgetUpdate:
             "category": "groceries",
             "limit_amount": 150.0,
             "alert_threshold": 75,
-            "alert_enabled": False
+            "alert_enabled": False,
         }
 
-        response = client.put(f"/api/budgets/{budget.id}", json=update_data, headers=auth_headers)
+        response = client.put(
+            f"/api/budgets/{budget.id}", json=update_data, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -381,24 +388,26 @@ class TestBudgetUpdate:
             limit_amount=100.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         db_session.add(budget)
         db_session.commit()
         db_session.refresh(budget)
 
-        update_data = {
-            "alert_enabled": False  # Only update this field
-        }
+        update_data = {"alert_enabled": False}  # Only update this field
 
-        response = client.put(f"/api/budgets/{budget.id}", json=update_data, headers=auth_headers)
+        response = client.put(
+            f"/api/budgets/{budget.id}", json=update_data, headers=auth_headers
+        )
 
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "Test Budget"  # Unchanged
         assert data["alert_enabled"] is False  # Changed
 
-    def test_update_budget_duplicate_name(self, client, auth_headers, db_session, test_user):
+    def test_update_budget_duplicate_name(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Cannot update to duplicate name."""
         budget1 = Budget(
             user_id=test_user.id,
@@ -407,7 +416,7 @@ class TestBudgetUpdate:
             limit_amount=100.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         budget2 = Budget(
             user_id=test_user.id,
@@ -416,17 +425,17 @@ class TestBudgetUpdate:
             limit_amount=200.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         db_session.add_all([budget1, budget2])
         db_session.commit()
         db_session.refresh(budget2)
 
-        update_data = {
-            "name": "Budget 1"  # Try to use existing name
-        }
+        update_data = {"name": "Budget 1"}  # Try to use existing name
 
-        response = client.put(f"/api/budgets/{budget2.id}", json=update_data, headers=auth_headers)
+        response = client.put(
+            f"/api/budgets/{budget2.id}", json=update_data, headers=auth_headers
+        )
 
         assert response.status_code == 400
         assert "already exists" in response.json()["detail"].lower()
@@ -436,7 +445,9 @@ class TestBudgetUpdate:
         fake_id = str(uuid.uuid4())
         update_data = {"name": "New Name"}
 
-        response = client.put(f"/api/budgets/{fake_id}", json=update_data, headers=auth_headers)
+        response = client.put(
+            f"/api/budgets/{fake_id}", json=update_data, headers=auth_headers
+        )
 
         assert response.status_code == 404
 
@@ -453,7 +464,7 @@ class TestBudgetDelete:
             limit_amount=100.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         db_session.add(budget)
         db_session.commit()
@@ -487,7 +498,9 @@ class TestBudgetStatus:
         data = response.json()
         assert data == []  # Empty list when no budgets
 
-    def test_get_all_budgets_status_with_budgets(self, client, auth_headers, db_session, test_user):
+    def test_get_all_budgets_status_with_budgets(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Get status for all budgets with real data."""
         # Create two budgets
         budget1 = Budget(
@@ -498,7 +511,7 @@ class TestBudgetStatus:
             limit_amount=100.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         budget2 = Budget(
             user_id=test_user.id,
@@ -508,7 +521,7 @@ class TestBudgetStatus:
             limit_amount=200.0,
             currency="EUR",
             alert_threshold=75,
-            alert_enabled='false'
+            alert_enabled="false",
         )
         db_session.add_all([budget1, budget2])
         db_session.commit()
@@ -538,7 +551,7 @@ class TestBudgetStatus:
             limit_amount=100.0,
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         db_session.add(budget)
         db_session.commit()
@@ -556,7 +569,9 @@ class TestBudgetStatus:
         assert "status" in data
         assert data["status"] in ["good", "warning", "exceeded"]
 
-    @pytest.mark.xfail(reason="Edge case: BudgetService may need error handling improvement")
+    @pytest.mark.xfail(
+        reason="Edge case: BudgetService may need error handling improvement"
+    )
     def test_get_budget_status_not_found(self, client, auth_headers):
         """Cannot get status for non-existent budget."""
         fake_id = str(uuid.uuid4())
@@ -577,7 +592,9 @@ class TestBudgetAlerts:
         data = response.json()
         assert data == []
 
-    def test_get_budget_alerts_no_alerts(self, client, auth_headers, db_session, test_user):
+    def test_get_budget_alerts_no_alerts(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Get alerts when budgets exist but none exceed threshold."""
         budget = Budget(
             user_id=test_user.id,
@@ -586,7 +603,7 @@ class TestBudgetAlerts:
             limit_amount=1000.0,  # High limit, won't trigger alerts
             currency="EUR",
             alert_threshold=80,
-            alert_enabled='true'
+            alert_enabled="true",
         )
         db_session.add(budget)
         db_session.commit()
@@ -597,7 +614,9 @@ class TestBudgetAlerts:
         data = response.json()
         assert data == []  # No alerts since spending is zero
 
-    def test_get_budget_alerts_with_alerts_disabled(self, client, auth_headers, db_session, test_user):
+    def test_get_budget_alerts_with_alerts_disabled(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Get alerts when alerts are disabled."""
         budget = Budget(
             user_id=test_user.id,
@@ -606,7 +625,7 @@ class TestBudgetAlerts:
             limit_amount=1.0,  # Very low limit
             currency="EUR",
             alert_threshold=50,
-            alert_enabled='false'  # Alerts disabled
+            alert_enabled="false",  # Alerts disabled
         )
         db_session.add(budget)
         db_session.commit()

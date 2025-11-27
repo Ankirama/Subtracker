@@ -1,6 +1,7 @@
 """
 Admin API endpoints for user management.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
@@ -14,21 +15,23 @@ from app.schemas.admin import (
     UserListResponse,
     UserDetailResponse,
     UserUpdateRequest,
-    UserStatsResponse
+    UserStatsResponse,
 )
 from app.security.dependencies import get_current_admin_user
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 
 
-@router.get("", response_model=UserListResponse, dependencies=[Depends(get_current_admin_user)])
+@router.get(
+    "", response_model=UserListResponse, dependencies=[Depends(get_current_admin_user)]
+)
 async def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
     is_admin: Optional[bool] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     List all users with pagination and filtering.
@@ -77,11 +80,15 @@ async def list_users(
         "total": total,
         "page": page,
         "page_size": page_size,
-        "total_pages": total_pages
+        "total_pages": total_pages,
     }
 
 
-@router.get("/stats", response_model=UserStatsResponse, dependencies=[Depends(get_current_admin_user)])
+@router.get(
+    "/stats",
+    response_model=UserStatsResponse,
+    dependencies=[Depends(get_current_admin_user)],
+)
 async def get_user_stats(db: Session = Depends(get_db)):
     """
     Get user statistics.
@@ -92,23 +99,29 @@ async def get_user_stats(db: Session = Depends(get_db)):
 
     # Users created in last 30 days
     from datetime import timedelta
+
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    new_users_30d = db.query(func.count(User.id)).filter(User.created_at >= thirty_days_ago).scalar()
+    new_users_30d = (
+        db.query(func.count(User.id))
+        .filter(User.created_at >= thirty_days_ago)
+        .scalar()
+    )
 
     return {
         "total_users": total_users,
         "active_users": active_users,
         "inactive_users": total_users - active_users,
         "admin_users": admin_users,
-        "new_users_30d": new_users_30d
+        "new_users_30d": new_users_30d,
     }
 
 
-@router.get("/{user_id}", response_model=UserDetailResponse, dependencies=[Depends(get_current_admin_user)])
-async def get_user(
-    user_id: str,
-    db: Session = Depends(get_db)
-):
+@router.get(
+    "/{user_id}",
+    response_model=UserDetailResponse,
+    dependencies=[Depends(get_current_admin_user)],
+)
+async def get_user(user_id: str, db: Session = Depends(get_db)):
     """
     Get detailed information about a specific user.
     """
@@ -126,13 +139,15 @@ async def get_user(
     from app.models.subscription import Subscription
     from app.models.mailbox import Mailbox
 
-    subscription_count = db.query(func.count(Subscription.id)).filter(
-        Subscription.user_id == user_uuid
-    ).scalar()
+    subscription_count = (
+        db.query(func.count(Subscription.id))
+        .filter(Subscription.user_id == user_uuid)
+        .scalar()
+    )
 
-    mailbox_count = db.query(func.count(Mailbox.id)).filter(
-        Mailbox.user_id == user_uuid
-    ).scalar()
+    mailbox_count = (
+        db.query(func.count(Mailbox.id)).filter(Mailbox.user_id == user_uuid).scalar()
+    )
 
     return {
         "id": str(user.id),
@@ -144,15 +159,17 @@ async def get_user(
         "created_at": user.created_at.isoformat(),
         "updated_at": user.updated_at.isoformat(),
         "subscription_count": subscription_count,
-        "mailbox_count": mailbox_count
+        "mailbox_count": mailbox_count,
     }
 
 
-@router.put("/{user_id}", response_model=UserDetailResponse, dependencies=[Depends(get_current_admin_user)])
+@router.put(
+    "/{user_id}",
+    response_model=UserDetailResponse,
+    dependencies=[Depends(get_current_admin_user)],
+)
 async def update_user(
-    user_id: str,
-    update_data: UserUpdateRequest,
-    db: Session = Depends(get_db)
+    user_id: str, update_data: UserUpdateRequest, db: Session = Depends(get_db)
 ):
     """
     Update user information.
@@ -184,13 +201,15 @@ async def update_user(
     from app.models.subscription import Subscription
     from app.models.mailbox import Mailbox
 
-    subscription_count = db.query(func.count(Subscription.id)).filter(
-        Subscription.user_id == user_uuid
-    ).scalar()
+    subscription_count = (
+        db.query(func.count(Subscription.id))
+        .filter(Subscription.user_id == user_uuid)
+        .scalar()
+    )
 
-    mailbox_count = db.query(func.count(Mailbox.id)).filter(
-        Mailbox.user_id == user_uuid
-    ).scalar()
+    mailbox_count = (
+        db.query(func.count(Mailbox.id)).filter(Mailbox.user_id == user_uuid).scalar()
+    )
 
     return {
         "id": str(user.id),
@@ -202,15 +221,12 @@ async def update_user(
         "created_at": user.created_at.isoformat(),
         "updated_at": user.updated_at.isoformat(),
         "subscription_count": subscription_count,
-        "mailbox_count": mailbox_count
+        "mailbox_count": mailbox_count,
     }
 
 
 @router.delete("/{user_id}", dependencies=[Depends(get_current_admin_user)])
-async def delete_user(
-    user_id: str,
-    db: Session = Depends(get_db)
-):
+async def delete_user(user_id: str, db: Session = Depends(get_db)):
     """
     Delete a user (soft delete by deactivating).
 
@@ -234,10 +250,7 @@ async def delete_user(
 
 
 @router.post("/{user_id}/verify", dependencies=[Depends(get_current_admin_user)])
-async def verify_user_email(
-    user_id: str,
-    db: Session = Depends(get_db)
-):
+async def verify_user_email(user_id: str, db: Session = Depends(get_db)):
     """
     Manually verify a user's email address.
 

@@ -1,4 +1,5 @@
 """Comprehensive tests for summary_service"""
+
 import pytest
 from uuid import uuid4
 from datetime import datetime, timedelta
@@ -21,7 +22,7 @@ def test_mailbox(db_session: Session, test_user: User) -> Mailbox:
         email_address="test@example.com",
         provider_type="gmail",
         encrypted_credentials="test_encrypted_credentials",
-        is_active=True
+        is_active=True,
     )
     db_session.add(mailbox)
     db_session.commit()
@@ -45,7 +46,7 @@ def test_subscriptions(db_session: Session, test_user: User, test_mailbox: Mailb
         billing_cycle="monthly",
         category="streaming",
         is_active=True,
-        first_detected_at=now - timedelta(days=90)
+        first_detected_at=now - timedelta(days=90),
     )
 
     # Active subscription - Spotify (detected 60 days ago)
@@ -59,7 +60,7 @@ def test_subscriptions(db_session: Session, test_user: User, test_mailbox: Mailb
         billing_cycle="monthly",
         category="music",
         is_active=True,
-        first_detected_at=now - timedelta(days=60)
+        first_detected_at=now - timedelta(days=60),
     )
 
     # New subscription (detected 3 days ago - within last 7 days)
@@ -73,7 +74,7 @@ def test_subscriptions(db_session: Session, test_user: User, test_mailbox: Mailb
         billing_cycle="monthly",
         category="fitness",
         is_active=True,
-        first_detected_at=now - timedelta(days=3)
+        first_detected_at=now - timedelta(days=3),
     )
 
     # Recently cancelled subscription (last confirmed 5 days ago, now inactive)
@@ -88,7 +89,7 @@ def test_subscriptions(db_session: Session, test_user: User, test_mailbox: Mailb
         category="tools",
         is_active=False,
         first_detected_at=now - timedelta(days=120),
-        last_confirmed_at=now - timedelta(days=5)
+        last_confirmed_at=now - timedelta(days=5),
     )
 
     # Yearly subscription - Adobe (detected 200 days ago)
@@ -102,7 +103,7 @@ def test_subscriptions(db_session: Session, test_user: User, test_mailbox: Mailb
         billing_cycle="yearly",
         category="software",
         is_active=True,
-        first_detected_at=now - timedelta(days=200)
+        first_detected_at=now - timedelta(days=200),
     )
 
     subscriptions = [netflix, spotify, gym, old_service, adobe]
@@ -115,28 +116,28 @@ def test_subscriptions(db_session: Session, test_user: User, test_mailbox: Mailb
         "spotify": spotify,
         "gym": gym,
         "old_service": old_service,
-        "adobe": adobe
+        "adobe": adobe,
     }
 
 
 class TestGenerateWeeklySummary:
     """Tests for generate_weekly_summary method"""
 
-    @patch('app.services.summary_service.AIOptimizer.analyze_subscriptions')
+    @patch("app.services.summary_service.AIOptimizer.analyze_subscriptions")
     def test_generates_weekly_summary_with_subscriptions(
         self,
         mock_ai_analyze: MagicMock,
         db_session: Session,
         test_user: User,
         test_mailbox: Mailbox,
-        test_subscriptions
+        test_subscriptions,
     ):
         """Should generate comprehensive weekly summary"""
         # Mock AI optimizer
         mock_ai_analyze.return_value = {
             "recommendations": ["Test recommendation"],
             "insights": ["Test insight"],
-            "potential_savings": 50.0
+            "potential_savings": 50.0,
         }
 
         result = SummaryService.generate_weekly_summary(db_session, test_user)
@@ -165,14 +166,14 @@ class TestGenerateWeeklySummary:
         assert result["ai_insights"] == ["Test insight"]
         assert result["potential_savings"] == 50.0
 
-    @patch('app.services.summary_service.AIOptimizer.analyze_subscriptions')
+    @patch("app.services.summary_service.AIOptimizer.analyze_subscriptions")
     def test_handles_ai_optimizer_error_gracefully(
         self,
         mock_ai_analyze: MagicMock,
         db_session: Session,
         test_user: User,
         test_mailbox: Mailbox,
-        test_subscriptions
+        test_subscriptions,
     ):
         """Should handle AI optimizer errors without failing"""
         mock_ai_analyze.side_effect = Exception("AI service down")
@@ -187,9 +188,7 @@ class TestGenerateWeeklySummary:
         assert result["potential_savings"] == 0.0
 
     def test_returns_empty_summary_for_no_subscriptions(
-        self,
-        db_session: Session,
-        test_user: User
+        self, db_session: Session, test_user: User
     ):
         """Should return empty summary when user has no subscriptions"""
         result = SummaryService.generate_weekly_summary(db_session, test_user)
@@ -204,20 +203,20 @@ class TestGenerateWeeklySummary:
 class TestGenerateMonthlySummary:
     """Tests for generate_monthly_summary method"""
 
-    @patch('app.services.summary_service.AIOptimizer.analyze_subscriptions')
+    @patch("app.services.summary_service.AIOptimizer.analyze_subscriptions")
     def test_generates_monthly_summary_with_subscriptions(
         self,
         mock_ai_analyze: MagicMock,
         db_session: Session,
         test_user: User,
         test_mailbox: Mailbox,
-        test_subscriptions
+        test_subscriptions,
     ):
         """Should generate comprehensive monthly summary"""
         mock_ai_analyze.return_value = {
             "recommendations": ["Test recommendation"],
             "insights": ["Test insight"],
-            "potential_savings": 100.0
+            "potential_savings": 100.0,
         }
 
         result = SummaryService.generate_monthly_summary(db_session, test_user)
@@ -243,9 +242,7 @@ class TestGetMonthlyCost:
     def test_converts_monthly_subscription(self, db_session: Session, test_user: User):
         """Should return amount as-is for monthly subscriptions"""
         sub = Subscription(
-            user_id=test_user.id,
-            amount=Decimal("15.99"),
-            billing_cycle="monthly"
+            user_id=test_user.id, amount=Decimal("15.99"), billing_cycle="monthly"
         )
 
         cost = SummaryService._get_monthly_cost(sub)
@@ -254,9 +251,7 @@ class TestGetMonthlyCost:
     def test_converts_yearly_subscription(self, db_session: Session, test_user: User):
         """Should divide by 12 for yearly subscriptions"""
         sub = Subscription(
-            user_id=test_user.id,
-            amount=Decimal("120.00"),
-            billing_cycle="yearly"
+            user_id=test_user.id, amount=Decimal("120.00"), billing_cycle="yearly"
         )
 
         cost = SummaryService._get_monthly_cost(sub)
@@ -265,20 +260,18 @@ class TestGetMonthlyCost:
     def test_converts_weekly_subscription(self, db_session: Session, test_user: User):
         """Should multiply by 4.33 for weekly subscriptions"""
         sub = Subscription(
-            user_id=test_user.id,
-            amount=Decimal("10.00"),
-            billing_cycle="weekly"
+            user_id=test_user.id, amount=Decimal("10.00"), billing_cycle="weekly"
         )
 
         cost = SummaryService._get_monthly_cost(sub)
         assert cost == pytest.approx(43.3, rel=0.01)
 
-    def test_converts_quarterly_subscription(self, db_session: Session, test_user: User):
+    def test_converts_quarterly_subscription(
+        self, db_session: Session, test_user: User
+    ):
         """Should divide by 3 for quarterly subscriptions"""
         sub = Subscription(
-            user_id=test_user.id,
-            amount=Decimal("90.00"),
-            billing_cycle="quarterly"
+            user_id=test_user.id, amount=Decimal("90.00"), billing_cycle="quarterly"
         )
 
         cost = SummaryService._get_monthly_cost(sub)
@@ -287,9 +280,7 @@ class TestGetMonthlyCost:
     def test_converts_biannual_subscription(self, db_session: Session, test_user: User):
         """Should divide by 6 for biannual subscriptions"""
         sub = Subscription(
-            user_id=test_user.id,
-            amount=Decimal("180.00"),
-            billing_cycle="biannual"
+            user_id=test_user.id, amount=Decimal("180.00"), billing_cycle="biannual"
         )
 
         cost = SummaryService._get_monthly_cost(sub)
@@ -297,11 +288,7 @@ class TestGetMonthlyCost:
 
     def test_returns_zero_for_no_amount(self, db_session: Session, test_user: User):
         """Should return 0 for subscriptions with no amount"""
-        sub = Subscription(
-            user_id=test_user.id,
-            amount=None,
-            billing_cycle="monthly"
-        )
+        sub = Subscription(user_id=test_user.id, amount=None, billing_cycle="monthly")
 
         cost = SummaryService._get_monthly_cost(sub)
         assert cost == 0.0
@@ -309,9 +296,7 @@ class TestGetMonthlyCost:
     def test_returns_zero_for_unknown_cycle(self, db_session: Session, test_user: User):
         """Should return 0 for unknown billing cycles"""
         sub = Subscription(
-            user_id=test_user.id,
-            amount=Decimal("25.00"),
-            billing_cycle="unknown_cycle"
+            user_id=test_user.id, amount=Decimal("25.00"), billing_cycle="unknown_cycle"
         )
 
         cost = SummaryService._get_monthly_cost(sub)
@@ -321,10 +306,22 @@ class TestGetMonthlyCost:
 class TestGenerateInsights:
     """Tests for _generate_insights method"""
 
-    def test_generates_new_subscription_insight(self, db_session: Session, test_user: User):
+    def test_generates_new_subscription_insight(
+        self, db_session: Session, test_user: User
+    ):
         """Should generate insight for new subscriptions"""
-        sub1 = Subscription(user_id=test_user.id, provider="Netflix", amount=Decimal("15.99"), billing_cycle="monthly")
-        sub2 = Subscription(user_id=test_user.id, provider="Spotify", amount=Decimal("9.99"), billing_cycle="monthly")
+        sub1 = Subscription(
+            user_id=test_user.id,
+            provider="Netflix",
+            amount=Decimal("15.99"),
+            billing_cycle="monthly",
+        )
+        sub2 = Subscription(
+            user_id=test_user.id,
+            provider="Spotify",
+            amount=Decimal("9.99"),
+            billing_cycle="monthly",
+        )
 
         active_subs = []
         new_subs = [sub1, sub2]
@@ -338,7 +335,12 @@ class TestGenerateInsights:
 
     def test_generates_spending_insight(self, db_session: Session, test_user: User):
         """Should generate insight about total spending"""
-        sub1 = Subscription(user_id=test_user.id, provider="Netflix", amount=Decimal("15.99"), billing_cycle="monthly")
+        sub1 = Subscription(
+            user_id=test_user.id,
+            provider="Netflix",
+            amount=Decimal("15.99"),
+            billing_cycle="monthly",
+        )
         active_subs = [sub1]
         new_subs = []
         cancelled_subs = []
@@ -358,19 +360,26 @@ class TestGenerateInsights:
         category_breakdown = {
             "streaming": {"count": 2, "cost": 50.0},
             "music": {"count": 1, "cost": 10.0},
-            "software": {"count": 1, "cost": 100.0}
+            "software": {"count": 1, "cost": 100.0},
         }
 
         insights = SummaryService._generate_insights(
             active_subs, new_subs, cancelled_subs, 160.0, category_breakdown
         )
 
-        assert any("software" in insight.lower() and "top spending" in insight.lower()
-                   for insight in insights)
+        assert any(
+            "software" in insight.lower() and "top spending" in insight.lower()
+            for insight in insights
+        )
 
     def test_generates_cancellation_insight(self, db_session: Session, test_user: User):
         """Should generate insight about cancelled subscriptions"""
-        sub1 = Subscription(user_id=test_user.id, provider="Old Service", amount=Decimal("19.99"), billing_cycle="monthly")
+        sub1 = Subscription(
+            user_id=test_user.id,
+            provider="Old Service",
+            amount=Decimal("19.99"),
+            billing_cycle="monthly",
+        )
         active_subs = []
         new_subs = []
         cancelled_subs = [sub1]
@@ -383,9 +392,24 @@ class TestGenerateInsights:
 
     def test_generates_multiple_insights(self, db_session: Session, test_user: User):
         """Should generate multiple insights when applicable"""
-        sub1 = Subscription(user_id=test_user.id, provider="Netflix", amount=Decimal("15.99"), billing_cycle="monthly")
-        sub2 = Subscription(user_id=test_user.id, provider="Gym", amount=Decimal("50.00"), billing_cycle="monthly")
-        sub3 = Subscription(user_id=test_user.id, provider="Old", amount=Decimal("19.99"), billing_cycle="monthly")
+        sub1 = Subscription(
+            user_id=test_user.id,
+            provider="Netflix",
+            amount=Decimal("15.99"),
+            billing_cycle="monthly",
+        )
+        sub2 = Subscription(
+            user_id=test_user.id,
+            provider="Gym",
+            amount=Decimal("50.00"),
+            billing_cycle="monthly",
+        )
+        sub3 = Subscription(
+            user_id=test_user.id,
+            provider="Old",
+            amount=Decimal("19.99"),
+            billing_cycle="monthly",
+        )
         active_subs = [sub1]
         new_subs = [sub2]
         cancelled_subs = [sub3]
@@ -411,8 +435,8 @@ class TestEmptySummary:
 
         # Dates are formatted strings, not datetime objects
         assert result["period_type"] == "weekly"
-        assert result["start_date"] == start_date.strftime('%B %d, %Y')
-        assert result["end_date"] == end_date.strftime('%B %d, %Y')
+        assert result["start_date"] == start_date.strftime("%B %d, %Y")
+        assert result["end_date"] == end_date.strftime("%B %d, %Y")
         # Flat structure, not nested
         assert result["total_subscriptions"] == 0
         assert result["total_monthly_cost"] == 0
@@ -437,17 +461,21 @@ class TestEmptySummary:
 class TestGenerateSummary:
     """Tests for _generate_summary private method"""
 
-    @patch('app.services.summary_service.AIOptimizer.analyze_subscriptions')
+    @patch("app.services.summary_service.AIOptimizer.analyze_subscriptions")
     def test_calculates_correct_monthly_costs(
         self,
         mock_ai_analyze: MagicMock,
         db_session: Session,
         test_user: User,
         test_mailbox: Mailbox,
-        test_subscriptions
+        test_subscriptions,
     ):
         """Should correctly calculate total monthly and yearly costs"""
-        mock_ai_analyze.return_value = {"recommendations": [], "insights": [], "potential_savings": 0}
+        mock_ai_analyze.return_value = {
+            "recommendations": [],
+            "insights": [],
+            "potential_savings": 0,
+        }
 
         result = SummaryService.generate_weekly_summary(db_session, test_user)
 
@@ -463,17 +491,21 @@ class TestGenerateSummary:
         assert result["total_yearly_cost"] > 1400
         assert result["total_yearly_cost"] < 1600
 
-    @patch('app.services.summary_service.AIOptimizer.analyze_subscriptions')
+    @patch("app.services.summary_service.AIOptimizer.analyze_subscriptions")
     def test_identifies_top_subscriptions(
         self,
         mock_ai_analyze: MagicMock,
         db_session: Session,
         test_user: User,
         test_mailbox: Mailbox,
-        test_subscriptions
+        test_subscriptions,
     ):
         """Should identify and rank top subscriptions by monthly cost"""
-        mock_ai_analyze.return_value = {"recommendations": [], "insights": [], "potential_savings": 0}
+        mock_ai_analyze.return_value = {
+            "recommendations": [],
+            "insights": [],
+            "potential_savings": 0,
+        }
 
         result = SummaryService.generate_weekly_summary(db_session, test_user)
 
@@ -486,17 +518,21 @@ class TestGenerateSummary:
         # Adobe (~50/month) or Gym (50/month) should be first
         assert top_subs[0]["provider"] in ["Adobe", "Gym Membership"]
 
-    @patch('app.services.summary_service.AIOptimizer.analyze_subscriptions')
+    @patch("app.services.summary_service.AIOptimizer.analyze_subscriptions")
     def test_calculates_category_breakdown(
         self,
         mock_ai_analyze: MagicMock,
         db_session: Session,
         test_user: User,
         test_mailbox: Mailbox,
-        test_subscriptions
+        test_subscriptions,
     ):
         """Should calculate spending breakdown by category"""
-        mock_ai_analyze.return_value = {"recommendations": [], "insights": [], "potential_savings": 0}
+        mock_ai_analyze.return_value = {
+            "recommendations": [],
+            "insights": [],
+            "potential_savings": 0,
+        }
 
         result = SummaryService.generate_weekly_summary(db_session, test_user)
 
@@ -511,20 +547,26 @@ class TestGenerateSummary:
         assert "software" in category_names  # Adobe
 
         # Should have costs for each category
-        streaming_cat = next(cat for cat in top_categories if cat["category"] == "streaming")
+        streaming_cat = next(
+            cat for cat in top_categories if cat["category"] == "streaming"
+        )
         assert streaming_cat["cost"] > 0
 
-    @patch('app.services.summary_service.AIOptimizer.analyze_subscriptions')
+    @patch("app.services.summary_service.AIOptimizer.analyze_subscriptions")
     def test_calculates_net_change(
         self,
         mock_ai_analyze: MagicMock,
         db_session: Session,
         test_user: User,
         test_mailbox: Mailbox,
-        test_subscriptions
+        test_subscriptions,
     ):
         """Should calculate net change in subscription count"""
-        mock_ai_analyze.return_value = {"recommendations": [], "insights": [], "potential_savings": 0}
+        mock_ai_analyze.return_value = {
+            "recommendations": [],
+            "insights": [],
+            "potential_savings": 0,
+        }
 
         result = SummaryService.generate_weekly_summary(db_session, test_user)
 

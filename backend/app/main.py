@@ -12,7 +12,7 @@ log_dir = Path("/app/logs")
 log_dir.mkdir(exist_ok=True)
 
 # Create formatters and handlers
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 # Console handler (stdout for Docker)
 console_handler = logging.StreamHandler()
@@ -21,17 +21,14 @@ console_handler.setFormatter(formatter)
 
 # File handler (for admin panel)
 file_handler = RotatingFileHandler(
-    log_dir / "app.log",
-    maxBytes=10 * 1024 * 1024,  # 10MB
-    backupCount=5
+    log_dir / "app.log", maxBytes=10 * 1024 * 1024, backupCount=5  # 10MB
 )
 file_handler.setLevel(getattr(logging, settings.LOG_LEVEL))
 file_handler.setFormatter(formatter)
 
 # Configure root logger
 logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL),
-    handlers=[console_handler, file_handler]
+    level=getattr(logging, settings.LOG_LEVEL), handlers=[console_handler, file_handler]
 )
 
 logger = logging.getLogger(__name__)
@@ -58,7 +55,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # CORS middleware
@@ -75,7 +72,7 @@ from app.middleware import (
     RateLimitMiddleware,
     QueryLoggingMiddleware,
     SecurityHeadersMiddleware,
-    RequestLoggingMiddleware
+    RequestLoggingMiddleware,
 )
 
 # 1. Request logging (applied last, logs everything)
@@ -91,7 +88,7 @@ app.add_middleware(QueryLoggingMiddleware)
 app.add_middleware(
     RateLimitMiddleware,
     requests_per_minute=100,  # General limit
-    requests_per_hour=1000
+    requests_per_hour=1000,
 )
 
 
@@ -99,11 +96,7 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring"""
-    return {
-        "status": "healthy",
-        "app": settings.APP_NAME,
-        "version": "0.1.0"
-    }
+    return {"status": "healthy", "app": settings.APP_NAME, "version": "0.1.0"}
 
 
 # Root endpoint
@@ -114,26 +107,56 @@ async def root():
         "app": settings.APP_NAME,
         "version": "0.1.0",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
     }
 
 
 # Import and include routers
-from app.api import auth, mailboxes, subscriptions, ai_sandbox, notifications, optimize, export, budgets, categories, cancellation, reviews, feedback, providers, oauth
+from app.api import (
+    auth,
+    mailboxes,
+    subscriptions,
+    ai_sandbox,
+    notifications,
+    optimize,
+    export,
+    budgets,
+    categories,
+    cancellation,
+    reviews,
+    feedback,
+    providers,
+    oauth,
+)
 from app.api.endpoints import push_notifications
-from app.api.admin import config as admin_config, announcements as admin_announcements, users as admin_users, logs as admin_logs, security as admin_security, invites as admin_invites
+from app.api.admin import (
+    config as admin_config,
+    announcements as admin_announcements,
+    users as admin_users,
+    logs as admin_logs,
+    security as admin_security,
+    invites as admin_invites,
+)
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(mailboxes.router, prefix="/api/mailboxes", tags=["Mailboxes"])
-app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["Subscriptions"])
+app.include_router(
+    subscriptions.router, prefix="/api/subscriptions", tags=["Subscriptions"]
+)
 app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
-app.include_router(cancellation.router, prefix="/api/cancellation", tags=["Cancellation"])
+app.include_router(
+    cancellation.router, prefix="/api/cancellation", tags=["Cancellation"]
+)
 app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews"])
 app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
 app.include_router(providers.router, prefix="/api", tags=["Providers"])
 app.include_router(ai_sandbox.router, prefix="/api/ai-sandbox", tags=["AI Sandbox"])
-app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
-app.include_router(push_notifications.router, prefix="/api/push", tags=["Push Notifications"])
+app.include_router(
+    notifications.router, prefix="/api/notifications", tags=["Notifications"]
+)
+app.include_router(
+    push_notifications.router, prefix="/api/push", tags=["Push Notifications"]
+)
 app.include_router(optimize.router, prefix="/api/optimize", tags=["Optimization"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
 app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])

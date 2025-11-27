@@ -1,6 +1,7 @@
 """
 Pydantic schemas for Price History API requests and responses.
 """
+
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
@@ -9,6 +10,7 @@ from uuid import UUID
 
 class PriceHistoryResponse(BaseModel):
     """Schema for price history response."""
+
     id: UUID
     subscription_id: UUID
     old_amount: Optional[float]
@@ -33,14 +35,15 @@ class PriceHistoryResponse(BaseModel):
                 "change_percentage": 30.03,
                 "detected_from": "email",
                 "notes": "Price changed from 9.99 to 12.99",
-                "detected_at": "2025-01-15T10:00:00Z"
+                "detected_at": "2025-01-15T10:00:00Z",
             }
-        }
+        },
     )
 
 
 class PriceStatisticsResponse(BaseModel):
     """Schema for price statistics response."""
+
     total_changes: int
     increases: int
     decreases: int
@@ -60,7 +63,7 @@ class PriceStatisticsResponse(BaseModel):
                 "total_decrease_amount": 2.00,
                 "average_change_percentage": 25.5,
                 "latest_price": 14.99,
-                "original_price": 9.99
+                "original_price": 9.99,
             }
         }
     )

@@ -1,4 +1,5 @@
 """Comprehensive tests for ai_classifier service"""
+
 import pytest
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from datetime import datetime
@@ -8,7 +9,7 @@ from app.services.ai_classifier import (
     get_openai_client,
     classify_email,
     classify_email_with_retry,
-    classify_emails_batch
+    classify_emails_batch,
 )
 from app.email_providers.base import EmailMessage
 from openai import RateLimitError, APIError
@@ -28,7 +29,7 @@ def mock_email():
         body_html="<p>Your Netflix subscription will renew on January 20, 2024 for $15.99</p>",
         headers={},
         has_attachments=False,
-        folder="INBOX"
+        folder="INBOX",
     )
 
 
@@ -46,7 +47,7 @@ def mock_non_subscription_email():
         body_html="<p>We noticed a new login to your account from Chrome</p>",
         headers={},
         has_attachments=False,
-        folder="INBOX"
+        folder="INBOX",
     )
 
 
@@ -55,12 +56,14 @@ def mock_openai_response():
     """Create a mock OpenAI API response"""
     mock_response = Mock()
     mock_response.choices = [Mock()]
-    mock_response.choices[0].message.content = json.dumps({
-        "is_subscription": True,
-        "confidence": 0.95,
-        "reasoning": "Email is about subscription renewal with billing information",
-        "category": "renewal"
-    })
+    mock_response.choices[0].message.content = json.dumps(
+        {
+            "is_subscription": True,
+            "confidence": 0.95,
+            "reasoning": "Email is about subscription renewal with billing information",
+            "category": "renewal",
+        }
+    )
     return mock_response
 
 
@@ -69,7 +72,9 @@ def mock_openai_response_with_markdown():
     """Create a mock OpenAI response with markdown code blocks"""
     mock_response = Mock()
     mock_response.choices = [Mock()]
-    mock_response.choices[0].message.content = """```json
+    mock_response.choices[
+        0
+    ].message.content = """```json
 {
     "is_subscription": true,
     "confidence": 0.95,
@@ -98,8 +103,8 @@ def create_api_error(message: str):
 class TestGetOpenAIClient:
     """Tests for get_openai_client function"""
 
-    @patch('app.services.ai_classifier.get_config_value')
-    @patch('app.services.ai_classifier.AsyncOpenAI')
+    @patch("app.services.ai_classifier.get_config_value")
+    @patch("app.services.ai_classifier.AsyncOpenAI")
     def test_uses_admin_settings_when_available(self, mock_openai, mock_get_config):
         """Should use API key from admin settings if available"""
         mock_get_config.return_value = "admin_api_key"
@@ -109,14 +114,11 @@ class TestGetOpenAIClient:
         mock_openai.assert_called_once_with(api_key="admin_api_key")
         mock_get_config.assert_called_once()
 
-    @patch('app.services.ai_classifier.get_config_value')
-    @patch('app.services.ai_classifier.AsyncOpenAI')
-    @patch('app.services.ai_classifier.settings')
+    @patch("app.services.ai_classifier.get_config_value")
+    @patch("app.services.ai_classifier.AsyncOpenAI")
+    @patch("app.services.ai_classifier.settings")
     def test_falls_back_to_settings_when_no_admin_override(
-        self,
-        mock_settings,
-        mock_openai,
-        mock_get_config
+        self, mock_settings, mock_openai, mock_get_config
     ):
         """Should use settings.OPENAI_API_KEY when no admin override"""
         mock_settings.OPENAI_API_KEY = "settings_api_key"
@@ -131,20 +133,18 @@ class TestClassifyEmail:
     """Tests for classify_email function"""
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.get_optimized_email_body')
-    @patch('app.services.ai_classifier.get_openai_client')
+    @patch("app.services.ai_classifier.get_optimized_email_body")
+    @patch("app.services.ai_classifier.get_openai_client")
     async def test_classifies_subscription_email_successfully(
-        self,
-        mock_get_client,
-        mock_get_body,
-        mock_email,
-        mock_openai_response
+        self, mock_get_client, mock_get_body, mock_email, mock_openai_response
     ):
         """Should successfully classify subscription email"""
         # Setup mocks
         mock_get_body.return_value = "Subscription renewal content"
         mock_client = AsyncMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_openai_response)
+        mock_client.chat.completions.create = AsyncMock(
+            return_value=mock_openai_response
+        )
         mock_get_client.return_value = mock_client
 
         result = await classify_email(mock_email)
@@ -155,14 +155,14 @@ class TestClassifyEmail:
         assert result["category"] == "renewal"
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.get_optimized_email_body')
-    @patch('app.services.ai_classifier.get_openai_client')
+    @patch("app.services.ai_classifier.get_optimized_email_body")
+    @patch("app.services.ai_classifier.get_openai_client")
     async def test_parses_response_with_markdown_code_blocks(
         self,
         mock_get_client,
         mock_get_body,
         mock_email,
-        mock_openai_response_with_markdown
+        mock_openai_response_with_markdown,
     ):
         """Should parse JSON from markdown code blocks"""
         mock_get_body.return_value = "Email content"
@@ -178,13 +178,10 @@ class TestClassifyEmail:
         assert result["confidence"] == 0.95
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.get_optimized_email_body')
-    @patch('app.services.ai_classifier.get_openai_client')
+    @patch("app.services.ai_classifier.get_optimized_email_body")
+    @patch("app.services.ai_classifier.get_openai_client")
     async def test_handles_invalid_json_response(
-        self,
-        mock_get_client,
-        mock_get_body,
-        mock_email
+        self, mock_get_client, mock_get_body, mock_email
     ):
         """Should return conservative default on JSON parse error"""
         mock_get_body.return_value = "Email content"
@@ -205,14 +202,9 @@ class TestClassifyEmail:
         assert result["category"] == "not_subscription"
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.get_optimized_email_body')
-    @patch('app.services.ai_classifier.get_openai_client')
-    async def test_handles_api_error(
-        self,
-        mock_get_client,
-        mock_get_body,
-        mock_email
-    ):
+    @patch("app.services.ai_classifier.get_optimized_email_body")
+    @patch("app.services.ai_classifier.get_openai_client")
+    async def test_handles_api_error(self, mock_get_client, mock_get_body, mock_email):
         """Should return conservative default on API error"""
         mock_get_body.return_value = "Email content"
         mock_client = AsyncMock()
@@ -229,19 +221,17 @@ class TestClassifyEmail:
         assert result["category"] == "not_subscription"
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.get_optimized_email_body')
-    @patch('app.services.ai_classifier.get_openai_client')
+    @patch("app.services.ai_classifier.get_optimized_email_body")
+    @patch("app.services.ai_classifier.get_openai_client")
     async def test_uses_classification_mode_for_body_cleaning(
-        self,
-        mock_get_client,
-        mock_get_body,
-        mock_email,
-        mock_openai_response
+        self, mock_get_client, mock_get_body, mock_email, mock_openai_response
     ):
         """Should use classification mode for email body optimization"""
         mock_get_body.return_value = "Cleaned content"
         mock_client = AsyncMock()
-        mock_client.chat.completions.create = AsyncMock(return_value=mock_openai_response)
+        mock_client.chat.completions.create = AsyncMock(
+            return_value=mock_openai_response
+        )
         mock_get_client.return_value = mock_client
 
         await classify_email(mock_email)
@@ -249,7 +239,7 @@ class TestClassifyEmail:
         mock_get_body.assert_called_once_with(
             body_text=mock_email.body_text,
             body_html=mock_email.body_html,
-            mode="classification"
+            mode="classification",
         )
 
 
@@ -257,18 +247,14 @@ class TestClassifyEmailWithRetry:
     """Tests for classify_email_with_retry function"""
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.classify_email')
-    async def test_returns_result_on_first_success(
-        self,
-        mock_classify,
-        mock_email
-    ):
+    @patch("app.services.ai_classifier.classify_email")
+    async def test_returns_result_on_first_success(self, mock_classify, mock_email):
         """Should return result immediately on first success"""
         mock_classify.return_value = {
             "is_subscription": True,
             "confidence": 0.9,
             "reasoning": "Test",
-            "category": "renewal"
+            "category": "renewal",
         }
 
         result = await classify_email_with_retry(mock_email)
@@ -278,13 +264,10 @@ class TestClassifyEmailWithRetry:
         mock_classify.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.asyncio.sleep', new_callable=AsyncMock)
-    @patch('app.services.ai_classifier.classify_email')
+    @patch("app.services.ai_classifier.asyncio.sleep", new_callable=AsyncMock)
+    @patch("app.services.ai_classifier.classify_email")
     async def test_retries_on_rate_limit_error(
-        self,
-        mock_classify,
-        mock_sleep,
-        mock_email
+        self, mock_classify, mock_sleep, mock_email
     ):
         """Should retry with exponential backoff on rate limit"""
         # Fail twice with rate limit, then succeed
@@ -295,8 +278,8 @@ class TestClassifyEmailWithRetry:
                 "is_subscription": True,
                 "confidence": 0.9,
                 "reasoning": "Test",
-                "category": "renewal"
-            }
+                "category": "renewal",
+            },
         ]
 
         result = await classify_email_with_retry(mock_email, max_retries=3)
@@ -307,13 +290,10 @@ class TestClassifyEmailWithRetry:
         assert mock_sleep.call_count == 2
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.asyncio.sleep', new_callable=AsyncMock)
-    @patch('app.services.ai_classifier.classify_email')
+    @patch("app.services.ai_classifier.asyncio.sleep", new_callable=AsyncMock)
+    @patch("app.services.ai_classifier.classify_email")
     async def test_returns_default_after_max_retries(
-        self,
-        mock_classify,
-        mock_sleep,
-        mock_email
+        self, mock_classify, mock_sleep, mock_email
     ):
         """Should return conservative default after max retries"""
         mock_classify.side_effect = create_rate_limit_error("Rate limit exceeded")
@@ -327,14 +307,9 @@ class TestClassifyEmailWithRetry:
         assert mock_classify.call_count == 3
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.asyncio.sleep', new_callable=AsyncMock)
-    @patch('app.services.ai_classifier.classify_email')
-    async def test_retries_on_api_error(
-        self,
-        mock_classify,
-        mock_sleep,
-        mock_email
-    ):
+    @patch("app.services.ai_classifier.asyncio.sleep", new_callable=AsyncMock)
+    @patch("app.services.ai_classifier.classify_email")
+    async def test_retries_on_api_error(self, mock_classify, mock_sleep, mock_email):
         """Should retry on API errors (500, 503, etc.)"""
         mock_classify.side_effect = [
             create_api_error("Service unavailable"),
@@ -342,8 +317,8 @@ class TestClassifyEmailWithRetry:
                 "is_subscription": True,
                 "confidence": 0.9,
                 "reasoning": "Test",
-                "category": "renewal"
-            }
+                "category": "renewal",
+            },
         ]
 
         result = await classify_email_with_retry(mock_email, max_retries=3)
@@ -353,11 +328,9 @@ class TestClassifyEmailWithRetry:
         mock_sleep.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.classify_email')
+    @patch("app.services.ai_classifier.classify_email")
     async def test_stops_immediately_on_unexpected_error(
-        self,
-        mock_classify,
-        mock_email
+        self, mock_classify, mock_email
     ):
         """Should not retry on unexpected errors"""
         mock_classify.side_effect = ValueError("Unexpected error")
@@ -375,14 +348,10 @@ class TestClassifyEmailsBatch:
     """Tests for classify_emails_batch function"""
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.classify_email_with_retry')
-    @patch('app.services.ai_classifier.asyncio.sleep', new_callable=AsyncMock)
+    @patch("app.services.ai_classifier.classify_email_with_retry")
+    @patch("app.services.ai_classifier.asyncio.sleep", new_callable=AsyncMock)
     async def test_processes_batch_successfully(
-        self,
-        mock_sleep,
-        mock_classify_retry,
-        mock_email,
-        mock_non_subscription_email
+        self, mock_sleep, mock_classify_retry, mock_email, mock_non_subscription_email
     ):
         """Should process all emails in batch"""
         emails = [mock_email, mock_non_subscription_email]
@@ -392,14 +361,14 @@ class TestClassifyEmailsBatch:
                 "is_subscription": True,
                 "confidence": 0.95,
                 "reasoning": "Renewal email",
-                "category": "renewal"
+                "category": "renewal",
             },
             {
                 "is_subscription": False,
                 "confidence": 0.9,
                 "reasoning": "Security alert",
-                "category": "not_subscription"
-            }
+                "category": "not_subscription",
+            },
         ]
 
         results = await classify_emails_batch(emails, initial_batch_size=10)
@@ -409,13 +378,10 @@ class TestClassifyEmailsBatch:
         assert results[1]["is_subscription"] is False
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.classify_email_with_retry')
-    @patch('app.services.ai_classifier.asyncio.sleep', new_callable=AsyncMock)
+    @patch("app.services.ai_classifier.classify_email_with_retry")
+    @patch("app.services.ai_classifier.asyncio.sleep", new_callable=AsyncMock)
     async def test_reduces_batch_size_on_rate_limits(
-        self,
-        mock_sleep,
-        mock_classify_retry,
-        mock_email
+        self, mock_sleep, mock_classify_retry, mock_email
     ):
         """Should reduce batch size when hitting rate limits"""
         # Create 10 emails
@@ -423,6 +389,7 @@ class TestClassifyEmailsBatch:
 
         # First batch hits rate limit, second batch succeeds
         call_count = 0
+
         def side_effect(*args, **kwargs):
             nonlocal call_count
             call_count += 1
@@ -431,30 +398,29 @@ class TestClassifyEmailsBatch:
                     "is_subscription": False,
                     "confidence": 0.0,
                     "reasoning": "Rate limit exceeded after 3 retries",
-                    "category": "not_subscription"
+                    "category": "not_subscription",
                 }
             else:  # Second batch succeeds
                 return {
                     "is_subscription": True,
                     "confidence": 0.9,
                     "reasoning": "Success",
-                    "category": "renewal"
+                    "category": "renewal",
                 }
 
         mock_classify_retry.side_effect = side_effect
 
-        results = await classify_emails_batch(emails, initial_batch_size=5, min_batch_size=2)
+        results = await classify_emails_batch(
+            emails, initial_batch_size=5, min_batch_size=2
+        )
 
         assert len(results) == 10
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.classify_email_with_retry')
-    @patch('app.services.ai_classifier.asyncio.sleep', new_callable=AsyncMock)
+    @patch("app.services.ai_classifier.classify_email_with_retry")
+    @patch("app.services.ai_classifier.asyncio.sleep", new_callable=AsyncMock)
     async def test_handles_exceptions_in_batch(
-        self,
-        mock_sleep,
-        mock_classify_retry,
-        mock_email
+        self, mock_sleep, mock_classify_retry, mock_email
     ):
         """Should handle exceptions and continue processing"""
         emails = [mock_email, mock_email, mock_email]
@@ -466,14 +432,14 @@ class TestClassifyEmailsBatch:
                 "is_subscription": True,
                 "confidence": 0.9,
                 "reasoning": "Success",
-                "category": "renewal"
+                "category": "renewal",
             },
             {
                 "is_subscription": True,
                 "confidence": 0.9,
                 "reasoning": "Success",
-                "category": "renewal"
-            }
+                "category": "renewal",
+            },
         ]
 
         results = await classify_emails_batch(emails, initial_batch_size=10)
@@ -487,13 +453,10 @@ class TestClassifyEmailsBatch:
         assert results[2]["is_subscription"] is True
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.classify_email_with_retry')
-    @patch('app.services.ai_classifier.asyncio.sleep', new_callable=AsyncMock)
+    @patch("app.services.ai_classifier.classify_email_with_retry")
+    @patch("app.services.ai_classifier.asyncio.sleep", new_callable=AsyncMock)
     async def test_increases_batch_size_when_no_rate_limits(
-        self,
-        mock_sleep,
-        mock_classify_retry,
-        mock_email
+        self, mock_sleep, mock_classify_retry, mock_email
     ):
         """Should increase batch size when processing smoothly"""
         # Create enough emails to test batch size increase
@@ -503,13 +466,11 @@ class TestClassifyEmailsBatch:
             "is_subscription": True,
             "confidence": 0.9,
             "reasoning": "Success",
-            "category": "renewal"
+            "category": "renewal",
         }
 
         results = await classify_emails_batch(
-            emails,
-            initial_batch_size=5,
-            min_batch_size=2
+            emails, initial_batch_size=5, min_batch_size=2
         )
 
         assert len(results) == 20
@@ -517,13 +478,10 @@ class TestClassifyEmailsBatch:
         assert all(r["is_subscription"] is True for r in results)
 
     @pytest.mark.asyncio
-    @patch('app.services.ai_classifier.classify_email_with_retry')
-    @patch('app.services.ai_classifier.asyncio.sleep', new_callable=AsyncMock)
+    @patch("app.services.ai_classifier.classify_email_with_retry")
+    @patch("app.services.ai_classifier.asyncio.sleep", new_callable=AsyncMock)
     async def test_falls_back_to_sequential_on_catastrophic_failure(
-        self,
-        mock_sleep,
-        mock_classify_retry,
-        mock_email
+        self, mock_sleep, mock_classify_retry, mock_email
     ):
         """Should fall back to sequential processing on batch failure"""
         emails = [mock_email, mock_email]
@@ -535,7 +493,7 @@ class TestClassifyEmailsBatch:
             "is_subscription": True,
             "confidence": 0.9,
             "reasoning": "Success",
-            "category": "renewal"
+            "category": "renewal",
         }
 
         results = await classify_emails_batch(emails, initial_batch_size=10)

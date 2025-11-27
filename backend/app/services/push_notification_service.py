@@ -50,14 +50,16 @@ class PushNotificationService:
             if url:
                 payload_data["url"] = url
 
-            payload = json.dumps({
-                "title": title,
-                "body": body,
-                "icon": icon,
-                "badge": badge,
-                "tag": tag,
-                "data": payload_data,
-            })
+            payload = json.dumps(
+                {
+                    "title": title,
+                    "body": body,
+                    "icon": icon,
+                    "badge": badge,
+                    "tag": tag,
+                    "data": payload_data,
+                }
+            )
 
             # Prepare subscription info for pywebpush
             subscription_info = {
@@ -65,7 +67,7 @@ class PushNotificationService:
                 "keys": {
                     "p256dh": subscription.p256dh,
                     "auth": subscription.auth,
-                }
+                },
             }
 
             # Send push notification
@@ -73,18 +75,24 @@ class PushNotificationService:
                 subscription_info=subscription_info,
                 data=payload,
                 vapid_private_key=self.vapid_private_key,
-                vapid_claims=self.vapid_claims
+                vapid_claims=self.vapid_claims,
             )
 
-            logger.info(f"Push notification sent successfully to subscription {subscription.id}")
+            logger.info(
+                f"Push notification sent successfully to subscription {subscription.id}"
+            )
             return True
 
         except WebPushException as ex:
-            logger.error(f"Push notification failed for subscription {subscription.id}: {ex}")
+            logger.error(
+                f"Push notification failed for subscription {subscription.id}: {ex}"
+            )
 
             # Check if subscription expired (410 Gone status)
             if ex.response and ex.response.status_code == 410:
-                logger.info(f"Subscription {subscription.id} expired, marking as inactive")
+                logger.info(
+                    f"Subscription {subscription.id} expired, marking as inactive"
+                )
                 return False
 
             # Re-raise other exceptions
@@ -124,10 +132,13 @@ class PushNotificationService:
             Number of successfully sent notifications
         """
         # Get all active subscriptions for user
-        subscriptions = db.query(PushSubscription).filter(
-            PushSubscription.user_id == user_id,
-            PushSubscription.is_active == True
-        ).all()
+        subscriptions = (
+            db.query(PushSubscription)
+            .filter(
+                PushSubscription.user_id == user_id, PushSubscription.is_active == True
+            )
+            .all()
+        )
 
         if not subscriptions:
             logger.info(f"No active push subscriptions found for user {user_id}")
@@ -152,7 +163,9 @@ class PushNotificationService:
                 logger.error(f"Error sending to subscription {subscription.id}: {e}")
                 # Continue with other subscriptions
 
-        logger.info(f"Successfully sent {success_count}/{len(subscriptions)} notifications to user {user_id}")
+        logger.info(
+            f"Successfully sent {success_count}/{len(subscriptions)} notifications to user {user_id}"
+        )
         return success_count
 
 

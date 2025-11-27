@@ -2,12 +2,14 @@
 Versioned AI prompts for cancellation research.
 Supports A/B testing and prompt evolution tracking.
 """
+
 from enum import Enum
 from typing import Dict
 
 
 class PromptVersion(str, Enum):
     """Supported prompt versions for A/B testing"""
+
     V1_BASELINE = "v1_baseline"
     V2_ENHANCED = "v2_enhanced"
 
@@ -283,7 +285,7 @@ def get_prompt_metadata() -> Dict[str, Dict]:
             "features": [
                 "Basic JSON schema",
                 "Simple confidence scoring",
-                "Example-based guidance"
+                "Example-based guidance",
             ],
             "token_count": 500,
             "avg_confidence": None,  # To be populated from metrics
@@ -297,9 +299,9 @@ def get_prompt_metadata() -> Dict[str, Dict]:
                 "Edge case handling",
                 "Structured source attribution",
                 "Verification checklist",
-                "Multiple examples by confidence level"
+                "Multiple examples by confidence level",
             ],
             "token_count": 800,
             "avg_confidence": None,  # To be populated from metrics
-        }
+        },
     }

@@ -1,6 +1,7 @@
 """
 ConfigService for managing admin settings with encryption support
 """
+
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional, List, Any
@@ -44,7 +45,9 @@ class ConfigService:
 
         return setting
 
-    def get_setting_value(self, key: str, default: Any = None, decrypt: bool = True) -> Any:
+    def get_setting_value(
+        self, key: str, default: Any = None, decrypt: bool = True
+    ) -> Any:
         """
         Get just the value of a setting
 
@@ -65,7 +68,7 @@ class ConfigService:
         search: Optional[str] = None,
         page: int = 1,
         page_size: int = 50,
-        decrypt: bool = False  # Default to False for list operations for security
+        decrypt: bool = False,  # Default to False for list operations for security
     ) -> tuple[List[AdminSetting], int]:
         """
         List settings with optional filtering
@@ -91,7 +94,7 @@ class ConfigService:
             query = query.filter(
                 or_(
                     AdminSetting.key.ilike(search_term),
-                    AdminSetting.description.ilike(search_term)
+                    AdminSetting.description.ilike(search_term),
                 )
             )
 
@@ -99,7 +102,12 @@ class ConfigService:
         total = query.count()
 
         # Apply pagination
-        settings = query.order_by(AdminSetting.category, AdminSetting.key).offset((page - 1) * page_size).limit(page_size).all()
+        settings = (
+            query.order_by(AdminSetting.category, AdminSetting.key)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+            .all()
+        )
 
         # Decrypt secret values if requested
         if decrypt:
@@ -113,9 +121,7 @@ class ConfigService:
         return settings, total
 
     def create_setting(
-        self,
-        setting_data: AdminSettingCreate,
-        admin_user_id: UUID
+        self, setting_data: AdminSettingCreate, admin_user_id: UUID
     ) -> AdminSetting:
         """
         Create a new admin setting
@@ -141,7 +147,7 @@ class ConfigService:
             is_secret=setting_data.is_secret,
             description=setting_data.description,
             category=setting_data.category,
-            updated_by=admin_user_id
+            updated_by=admin_user_id,
         )
 
         self.db.add(setting)
@@ -157,17 +163,14 @@ class ConfigService:
             details={
                 "key": setting.key,
                 "category": setting.category,
-                "is_secret": setting.is_secret
-            }
+                "is_secret": setting.is_secret,
+            },
         )
 
         return setting
 
     def update_setting(
-        self,
-        key: str,
-        setting_data: AdminSettingUpdate,
-        admin_user_id: UUID
+        self, key: str, setting_data: AdminSettingUpdate, admin_user_id: UUID
     ) -> Optional[AdminSetting]:
         """
         Update an existing setting
@@ -191,7 +194,9 @@ class ConfigService:
         # Update fields
         if setting_data.value is not None:
             # Encrypt if secret
-            if setting.is_secret or (setting_data.is_secret is not None and setting_data.is_secret):
+            if setting.is_secret or (
+                setting_data.is_secret is not None and setting_data.is_secret
+            ):
                 setting.value = encryption_service.encrypt(str(setting_data.value))
             else:
                 setting.value = setting_data.value
@@ -234,10 +239,7 @@ class ConfigService:
             action="update_setting",
             resource_type="admin_setting",
             resource_id=str(setting.id),
-            details={
-                "key": setting.key,
-                "changes": changes
-            }
+            details={"key": setting.key, "changes": changes},
         )
 
         return setting
@@ -264,10 +266,7 @@ class ConfigService:
             action="delete_setting",
             resource_type="admin_setting",
             resource_id=str(setting.id),
-            details={
-                "key": setting.key,
-                "category": setting.category
-            }
+            details={"key": setting.key, "category": setting.category},
         )
 
         self.db.delete(setting)
@@ -282,7 +281,7 @@ class ConfigService:
         resource_type: Optional[str] = None,
         resource_id: Optional[str] = None,
         details: Optional[dict] = None,
-        severity: str = "info"
+        severity: str = "info",
     ) -> None:
         """
         Create an audit log entry
@@ -302,7 +301,7 @@ class ConfigService:
             resource_type=resource_type,
             resource_id=resource_id,
             details=details,
-            severity=severity
+            severity=severity,
         )
 
         self.db.add(audit_log)

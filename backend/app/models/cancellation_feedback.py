@@ -1,7 +1,18 @@
 """
 User feedback model for cancellation research quality tracking.
 """
-from sqlalchemy import Column, String, Boolean, Float, Integer, Text, ForeignKey, Enum as SQLEnum, DateTime
+
+from sqlalchemy import (
+    Column,
+    String,
+    Boolean,
+    Float,
+    Integer,
+    Text,
+    ForeignKey,
+    Enum as SQLEnum,
+    DateTime,
+)
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -12,6 +23,7 @@ import enum
 
 class FeedbackType(str, enum.Enum):
     """Types of feedback users can provide"""
+
     HELPFUL = "helpful"
     NOT_HELPFUL = "not_helpful"
     INACCURATE = "inaccurate"
@@ -27,16 +39,19 @@ class CancellationFeedback(Base):
     Tracks whether instructions were helpful, accurate, and successful.
     Used to measure AI prompt accuracy and identify providers needing updates.
     """
+
     __tablename__ = "cancellation_feedback"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     # Links to user and provider
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     provider_cancellation_id = Column(
         UUID(as_uuid=True),
         ForeignKey("provider_cancellation_info.id", ondelete="CASCADE"),
-        nullable=False
+        nullable=False,
     )
 
     # Feedback type and details
@@ -47,8 +62,12 @@ class CancellationFeedback(Base):
     time_taken_minutes = Column(Integer, nullable=True)  # How long it took
 
     # Ratings (1-5 scale)
-    helpfulness_rating = Column(Integer, nullable=True)  # 1-5: How helpful were instructions?
-    accuracy_rating = Column(Integer, nullable=True)  # 1-5: How accurate was the information?
+    helpfulness_rating = Column(
+        Integer, nullable=True
+    )  # 1-5: How helpful were instructions?
+    accuracy_rating = Column(
+        Integer, nullable=True
+    )  # 1-5: How accurate was the information?
 
     # Open-ended feedback
     comment = Column(Text, nullable=True)  # User's written feedback
@@ -58,21 +77,38 @@ class CancellationFeedback(Base):
     # Example: ["incorrect_url", "missing_steps", "outdated_info", "requires_phone"]
 
     # Context at time of feedback
-    ai_confidence_at_feedback = Column(Float, nullable=True)  # AI confidence when user got instructions
-    validation_quality_at_feedback = Column(Float, nullable=True)  # Validation quality score
-    prompt_version_at_feedback = Column(String(50), nullable=True)  # Which prompt version was used
+    ai_confidence_at_feedback = Column(
+        Float, nullable=True
+    )  # AI confidence when user got instructions
+    validation_quality_at_feedback = Column(
+        Float, nullable=True
+    )  # Validation quality score
+    prompt_version_at_feedback = Column(
+        String(50), nullable=True
+    )  # Which prompt version was used
 
     # Metadata
     device_type = Column(String(50), nullable=True)  # "web", "mobile", "tablet"
-    provider_name = Column(String(255), nullable=False, index=True)  # Denormalized for easy queries
+    provider_name = Column(
+        String(255), nullable=False, index=True
+    )  # Denormalized for easy queries
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     # Relationships
     user = relationship("User", back_populates="cancellation_feedback")
-    provider_cancellation = relationship("ProviderCancellationInfo", back_populates="feedback")
+    provider_cancellation = relationship(
+        "ProviderCancellationInfo", back_populates="feedback"
+    )
 
     def __repr__(self):
         return (

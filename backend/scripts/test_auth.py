@@ -5,6 +5,7 @@ Run this after starting the backend to verify auth works.
 Usage:
     python scripts/test_auth.py
 """
+
 import requests
 import json
 from typing import Optional
@@ -27,12 +28,13 @@ class AuthTester:
         assert response.status_code == 200, "Health check failed"
         print("✅ Health check passed")
 
-    def test_register(self, email: str = "test@example.com", password: str = "Test1234"):
+    def test_register(
+        self, email: str = "test@example.com", password: str = "Test1234"
+    ):
         """Test user registration."""
         print(f"\n📝 Testing registration for {email}...")
         response = requests.post(
-            f"{BASE_URL}/api/auth/register",
-            json={"email": email, "password": password}
+            f"{BASE_URL}/api/auth/register", json={"email": email, "password": password}
         )
         print(f"Status: {response.status_code}")
 
@@ -56,8 +58,7 @@ class AuthTester:
         """Test user login."""
         print(f"\n🔐 Testing login for {email}...")
         response = requests.post(
-            f"{BASE_URL}/api/auth/login",
-            json={"email": email, "password": password}
+            f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}
         )
         print(f"Status: {response.status_code}")
 
@@ -82,7 +83,7 @@ class AuthTester:
 
         response = requests.get(
             f"{BASE_URL}/api/auth/me",
-            headers={"Authorization": f"Bearer {self.access_token}"}
+            headers={"Authorization": f"Bearer {self.access_token}"},
         )
         print(f"Status: {response.status_code}")
 
@@ -101,8 +102,7 @@ class AuthTester:
             return
 
         response = requests.post(
-            f"{BASE_URL}/api/auth/refresh",
-            json={"refresh_token": self.refresh_token}
+            f"{BASE_URL}/api/auth/refresh", json={"refresh_token": self.refresh_token}
         )
         print(f"Status: {response.status_code}")
 
@@ -125,7 +125,7 @@ class AuthTester:
 
         response = requests.post(
             f"{BASE_URL}/api/auth/logout",
-            headers={"Authorization": f"Bearer {self.access_token}"}
+            headers={"Authorization": f"Bearer {self.access_token}"},
         )
         print(f"Status: {response.status_code}")
 
@@ -140,7 +140,7 @@ class AuthTester:
         print("\n🚫 Testing with invalid token...")
         response = requests.get(
             f"{BASE_URL}/api/auth/me",
-            headers={"Authorization": "Bearer invalid_token_here"}
+            headers={"Authorization": "Bearer invalid_token_here"},
         )
         print(f"Status: {response.status_code}")
 

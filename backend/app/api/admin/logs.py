@@ -1,6 +1,7 @@
 """
 Admin API endpoints for system logs viewing.
 """
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Optional, List
@@ -24,18 +25,18 @@ def parse_log_line(line: str) -> Optional[dict]:
     2025-01-18 10:30:45,123 - app.module - LEVEL - Message
     """
     # Pattern for standard Python logging format
-    pattern = r'^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3})\s+-\s+([\w.]+)\s+-\s+(\w+)\s+-\s+(.+)$'
+    pattern = r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d{3})\s+-\s+([\w.]+)\s+-\s+(\w+)\s+-\s+(.+)$"
 
     match = re.match(pattern, line)
     if match:
         timestamp_str, module, level, message = match.groups()
         try:
-            timestamp = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S,%f')
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S,%f")
             return {
                 "timestamp": timestamp.isoformat(),
                 "module": module,
                 "level": level,
-                "message": message.strip()
+                "message": message.strip(),
             }
         except ValueError:
             pass
@@ -45,7 +46,7 @@ def parse_log_line(line: str) -> Optional[dict]:
         "timestamp": datetime.utcnow().isoformat(),
         "module": "unknown",
         "level": "INFO",
-        "message": line.strip()
+        "message": line.strip(),
     }
 
 
@@ -53,19 +54,23 @@ def read_logs(
     log_file: str = "app.log",
     max_lines: int = 1000,
     level_filter: Optional[str] = None,
-    search: Optional[str] = None
+    search: Optional[str] = None,
 ) -> List[dict]:
     """
     Read and parse log files.
     """
     logs = []
-    log_path = Path("/app/logs") / log_file if os.path.exists("/app/logs") else Path("logs") / log_file
+    log_path = (
+        Path("/app/logs") / log_file
+        if os.path.exists("/app/logs")
+        else Path("logs") / log_file
+    )
 
     if not log_path.exists():
         return []
 
     try:
-        with open(log_path, 'r') as f:
+        with open(log_path, "r") as f:
             # Read last N lines
             lines = f.readlines()[-max_lines:]
 
@@ -82,24 +87,30 @@ def read_logs(
                         logs.append(parsed)
     except Exception as e:
         # If we can't read the file, return error log
-        logs.append({
-            "timestamp": datetime.utcnow().isoformat(),
-            "module": "admin.logs",
-            "level": "ERROR",
-            "message": f"Failed to read log file: {str(e)}"
-        })
+        logs.append(
+            {
+                "timestamp": datetime.utcnow().isoformat(),
+                "module": "admin.logs",
+                "level": "ERROR",
+                "message": f"Failed to read log file: {str(e)}",
+            }
+        )
 
     return logs
 
 
-@router.get("", response_model=LogListResponse, dependencies=[Depends(get_current_admin_user)])
+@router.get(
+    "", response_model=LogListResponse, dependencies=[Depends(get_current_admin_user)]
+)
 async def get_logs(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
-    level: Optional[str] = Query(None, description="Filter by log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"),
+    level: Optional[str] = Query(
+        None, description="Filter by log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+    ),
     search: Optional[str] = Query(None, description="Search in log messages"),
     source: str = Query("app", description="Log source (app, celery, nginx)"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Retrieve system logs with filtering and pagination.
@@ -111,11 +122,7 @@ async def get_logs(
     - **source**: Log source (app, celery, nginx)
     """
     # Map source to log file
-    log_files = {
-        "app": "app.log",
-        "celery": "celery.log",
-        "nginx": "nginx/access.log"
-    }
+    log_files = {"app": "app.log", "celery": "celery.log", "nginx": "nginx/access.log"}
 
     log_file = log_files.get(source, "app.log")
 
@@ -124,7 +131,7 @@ async def get_logs(
         log_file=log_file,
         max_lines=page_size * 10,  # Read more than needed for filtering
         level_filter=level,
-        search=search
+        search=search,
     )
 
     # Apply pagination
@@ -144,14 +151,14 @@ async def get_logs(
                 "level": log["level"],
                 "module": log["module"],
                 "message": log["message"],
-                "source": source
+                "source": source,
             }
             for idx, log in enumerate(paginated_logs)
         ],
         "total": total,
         "page": page,
         "page_size": page_size,
-        "total_pages": total_pages
+        "total_pages": total_pages,
     }
 
 
@@ -164,7 +171,7 @@ async def get_log_sources():
         "sources": [
             {"name": "app", "label": "Application", "available": True},
             {"name": "celery", "label": "Background Tasks", "available": True},
-            {"name": "nginx", "label": "Web Server", "available": False}
+            {"name": "nginx", "label": "Web Server", "available": False},
         ]
     }
 
@@ -184,7 +191,7 @@ async def get_log_stats():
 
     for log in logs:
         try:
-            log_time = datetime.fromisoformat(log["timestamp"].replace('Z', '+00:00'))
+            log_time = datetime.fromisoformat(log["timestamp"].replace("Z", "+00:00"))
             if log_time >= last_24h:
                 if log["level"] == "ERROR" or log["level"] == "CRITICAL":
                     errors_24h += 1
@@ -196,5 +203,5 @@ async def get_log_stats():
     return {
         "errors_24h": errors_24h,
         "warnings_24h": warnings_24h,
-        "total_logs": len(logs)
+        "total_logs": len(logs),
     }

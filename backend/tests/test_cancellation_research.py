@@ -1,4 +1,5 @@
 """Comprehensive tests for cancellation research service"""
+
 import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -6,11 +7,14 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 import json
 
-from app.services.cancellation_research import CancellationResearchService, research_cancellation
+from app.services.cancellation_research import (
+    CancellationResearchService,
+    research_cancellation,
+)
 from app.models.provider_cancellation import (
     ProviderCancellationInfo,
     DifficultyRating,
-    InstructionsSource
+    InstructionsSource,
 )
 from app.models.user import User
 from app.services.prompts import PromptVersion
@@ -34,7 +38,7 @@ def sample_research_data() -> dict:
             "Click your profile icon",
             "Select 'Account'",
             "Click 'Cancel Membership'",
-            "Confirm cancellation"
+            "Confirm cancellation",
         ],
         "requires_phone": False,
         "requires_chat": False,
@@ -46,7 +50,7 @@ def sample_research_data() -> dict:
         "confidence": 0.9,
         "cached": False,  # Fresh research is not cached
         "researched_at": datetime.utcnow().isoformat(),
-        "sources": "Official Netflix help center (2024)"
+        "sources": "Official Netflix help center (2024)",
     }
 
 
@@ -70,7 +74,7 @@ def cached_provider_info(db_session: Session) -> ProviderCancellationInfo:
         ai_confidence_score=0.85,
         ai_research_prompt="Test prompt",
         ai_research_response=json.dumps({"test": "data"}),
-        created_at=datetime.utcnow() - timedelta(days=30)
+        created_at=datetime.utcnow() - timedelta(days=30),
     )
     db_session.add(info)
     db_session.commit()
@@ -91,7 +95,7 @@ def old_cached_provider(db_session: Session) -> ProviderCancellationInfo:
         requires_phone_call=True,
         requires_chat=False,
         ai_confidence_score=0.7,
-        created_at=datetime.utcnow() - timedelta(days=100)
+        created_at=datetime.utcnow() - timedelta(days=100),
     )
     db_session.add(info)
     db_session.commit()
@@ -109,9 +113,13 @@ class TestCancellationResearchServiceInit:
         assert service.db == db_session
         assert service.client is None  # Lazy initialization
 
-    def test_get_client_lazy_initialization(self, cancellation_service: CancellationResearchService):
+    def test_get_client_lazy_initialization(
+        self, cancellation_service: CancellationResearchService
+    ):
         """Should lazily initialize OpenAI client"""
-        with patch('app.services.cancellation_research.get_openai_client') as mock_get_client:
+        with patch(
+            "app.services.cancellation_research.get_openai_client"
+        ) as mock_get_client:
             mock_client = MagicMock()
             mock_get_client.return_value = mock_client
 
@@ -127,13 +135,17 @@ class TestResearchProvider:
     """Tests for research_provider method"""
 
     @pytest.mark.asyncio
-    async def test_rejects_empty_provider_name(self, cancellation_service: CancellationResearchService):
+    async def test_rejects_empty_provider_name(
+        self, cancellation_service: CancellationResearchService
+    ):
         """Should raise ValueError for empty provider name"""
         with pytest.raises(ValueError, match="provider_name cannot be empty"):
             await cancellation_service.research_provider("")
 
     @pytest.mark.asyncio
-    async def test_rejects_whitespace_provider_name(self, cancellation_service: CancellationResearchService):
+    async def test_rejects_whitespace_provider_name(
+        self, cancellation_service: CancellationResearchService
+    ):
         """Should raise ValueError for whitespace-only provider name"""
         with pytest.raises(ValueError, match="provider_name cannot be empty"):
             await cancellation_service.research_provider("   ")
@@ -142,7 +154,7 @@ class TestResearchProvider:
     async def test_returns_cached_result_when_available(
         self,
         cancellation_service: CancellationResearchService,
-        cached_provider_info: ProviderCancellationInfo
+        cached_provider_info: ProviderCancellationInfo,
     ):
         """Should return cached result without calling API"""
         result = await cancellation_service.research_provider("Spotify")
@@ -158,13 +170,13 @@ class TestResearchProvider:
         self,
         cancellation_service: CancellationResearchService,
         old_cached_provider: ProviderCancellationInfo,
-        sample_research_data: dict
+        sample_research_data: dict,
     ):
         """Should refresh cache when >90 days old"""
         with patch.object(
             cancellation_service,
-            '_call_openai_research',
-            new=AsyncMock(return_value=sample_research_data)
+            "_call_openai_research",
+            new=AsyncMock(return_value=sample_research_data),
         ):
             result = await cancellation_service.research_provider("Old Service")
 
@@ -177,55 +189,55 @@ class TestResearchProvider:
         self,
         cancellation_service: CancellationResearchService,
         cached_provider_info: ProviderCancellationInfo,
-        sample_research_data: dict
+        sample_research_data: dict,
     ):
         """Should bypass cache when force_refresh=True"""
         with patch.object(
             cancellation_service,
-            '_call_openai_research',
-            new=AsyncMock(return_value=sample_research_data)
+            "_call_openai_research",
+            new=AsyncMock(return_value=sample_research_data),
         ):
-            result = await cancellation_service.research_provider("Spotify", force_refresh=True)
+            result = await cancellation_service.research_provider(
+                "Spotify", force_refresh=True
+            )
 
             assert result["cached"] is False
             assert result["provider_name"] == "Netflix"
 
     @pytest.mark.asyncio
     async def test_handles_rate_limit_error(
-        self,
-        cancellation_service: CancellationResearchService
+        self, cancellation_service: CancellationResearchService
     ):
         """Should propagate RateLimitError"""
         from openai import RateLimitError
 
         with patch.object(
             cancellation_service,
-            '_call_openai_research',
-            new=AsyncMock(side_effect=RateLimitError(
-                message="Rate limit exceeded",
-                response=MagicMock(),
-                body=None
-            ))
+            "_call_openai_research",
+            new=AsyncMock(
+                side_effect=RateLimitError(
+                    message="Rate limit exceeded", response=MagicMock(), body=None
+                )
+            ),
         ):
             with pytest.raises(RateLimitError):
                 await cancellation_service.research_provider("Test Service")
 
     @pytest.mark.asyncio
     async def test_handles_api_error(
-        self,
-        cancellation_service: CancellationResearchService
+        self, cancellation_service: CancellationResearchService
     ):
         """Should propagate APIError"""
         from openai import APIError
 
         with patch.object(
             cancellation_service,
-            '_call_openai_research',
-            new=AsyncMock(side_effect=APIError(
-                message="API error",
-                request=MagicMock(),
-                body=None
-            ))
+            "_call_openai_research",
+            new=AsyncMock(
+                side_effect=APIError(
+                    message="API error", request=MagicMock(), body=None
+                )
+            ),
         ):
             with pytest.raises(APIError):
                 await cancellation_service.research_provider("Test Service")
@@ -236,8 +248,7 @@ class TestGetCachedResearch:
 
     @pytest.mark.asyncio
     async def test_returns_none_for_nonexistent_provider(
-        self,
-        cancellation_service: CancellationResearchService
+        self, cancellation_service: CancellationResearchService
     ):
         """Should return None if provider not in cache"""
         result = await cancellation_service._get_cached_research("Nonexistent Service")
@@ -248,7 +259,7 @@ class TestGetCachedResearch:
     async def test_returns_cached_provider_info(
         self,
         cancellation_service: CancellationResearchService,
-        cached_provider_info: ProviderCancellationInfo
+        cached_provider_info: ProviderCancellationInfo,
     ):
         """Should return cached provider info in correct format"""
         result = await cancellation_service._get_cached_research("Spotify")
@@ -263,7 +274,7 @@ class TestGetCachedResearch:
     async def test_case_insensitive_lookup(
         self,
         cancellation_service: CancellationResearchService,
-        cached_provider_info: ProviderCancellationInfo
+        cached_provider_info: ProviderCancellationInfo,
     ):
         """Should find provider with case-insensitive search"""
         result = await cancellation_service._get_cached_research("spotify")
@@ -275,7 +286,7 @@ class TestGetCachedResearch:
     async def test_returns_none_for_old_cache(
         self,
         cancellation_service: CancellationResearchService,
-        old_cached_provider: ProviderCancellationInfo
+        old_cached_provider: ProviderCancellationInfo,
     ):
         """Should return None for cache older than 90 days"""
         result = await cancellation_service._get_cached_research("Old Service")
@@ -290,7 +301,7 @@ class TestCallOpenAIResearch:
     async def test_calls_openai_with_correct_parameters(
         self,
         cancellation_service: CancellationResearchService,
-        sample_research_data: dict
+        sample_research_data: dict,
     ):
         """Should call OpenAI API with correct parameters"""
         mock_client = MagicMock()
@@ -298,13 +309,17 @@ class TestCallOpenAIResearch:
         mock_response.choices[0].message.content = json.dumps(sample_research_data)
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
-        with patch.object(cancellation_service, '_get_client', return_value=mock_client):
-            with patch('app.services.cancellation_research.validate_research') as mock_validate:
+        with patch.object(
+            cancellation_service, "_get_client", return_value=mock_client
+        ):
+            with patch(
+                "app.services.cancellation_research.validate_research"
+            ) as mock_validate:
                 mock_validate.return_value = {
                     "is_valid": True,
                     "warnings": [],
                     "quality_score": 0.9,
-                    "recommended_action": "accept"
+                    "recommended_action": "accept",
                 }
 
                 result = await cancellation_service._call_openai_research("Netflix")
@@ -321,7 +336,7 @@ class TestCallOpenAIResearch:
     async def test_parses_json_response_correctly(
         self,
         cancellation_service: CancellationResearchService,
-        sample_research_data: dict
+        sample_research_data: dict,
     ):
         """Should parse and return JSON response"""
         mock_client = MagicMock()
@@ -329,13 +344,17 @@ class TestCallOpenAIResearch:
         mock_response.choices[0].message.content = json.dumps(sample_research_data)
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
-        with patch.object(cancellation_service, '_get_client', return_value=mock_client):
-            with patch('app.services.cancellation_research.validate_research') as mock_validate:
+        with patch.object(
+            cancellation_service, "_get_client", return_value=mock_client
+        ):
+            with patch(
+                "app.services.cancellation_research.validate_research"
+            ) as mock_validate:
                 mock_validate.return_value = {
                     "is_valid": True,
                     "warnings": [],
                     "quality_score": 0.9,
-                    "recommended_action": "accept"
+                    "recommended_action": "accept",
                 }
 
                 result = await cancellation_service._call_openai_research("Netflix")
@@ -348,8 +367,7 @@ class TestCallOpenAIResearch:
 
     @pytest.mark.asyncio
     async def test_validates_required_fields(
-        self,
-        cancellation_service: CancellationResearchService
+        self, cancellation_service: CancellationResearchService
     ):
         """Should raise ValueError for missing required fields"""
         incomplete_data = {
@@ -362,14 +380,15 @@ class TestCallOpenAIResearch:
         mock_response.choices[0].message.content = json.dumps(incomplete_data)
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
-        with patch.object(cancellation_service, '_get_client', return_value=mock_client):
+        with patch.object(
+            cancellation_service, "_get_client", return_value=mock_client
+        ):
             with pytest.raises(ValueError, match="Missing required field"):
                 await cancellation_service._call_openai_research("Netflix")
 
     @pytest.mark.asyncio
     async def test_handles_invalid_json_response(
-        self,
-        cancellation_service: CancellationResearchService
+        self, cancellation_service: CancellationResearchService
     ):
         """Should raise ValueError for invalid JSON"""
         mock_client = MagicMock()
@@ -377,7 +396,9 @@ class TestCallOpenAIResearch:
         mock_response.choices[0].message.content = "Not valid JSON"
         mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
 
-        with patch.object(cancellation_service, '_get_client', return_value=mock_client):
+        with patch.object(
+            cancellation_service, "_get_client", return_value=mock_client
+        ):
             with pytest.raises(ValueError, match="Invalid JSON response"):
                 await cancellation_service._call_openai_research("Netflix")
 
@@ -385,7 +406,7 @@ class TestCallOpenAIResearch:
     async def test_integrates_with_validation_service(
         self,
         cancellation_service: CancellationResearchService,
-        sample_research_data: dict
+        sample_research_data: dict,
     ):
         """Should call validation service and include results"""
         mock_client = MagicMock()
@@ -397,11 +418,15 @@ class TestCallOpenAIResearch:
             "is_valid": True,
             "warnings": [],
             "quality_score": 0.95,
-            "recommended_action": "accept"
+            "recommended_action": "accept",
         }
 
-        with patch.object(cancellation_service, '_get_client', return_value=mock_client):
-            with patch('app.services.cancellation_research.validate_research') as mock_validate:
+        with patch.object(
+            cancellation_service, "_get_client", return_value=mock_client
+        ):
+            with patch(
+                "app.services.cancellation_research.validate_research"
+            ) as mock_validate:
                 mock_validate.return_value = mock_validation
 
                 result = await cancellation_service._call_openai_research("Netflix")
@@ -417,21 +442,25 @@ class TestStoreResearchResult:
     async def test_creates_new_provider_info(
         self,
         cancellation_service: CancellationResearchService,
-        sample_research_data: dict
+        sample_research_data: dict,
     ):
         """Should create new ProviderCancellationInfo record"""
-        with patch('app.services.cancellation_research.validate_research') as mock_validate:
+        with patch(
+            "app.services.cancellation_research.validate_research"
+        ) as mock_validate:
             mock_validate.return_value = {
                 "quality_score": 0.9,
                 "recommended_action": "accept",
-                "warning_count": {"high": 0, "medium": 0, "low": 0}
+                "warning_count": {"high": 0, "medium": 0, "low": 0},
             }
 
             # Add validation to research data
             sample_research_data["validation"] = mock_validate.return_value
             sample_research_data["prompt_version"] = "v2_enhanced"
 
-            result = await cancellation_service._store_research_result("Netflix", sample_research_data)
+            result = await cancellation_service._store_research_result(
+                "Netflix", sample_research_data
+            )
 
             assert result.provider_name == "Netflix"
             assert result.difficulty_rating == "easy"
@@ -444,14 +473,16 @@ class TestStoreResearchResult:
         self,
         cancellation_service: CancellationResearchService,
         cached_provider_info: ProviderCancellationInfo,
-        sample_research_data: dict
+        sample_research_data: dict,
     ):
         """Should update existing ProviderCancellationInfo record"""
-        with patch('app.services.cancellation_research.validate_research') as mock_validate:
+        with patch(
+            "app.services.cancellation_research.validate_research"
+        ) as mock_validate:
             mock_validate.return_value = {
                 "quality_score": 0.9,
                 "recommended_action": "accept",
-                "warning_count": {"high": 0, "medium": 0, "low": 0}
+                "warning_count": {"high": 0, "medium": 0, "low": 0},
             }
 
             sample_research_data["validation"] = mock_validate.return_value
@@ -459,7 +490,9 @@ class TestStoreResearchResult:
             sample_research_data["provider_name"] = "Spotify"  # Update existing
             sample_research_data["difficulty"] = "hard"  # Change difficulty
 
-            result = await cancellation_service._store_research_result("Spotify", sample_research_data)
+            result = await cancellation_service._store_research_result(
+                "Spotify", sample_research_data
+            )
 
             assert result.provider_name == "Spotify"
             assert result.difficulty_rating == "hard"
@@ -469,21 +502,25 @@ class TestStoreResearchResult:
     async def test_handles_invalid_difficulty_gracefully(
         self,
         cancellation_service: CancellationResearchService,
-        sample_research_data: dict
+        sample_research_data: dict,
     ):
         """Should default to 'medium' for invalid difficulty"""
-        with patch('app.services.cancellation_research.validate_research') as mock_validate:
+        with patch(
+            "app.services.cancellation_research.validate_research"
+        ) as mock_validate:
             mock_validate.return_value = {
                 "quality_score": 0.9,
                 "recommended_action": "accept",
-                "warning_count": {"high": 0, "medium": 0, "low": 0}
+                "warning_count": {"high": 0, "medium": 0, "low": 0},
             }
 
             sample_research_data["validation"] = mock_validate.return_value
             sample_research_data["prompt_version"] = "v2_enhanced"
             sample_research_data["difficulty"] = "INVALID"
 
-            result = await cancellation_service._store_research_result("Test Service", sample_research_data)
+            result = await cancellation_service._store_research_result(
+                "Test Service", sample_research_data
+            )
 
             assert result.difficulty_rating == "medium"
 
@@ -493,9 +530,7 @@ class TestResearchCancellationConvenienceFunction:
 
     @pytest.mark.asyncio
     async def test_convenience_function_works(
-        self,
-        db_session: Session,
-        cached_provider_info: ProviderCancellationInfo
+        self, db_session: Session, cached_provider_info: ProviderCancellationInfo
     ):
         """Should work through convenience function"""
         result = await research_cancellation("Spotify", db_session)
@@ -508,13 +543,17 @@ class TestResearchCancellationConvenienceFunction:
         self,
         db_session: Session,
         cached_provider_info: ProviderCancellationInfo,
-        sample_research_data: dict
+        sample_research_data: dict,
     ):
         """Should support force_refresh parameter"""
-        with patch('app.services.cancellation_research.CancellationResearchService._call_openai_research') as mock_research:
+        with patch(
+            "app.services.cancellation_research.CancellationResearchService._call_openai_research"
+        ) as mock_research:
             mock_research.return_value = sample_research_data
 
-            result = await research_cancellation("Spotify", db_session, force_refresh=True)
+            result = await research_cancellation(
+                "Spotify", db_session, force_refresh=True
+            )
 
             # Should call OpenAI even with cache present
             mock_research.assert_called_once()

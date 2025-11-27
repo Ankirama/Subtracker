@@ -3,4 +3,10 @@ from app.email_providers.base import EmailProviderInterface, EmailMessage, Email
 from app.email_providers.jmap import JMAPProvider
 from app.email_providers.gmail import GmailProvider
 
-__all__ = ["EmailProviderInterface", "EmailMessage", "EmailFolder", "JMAPProvider", "GmailProvider"]
+__all__ = [
+    "EmailProviderInterface",
+    "EmailMessage",
+    "EmailFolder",
+    "JMAPProvider",
+    "GmailProvider",
+]

@@ -1,4 +1,5 @@
 """Comprehensive tests for price_history_service"""
+
 import pytest
 from uuid import uuid4
 from datetime import datetime, timedelta
@@ -20,7 +21,7 @@ def test_subscription_with_amount(db_session: Session, test_user: User) -> Subsc
         amount=9.99,
         currency="USD",
         billing_cycle="monthly",
-        is_active=True
+        is_active=True,
     )
     db_session.add(sub)
     db_session.commit()
@@ -38,7 +39,7 @@ def test_subscription_no_amount(db_session: Session, test_user: User) -> Subscri
         amount=None,
         currency="USD",
         billing_cycle="monthly",
-        is_active=True
+        is_active=True,
     )
     db_session.add(sub)
     db_session.commit()
@@ -50,9 +51,7 @@ class TestRecordPriceChange:
     """Tests for record_price_change method"""
 
     def test_records_initial_price(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should record initial price with no old amount"""
         result = PriceHistoryService.record_price_change(
@@ -60,7 +59,7 @@ class TestRecordPriceChange:
             subscription_id=str(test_subscription_with_amount.id),
             new_amount=9.99,
             old_amount=None,
-            detected_from="manual"
+            detected_from="manual",
         )
 
         assert result is not None
@@ -73,9 +72,7 @@ class TestRecordPriceChange:
         assert result.detected_from == "manual"
 
     def test_records_price_increase(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should record price increase with correct percentage"""
         result = PriceHistoryService.record_price_change(
@@ -83,7 +80,7 @@ class TestRecordPriceChange:
             subscription_id=str(test_subscription_with_amount.id),
             new_amount=12.99,
             old_amount=9.99,
-            detected_from="email"
+            detected_from="email",
         )
 
         assert result is not None
@@ -94,9 +91,7 @@ class TestRecordPriceChange:
         assert float(result.change_percentage) == pytest.approx(30.03, rel=0.01)
 
     def test_records_price_decrease(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should record price decrease with correct percentage"""
         result = PriceHistoryService.record_price_change(
@@ -104,7 +99,7 @@ class TestRecordPriceChange:
             subscription_id=str(test_subscription_with_amount.id),
             new_amount=7.99,
             old_amount=9.99,
-            detected_from="api"
+            detected_from="api",
         )
 
         assert result is not None
@@ -115,9 +110,7 @@ class TestRecordPriceChange:
         assert float(result.change_percentage) == pytest.approx(20.02, rel=0.01)
 
     def test_returns_none_for_no_change(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should return None if price hasn't changed"""
         result = PriceHistoryService.record_price_change(
@@ -125,7 +118,7 @@ class TestRecordPriceChange:
             subscription_id=str(test_subscription_with_amount.id),
             new_amount=9.99,
             old_amount=9.99,
-            detected_from="manual"
+            detected_from="manual",
         )
 
         assert result is None
@@ -136,15 +129,11 @@ class TestRecordPriceChange:
 
         with pytest.raises(ValueError, match=f"Subscription {fake_id} not found"):
             PriceHistoryService.record_price_change(
-                db=db_session,
-                subscription_id=fake_id,
-                new_amount=9.99
+                db=db_session, subscription_id=fake_id, new_amount=9.99
             )
 
     def test_includes_notes(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should include notes when provided"""
         result = PriceHistoryService.record_price_change(
@@ -153,7 +142,7 @@ class TestRecordPriceChange:
             new_amount=14.99,
             old_amount=9.99,
             detected_from="manual",
-            notes="Annual price hike"
+            notes="Annual price hike",
         )
 
         assert result.notes == "Annual price hike"
@@ -163,16 +152,14 @@ class TestCheckAndRecordPriceChange:
     """Tests for check_and_record_price_change method"""
 
     def test_records_initial_price_when_subscription_has_none(
-        self,
-        db_session: Session,
-        test_subscription_no_amount: Subscription
+        self, db_session: Session, test_subscription_no_amount: Subscription
     ):
         """Should record initial price and update subscription"""
         result = PriceHistoryService.check_and_record_price_change(
             db=db_session,
             subscription=test_subscription_no_amount,
             new_amount=15.99,
-            detected_from="email"
+            detected_from="email",
         )
 
         assert result is not None
@@ -185,16 +172,14 @@ class TestCheckAndRecordPriceChange:
         assert float(test_subscription_no_amount.amount) == 15.99
 
     def test_detects_and_records_price_change(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should detect price change and record it"""
         result = PriceHistoryService.check_and_record_price_change(
             db=db_session,
             subscription=test_subscription_with_amount,
             new_amount=12.99,
-            detected_from="email"
+            detected_from="email",
         )
 
         assert result is not None
@@ -208,16 +193,14 @@ class TestCheckAndRecordPriceChange:
         assert float(test_subscription_with_amount.amount) == 12.99
 
     def test_ignores_tiny_price_differences(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should ignore differences within floating point tolerance"""
         result = PriceHistoryService.check_and_record_price_change(
             db=db_session,
             subscription=test_subscription_with_amount,
             new_amount=9.991,  # Within 0.01 tolerance
-            detected_from="email"
+            detected_from="email",
         )
 
         assert result is None
@@ -227,16 +210,14 @@ class TestCheckAndRecordPriceChange:
         assert float(test_subscription_with_amount.amount) == 9.99
 
     def test_detects_price_decrease(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should detect and record price decrease"""
         result = PriceHistoryService.check_and_record_price_change(
             db=db_session,
             subscription=test_subscription_with_amount,
             new_amount=7.99,
-            detected_from="api"
+            detected_from="api",
         )
 
         assert result is not None
@@ -249,9 +230,7 @@ class TestGetSubscriptionPriceHistory:
     """Tests for get_subscription_price_history method"""
 
     def test_returns_all_history_records(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should return all price history records"""
         # Create multiple price history records
@@ -263,14 +242,13 @@ class TestGetSubscriptionPriceHistory:
                 currency="USD",
                 change_type="increase" if i > 0 else "initial",
                 detected_from="test",
-                detected_at=datetime.utcnow() + timedelta(hours=i)
+                detected_at=datetime.utcnow() + timedelta(hours=i),
             )
             db_session.add(history)
         db_session.commit()
 
         result = PriceHistoryService.get_subscription_price_history(
-            db=db_session,
-            subscription_id=str(test_subscription_with_amount.id)
+            db=db_session, subscription_id=str(test_subscription_with_amount.id)
         )
 
         assert len(result) == 3
@@ -280,9 +258,7 @@ class TestGetSubscriptionPriceHistory:
         assert float(result[2].new_amount) == 9.99
 
     def test_limits_results_when_specified(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should limit results when limit is specified"""
         # Create 5 records
@@ -293,7 +269,7 @@ class TestGetSubscriptionPriceHistory:
                 currency="USD",
                 change_type="initial" if i == 0 else "increase",
                 detected_from="test",
-                detected_at=datetime.utcnow() + timedelta(hours=i)
+                detected_at=datetime.utcnow() + timedelta(hours=i),
             )
             db_session.add(history)
         db_session.commit()
@@ -301,7 +277,7 @@ class TestGetSubscriptionPriceHistory:
         result = PriceHistoryService.get_subscription_price_history(
             db=db_session,
             subscription_id=str(test_subscription_with_amount.id),
-            limit=3
+            limit=3,
         )
 
         assert len(result) == 3
@@ -311,8 +287,7 @@ class TestGetSubscriptionPriceHistory:
         fake_id = str(uuid4())
 
         result = PriceHistoryService.get_subscription_price_history(
-            db=db_session,
-            subscription_id=fake_id
+            db=db_session, subscription_id=fake_id
         )
 
         assert result == []
@@ -322,9 +297,7 @@ class TestGetPriceIncreases:
     """Tests for get_price_increases method"""
 
     def test_returns_only_increases(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should return only price increase records"""
         # Create mixed history
@@ -332,7 +305,7 @@ class TestGetPriceIncreases:
             ("initial", 9.99),
             ("increase", 12.99),
             ("decrease", 10.99),
-            ("increase", 14.99)
+            ("increase", 14.99),
         ]
 
         for i, (change_type, amount) in enumerate(changes):
@@ -342,14 +315,13 @@ class TestGetPriceIncreases:
                 currency="USD",
                 change_type=change_type,
                 detected_from="test",
-                detected_at=datetime.utcnow() + timedelta(hours=i)
+                detected_at=datetime.utcnow() + timedelta(hours=i),
             )
             db_session.add(history)
         db_session.commit()
 
         result = PriceHistoryService.get_price_increases(
-            db=db_session,
-            subscription_id=str(test_subscription_with_amount.id)
+            db=db_session, subscription_id=str(test_subscription_with_amount.id)
         )
 
         assert len(result) == 2
@@ -359,9 +331,7 @@ class TestGetPriceIncreases:
         assert float(result[1].new_amount) == 12.99
 
     def test_returns_empty_list_for_no_increases(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should return empty list if no increases"""
         # Create only decrease
@@ -370,14 +340,13 @@ class TestGetPriceIncreases:
             new_amount=7.99,
             currency="USD",
             change_type="decrease",
-            detected_from="test"
+            detected_from="test",
         )
         db_session.add(history)
         db_session.commit()
 
         result = PriceHistoryService.get_price_increases(
-            db=db_session,
-            subscription_id=str(test_subscription_with_amount.id)
+            db=db_session, subscription_id=str(test_subscription_with_amount.id)
         )
 
         assert result == []
@@ -387,9 +356,7 @@ class TestGetPriceStatistics:
     """Tests for get_price_statistics method"""
 
     def test_returns_statistics_for_complete_history(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should calculate comprehensive statistics"""
         # Create history: initial 9.99 → increase to 12.99 → decrease to 11.99 → increase to 14.99
@@ -397,7 +364,7 @@ class TestGetPriceStatistics:
             (None, 9.99, "initial", None),
             (9.99, 12.99, "increase", 30.03),
             (12.99, 11.99, "decrease", 7.70),
-            (11.99, 14.99, "increase", 25.02)
+            (11.99, 14.99, "increase", 25.02),
         ]
 
         for i, (old, new, change_type, pct) in enumerate(changes):
@@ -409,21 +376,25 @@ class TestGetPriceStatistics:
                 change_type=change_type,
                 change_percentage=pct,
                 detected_from="test",
-                detected_at=datetime.utcnow() + timedelta(hours=i)  # Add timestamp for proper ordering
+                detected_at=datetime.utcnow()
+                + timedelta(hours=i),  # Add timestamp for proper ordering
             )
             db_session.add(history)
         db_session.commit()
 
         result = PriceHistoryService.get_price_statistics(
-            db=db_session,
-            subscription_id=str(test_subscription_with_amount.id)
+            db=db_session, subscription_id=str(test_subscription_with_amount.id)
         )
 
         assert result["total_changes"] == 3  # Excludes initial
         assert result["increases"] == 2
         assert result["decreases"] == 1
-        assert result["total_increase_amount"] == pytest.approx(6.0, rel=0.01)  # (12.99-9.99) + (14.99-11.99)
-        assert result["total_decrease_amount"] == pytest.approx(1.0, rel=0.01)  # (12.99-11.99)
+        assert result["total_increase_amount"] == pytest.approx(
+            6.0, rel=0.01
+        )  # (12.99-9.99) + (14.99-11.99)
+        assert result["total_decrease_amount"] == pytest.approx(
+            1.0, rel=0.01
+        )  # (12.99-11.99)
         # Average percentage: (30.03 + 7.70 + 25.02) / 3 = 20.92%
         assert result["average_change_percentage"] == pytest.approx(20.92, rel=0.1)
         assert result["latest_price"] == 14.99
@@ -434,8 +405,7 @@ class TestGetPriceStatistics:
         fake_id = str(uuid4())
 
         result = PriceHistoryService.get_price_statistics(
-            db=db_session,
-            subscription_id=fake_id
+            db=db_session, subscription_id=fake_id
         )
 
         assert result["total_changes"] == 0
@@ -448,15 +418,13 @@ class TestGetPriceStatistics:
         assert result["original_price"] is None
 
     def test_handles_only_increases(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should calculate statistics for only increases"""
         changes = [
             (None, 9.99, "initial", None),
             (9.99, 12.99, "increase", 30.03),
-            (12.99, 15.99, "increase", 23.09)
+            (12.99, 15.99, "increase", 23.09),
         ]
 
         for old, new, change_type, pct in changes:
@@ -467,14 +435,13 @@ class TestGetPriceStatistics:
                 currency="USD",
                 change_type=change_type,
                 change_percentage=pct,
-                detected_from="test"
+                detected_from="test",
             )
             db_session.add(history)
         db_session.commit()
 
         result = PriceHistoryService.get_price_statistics(
-            db=db_session,
-            subscription_id=str(test_subscription_with_amount.id)
+            db=db_session, subscription_id=str(test_subscription_with_amount.id)
         )
 
         assert result["increases"] == 2
@@ -483,9 +450,7 @@ class TestGetPriceStatistics:
         assert result["total_decrease_amount"] == 0.0
 
     def test_handles_only_initial_record(
-        self,
-        db_session: Session,
-        test_subscription_with_amount: Subscription
+        self, db_session: Session, test_subscription_with_amount: Subscription
     ):
         """Should handle case with only initial record"""
         history = PriceHistory(
@@ -495,14 +460,13 @@ class TestGetPriceStatistics:
             currency="USD",
             change_type="initial",
             change_percentage=None,
-            detected_from="test"
+            detected_from="test",
         )
         db_session.add(history)
         db_session.commit()
 
         result = PriceHistoryService.get_price_statistics(
-            db=db_session,
-            subscription_id=str(test_subscription_with_amount.id)
+            db=db_session, subscription_id=str(test_subscription_with_amount.id)
         )
 
         assert result["total_changes"] == 0

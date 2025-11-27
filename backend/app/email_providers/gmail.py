@@ -1,6 +1,7 @@
 """
 Gmail email provider implementation using Gmail API with OAuth2.
 """
+
 import httpx
 import base64
 from typing import Dict, List, Optional, Any
@@ -31,16 +32,16 @@ class GmailProvider(EmailProviderInterface):
     - client_secret: Google OAuth client secret
     """
 
-    SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+    SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
     def __init__(self, credentials: Dict[str, Any]):
         super().__init__(credentials)
-        self.access_token = credentials.get('access_token')
-        self.refresh_token = credentials.get('refresh_token')
-        self.token_expiry = credentials.get('token_expiry')
-        self.client_id = credentials.get('client_id')
-        self.client_secret = credentials.get('client_secret')
-        self.email_address = credentials.get('email_address')
+        self.access_token = credentials.get("access_token")
+        self.refresh_token = credentials.get("refresh_token")
+        self.token_expiry = credentials.get("token_expiry")
+        self.client_id = credentials.get("client_id")
+        self.client_secret = credentials.get("client_secret")
+        self.email_address = credentials.get("email_address")
         self.service = None
         self._creds = None
         # Gmail pagination state
@@ -52,10 +53,10 @@ class GmailProvider(EmailProviderInterface):
         creds = Credentials(
             token=self.access_token,
             refresh_token=self.refresh_token,
-            token_uri='https://oauth2.googleapis.com/token',
+            token_uri="https://oauth2.googleapis.com/token",
             client_id=self.client_id,
             client_secret=self.client_secret,
-            scopes=self.SCOPES
+            scopes=self.SCOPES,
         )
 
         # Check if token needs refresh
@@ -78,11 +79,11 @@ class GmailProvider(EmailProviderInterface):
         """
         try:
             self._creds = self._get_credentials()
-            self.service = build('gmail', 'v1', credentials=self._creds)
+            self.service = build("gmail", "v1", credentials=self._creds)
 
             # Test authentication by fetching profile
-            profile = self.service.users().getProfile(userId='me').execute()
-            self.email_address = profile.get('emailAddress')
+            profile = self.service.users().getProfile(userId="me").execute()
+            self.email_address = profile.get("emailAddress")
 
             self._authenticated = True
             logger.info(f"Gmail authentication successful for {self.email_address}")
@@ -106,23 +107,23 @@ class GmailProvider(EmailProviderInterface):
                     return {
                         "success": False,
                         "message": "Authentication failed",
-                        "info": {}
+                        "info": {},
                     }
 
             # Fetch profile and labels to verify connection
-            profile = self.service.users().getProfile(userId='me').execute()
-            labels = self.service.users().labels().list(userId='me').execute()
+            profile = self.service.users().getProfile(userId="me").execute()
+            labels = self.service.users().labels().list(userId="me").execute()
 
             return {
                 "success": True,
                 "message": "Connected successfully to Gmail",
                 "info": {
-                    "email_address": profile.get('emailAddress'),
-                    "total_messages": profile.get('messagesTotal', 0),
-                    "total_threads": profile.get('threadsTotal', 0),
-                    "labels_count": len(labels.get('labels', [])),
-                    "history_id": profile.get('historyId')
-                }
+                    "email_address": profile.get("emailAddress"),
+                    "total_messages": profile.get("messagesTotal", 0),
+                    "total_threads": profile.get("threadsTotal", 0),
+                    "labels_count": len(labels.get("labels", [])),
+                    "history_id": profile.get("historyId"),
+                },
             }
 
         except Exception as e:
@@ -130,7 +131,7 @@ class GmailProvider(EmailProviderInterface):
             return {
                 "success": False,
                 "message": f"Connection test failed: {str(e)}",
-                "info": {}
+                "info": {},
             }
 
     async def fetch_messages(
@@ -139,7 +140,7 @@ class GmailProvider(EmailProviderInterface):
         since_date: Optional[datetime] = None,
         limit: int = 100,
         search_query: Optional[str] = None,
-        position: int = 0
+        position: int = 0,
     ) -> tuple[List[EmailMessage], bool]:
         """
         Fetch messages from Gmail with proper pageToken-based pagination.
@@ -170,13 +171,13 @@ class GmailProvider(EmailProviderInterface):
 
         if since_date:
             # Gmail uses YYYY/MM/DD format for date queries
-            date_str = since_date.strftime('%Y/%m/%d')
+            date_str = since_date.strftime("%Y/%m/%d")
             query_parts.append(f"after:{date_str}")
 
         if search_query:
             query_parts.append(search_query)
 
-        query = ' '.join(query_parts) if query_parts else None
+        query = " ".join(query_parts) if query_parts else None
 
         # Reset pageToken if this is a new query (position=0)
         if position == 0:
@@ -192,20 +193,20 @@ class GmailProvider(EmailProviderInterface):
         try:
             # Build API request with pageToken if available
             request_params = {
-                'userId': 'me',
-                'q': query,
-                'maxResults': min(limit, 500)  # Gmail API limit is 500
+                "userId": "me",
+                "q": query,
+                "maxResults": min(limit, 500),  # Gmail API limit is 500
             }
 
             if self._page_token:
-                request_params['pageToken'] = self._page_token
+                request_params["pageToken"] = self._page_token
                 logger.info(f"Gmail: Fetching page with token (limit={limit})")
 
             # List message IDs
             results = self.service.users().messages().list(**request_params).execute()
 
-            message_refs = results.get('messages', [])
-            next_page_token = results.get('nextPageToken')
+            message_refs = results.get("messages", [])
+            next_page_token = results.get("nextPageToken")
 
             # Store pageToken for next call
             self._page_token = next_page_token
@@ -218,11 +219,12 @@ class GmailProvider(EmailProviderInterface):
             # Fetch full message details
             for msg_ref in message_refs:
                 try:
-                    msg = self.service.users().messages().get(
-                        userId='me',
-                        id=msg_ref['id'],
-                        format='full'
-                    ).execute()
+                    msg = (
+                        self.service.users()
+                        .messages()
+                        .get(userId="me", id=msg_ref["id"], format="full")
+                        .execute()
+                    )
 
                     email_msg = self._parse_message(msg)
                     if email_msg:
@@ -252,56 +254,68 @@ class GmailProvider(EmailProviderInterface):
     def _parse_message(self, msg: Dict) -> Optional[EmailMessage]:
         """Parse Gmail API message into EmailMessage object."""
         try:
-            headers = {h['name'].lower(): h['value'] for h in msg.get('payload', {}).get('headers', [])}
+            headers = {
+                h["name"].lower(): h["value"]
+                for h in msg.get("payload", {}).get("headers", [])
+            }
 
             # Extract sender
-            from_header = headers.get('from', '')
+            from_header = headers.get("from", "")
             sender_email = from_header
-            if '<' in from_header and '>' in from_header:
-                sender_email = from_header.split('<')[1].split('>')[0]
+            if "<" in from_header and ">" in from_header:
+                sender_email = from_header.split("<")[1].split(">")[0]
 
             # Extract recipients
-            to_header = headers.get('to', '')
+            to_header = headers.get("to", "")
             recipients = []
             if to_header:
                 # Simple parsing - could be improved
-                recipients = [r.strip() for r in to_header.split(',')]
+                recipients = [r.strip() for r in to_header.split(",")]
 
             # Extract date
-            date_str = headers.get('date', '')
+            date_str = headers.get("date", "")
             message_date = None
             if date_str:
                 try:
                     message_date = parsedate_to_datetime(date_str)
                 except Exception:
                     # Fallback to internal date
-                    internal_date = msg.get('internalDate')
+                    internal_date = msg.get("internalDate")
                     if internal_date:
-                        message_date = datetime.fromtimestamp(int(internal_date) / 1000, tz=timezone.utc)
+                        message_date = datetime.fromtimestamp(
+                            int(internal_date) / 1000, tz=timezone.utc
+                        )
 
             # Extract body
-            body_text = self._extract_body(msg.get('payload', {}))
+            body_text = self._extract_body(msg.get("payload", {}))
 
             # Determine folder from labels
-            label_ids = msg.get('labelIds', [])
+            label_ids = msg.get("labelIds", [])
             folder = None
-            if 'INBOX' in label_ids:
-                folder = 'INBOX'
+            if "INBOX" in label_ids:
+                folder = "INBOX"
             elif label_ids:
                 folder = label_ids[0]
 
             return EmailMessage(
-                id=msg['id'],
-                subject=headers.get('subject', '(No Subject)'),
+                id=msg["id"],
+                subject=headers.get("subject", "(No Subject)"),
                 sender=sender_email,
-                sender_name=from_header.split('<')[0].strip().strip('"') if '<' in from_header else None,
+                sender_name=(
+                    from_header.split("<")[0].strip().strip('"')
+                    if "<" in from_header
+                    else None
+                ),
                 recipients=recipients,
                 date=message_date or datetime.now(timezone.utc),
                 body_text=body_text,
                 body_html=None,  # Could extract HTML version if needed
                 headers=headers,
-                has_attachments=any(part.get('filename') for part in msg.get('payload', {}).get('parts', [])),
-                folder=folder
+                has_attachments=any(
+                    part.get("filename")
+                    for part in msg.get("payload", {}).get("parts", [])
+                ),
+                folder=folder,
             )
         except Exception as e:
             logger.warning(f"Failed to parse Gmail message: {e}")
@@ -312,28 +326,32 @@ class GmailProvider(EmailProviderInterface):
         body_text = ""
 
         # Check for direct body data
-        if 'body' in payload and payload['body'].get('data'):
+        if "body" in payload and payload["body"].get("data"):
             try:
-                body_text = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8', errors='replace')
+                body_text = base64.urlsafe_b64decode(payload["body"]["data"]).decode(
+                    "utf-8", errors="replace"
+                )
                 return body_text
             except Exception:
                 pass
 
         # Check for multipart message
-        if 'parts' in payload:
-            for part in payload['parts']:
-                mime_type = part.get('mimeType', '')
+        if "parts" in payload:
+            for part in payload["parts"]:
+                mime_type = part.get("mimeType", "")
 
-                if mime_type == 'text/plain':
-                    if part.get('body', {}).get('data'):
+                if mime_type == "text/plain":
+                    if part.get("body", {}).get("data"):
                         try:
-                            body_text = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8', errors='replace')
+                            body_text = base64.urlsafe_b64decode(
+                                part["body"]["data"]
+                            ).decode("utf-8", errors="replace")
                             return body_text
                         except Exception:
                             continue
 
                 # Recursively check nested parts
-                if 'parts' in part:
+                if "parts" in part:
                     nested_text = self._extract_body(part)
                     if nested_text:
                         return nested_text
@@ -349,23 +367,27 @@ class GmailProvider(EmailProviderInterface):
 
         folders = []
         try:
-            results = self.service.users().labels().list(userId='me').execute()
-            labels = results.get('labels', [])
+            results = self.service.users().labels().list(userId="me").execute()
+            labels = results.get("labels", [])
 
             for label in labels:
                 # Get detailed label info
-                label_detail = self.service.users().labels().get(
-                    userId='me',
-                    id=label['id']
-                ).execute()
+                label_detail = (
+                    self.service.users()
+                    .labels()
+                    .get(userId="me", id=label["id"])
+                    .execute()
+                )
 
-                folders.append(EmailFolder(
-                    id=label['id'],
-                    name=label['name'],
-                    role=label.get('type', 'user').lower(),
-                    total_messages=label_detail.get('messagesTotal', 0),
-                    unread_count=label_detail.get('messagesUnread', 0)
-                ))
+                folders.append(
+                    EmailFolder(
+                        id=label["id"],
+                        name=label["name"],
+                        role=label.get("type", "user").lower(),
+                        total_messages=label_detail.get("messagesTotal", 0),
+                        unread_count=label_detail.get("messagesUnread", 0),
+                    )
+                )
 
             return folders
 
@@ -381,11 +403,12 @@ class GmailProvider(EmailProviderInterface):
             await self.authenticate()
 
         try:
-            msg = self.service.users().messages().get(
-                userId='me',
-                id=message_id,
-                format='full'
-            ).execute()
+            msg = (
+                self.service.users()
+                .messages()
+                .get(userId="me", id=message_id, format="full")
+                .execute()
+            )
 
             return self._parse_message(msg)
 
@@ -406,9 +429,7 @@ class GmailProvider(EmailProviderInterface):
 
         try:
             self.service.users().messages().modify(
-                userId='me',
-                id=message_id,
-                body={'removeLabelIds': ['UNREAD']}
+                userId="me", id=message_id, body={"removeLabelIds": ["UNREAD"]}
             ).execute()
             return True
         except Exception as e:
@@ -426,10 +447,10 @@ class GmailProvider(EmailProviderInterface):
         Useful for storing refreshed tokens back to database.
         """
         return {
-            'access_token': self.access_token,
-            'refresh_token': self.refresh_token,
-            'token_expiry': self.token_expiry,
-            'client_id': self.client_id,
-            'client_secret': self.client_secret,
-            'email_address': self.email_address
+            "access_token": self.access_token,
+            "refresh_token": self.refresh_token,
+            "token_expiry": self.token_expiry,
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "email_address": self.email_address,
         }

@@ -3,6 +3,7 @@ Email filtering service to prevent processing system-generated emails.
 
 Prevents the system from parsing its own notification emails as subscriptions.
 """
+
 from typing import Optional
 from sqlalchemy.orm import Session
 import logging
@@ -26,7 +27,9 @@ def is_system_email(email: EmailMessage, db: Optional[Session] = None) -> bool:
         True if this is a system-generated email that should be ignored
     """
     # Get configured system email addresses
-    system_from_email = get_config_value('sendgrid.from_email', settings.SENDGRID_FROM_EMAIL, db)
+    system_from_email = get_config_value(
+        "sendgrid.from_email", settings.SENDGRID_FROM_EMAIL, db
+    )
 
     # Check if sender matches system email
     if email.sender and system_from_email:
@@ -34,7 +37,9 @@ def is_system_email(email: EmailMessage, db: Optional[Session] = None) -> bool:
         system_lower = system_from_email.lower().strip()
 
         if sender_lower == system_lower:
-            logger.info(f"Filtering out system email from {email.sender}: {email.subject}")
+            logger.info(
+                f"Filtering out system email from {email.sender}: {email.subject}"
+            )
             return True
 
     # Check for system email indicators in subject (additional safety)
@@ -51,7 +56,9 @@ def is_system_email(email: EmailMessage, db: Optional[Session] = None) -> bool:
 
         for pattern in system_subject_patterns:
             if pattern in email.subject:
-                logger.info(f"Filtering out system email by subject pattern '{pattern}': {email.subject}")
+                logger.info(
+                    f"Filtering out system email by subject pattern '{pattern}': {email.subject}"
+                )
                 return True
 
     # Check for system email indicators in sender name
@@ -63,7 +70,9 @@ def is_system_email(email: EmailMessage, db: Optional[Session] = None) -> bool:
 
         for pattern in system_sender_patterns:
             if pattern in email.sender_name:
-                logger.info(f"Filtering out system email by sender name '{pattern}': {email.sender_name}")
+                logger.info(
+                    f"Filtering out system email by sender name '{pattern}': {email.sender_name}"
+                )
                 return True
 
     return False

@@ -3,6 +3,7 @@ Simple test script for price change notifications.
 
 Tests price change detection directly without using API calls.
 """
+
 import sys
 import os
 from pathlib import Path
@@ -22,9 +23,9 @@ from datetime import date, timedelta, datetime, timezone
 
 def run_test():
     """Test price change detection."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("PRICE CHANGE NOTIFICATION TEST")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     db = SessionLocal()
     try:
@@ -37,7 +38,7 @@ def run_test():
                 email="bother@ankirama.com",
                 password_hash=password_hash,
                 salt=salt,
-                is_active=True
+                is_active=True,
             )
             db.add(test_user)
             db.commit()
@@ -58,7 +59,7 @@ def run_test():
             is_active=True,
             next_billing_date=date.today() + timedelta(days=15),
             first_detected_at=datetime.now(timezone.utc),
-            extraction_metadata={}
+            extraction_metadata={},
         )
         db.add(test_sub)
         db.commit()
@@ -71,7 +72,7 @@ def run_test():
         print(f"   Result: {result}")
 
         db.refresh(test_sub)
-        last_known = test_sub.extraction_metadata.get('last_known_price')
+        last_known = test_sub.extraction_metadata.get("last_known_price")
         print(f"   ✅ Stored baseline price: ${last_known}")
 
         # Change the price
@@ -92,10 +93,16 @@ def run_test():
 
         # Check notifications
         print("\n📝 Step 5: Checking created notifications...")
-        price_notifications = db.query(Notification).filter(
-            Notification.user_id == test_user.id,
-            Notification.type == NotificationType.PRICE_CHANGE
-        ).order_by(Notification.created_at.desc()).limit(5).all()
+        price_notifications = (
+            db.query(Notification)
+            .filter(
+                Notification.user_id == test_user.id,
+                Notification.type == NotificationType.PRICE_CHANGE,
+            )
+            .order_by(Notification.created_at.desc())
+            .limit(5)
+            .all()
+        )
 
         print(f"\n✅ Found {len(price_notifications)} price change notification(s):")
         for notif in price_notifications:
@@ -106,7 +113,9 @@ def run_test():
             print(f"      Priority: {notif.priority}")
             print(f"      Old Price: ${metadata.get('old_price')}")
             print(f"      New Price: ${metadata.get('new_price')}")
-            print(f"      Change: ${metadata.get('price_difference')} ({metadata.get('change_percent'):.1f}%)")
+            print(
+                f"      Change: ${metadata.get('price_difference')} ({metadata.get('change_percent'):.1f}%)"
+            )
             print(f"      Is Increase: {metadata.get('is_increase')}")
             print(f"      Email Sent: {'✅ Yes' if notif.email_sent else '❌ No'}")
             if notif.email_error:
@@ -119,20 +128,27 @@ def run_test():
         print("✅ Cleanup complete")
 
         # Summary
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
         print("TEST SUMMARY")
-        print("="*70)
-        if result.get('status') == 'success' and result.get('price_changes_detected', 0) > 0:
+        print("=" * 70)
+        if (
+            result.get("status") == "success"
+            and result.get("price_changes_detected", 0) > 0
+        ):
             print("✅ TEST PASSED - Price change detected and notifications created!")
         else:
             print("❌ TEST FAILED - No price changes detected")
-        print("="*70 + "\n")
+        print("=" * 70 + "\n")
 
-        return result.get('status') == 'success' and result.get('price_changes_detected', 0) > 0
+        return (
+            result.get("status") == "success"
+            and result.get("price_changes_detected", 0) > 0
+        )
 
     except Exception as e:
         print(f"\n❌ Test failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -149,5 +165,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\n❌ Test failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

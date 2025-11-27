@@ -1,6 +1,7 @@
 """
 Provider logo and metadata endpoints
 """
+
 import os
 import hashlib
 import httpx
@@ -17,76 +18,68 @@ LOGOS_DIR.mkdir(exist_ok=True)
 # Common provider domain mappings (same as frontend)
 PROVIDER_DOMAINS = {
     # Streaming
-    'netflix': 'netflix.com',
-    'spotify': 'spotify.com',
-    'youtube': 'youtube.com',
-    'disney': 'disneyplus.com',
-    'hbo': 'hbo.com',
-    'prime video': 'primevideo.com',
-    'amazon prime': 'amazon.com',
-    'apple tv': 'apple.com',
-    'hulu': 'hulu.com',
-    'paramount': 'paramountplus.com',
-
+    "netflix": "netflix.com",
+    "spotify": "spotify.com",
+    "youtube": "youtube.com",
+    "disney": "disneyplus.com",
+    "hbo": "hbo.com",
+    "prime video": "primevideo.com",
+    "amazon prime": "amazon.com",
+    "apple tv": "apple.com",
+    "hulu": "hulu.com",
+    "paramount": "paramountplus.com",
     # Software & Tools
-    'adobe': 'adobe.com',
-    'microsoft': 'microsoft.com',
-    'apple': 'apple.com',
-    'google': 'google.com',
-    'dropbox': 'dropbox.com',
-    'github': 'github.com',
-    'notion': 'notion.so',
-    'figma': 'figma.com',
-    'canva': 'canva.com',
-    'slack': 'slack.com',
-    'zoom': 'zoom.us',
-    'asana': 'asana.com',
-    'trello': 'trello.com',
-    'monday': 'monday.com',
-
+    "adobe": "adobe.com",
+    "microsoft": "microsoft.com",
+    "apple": "apple.com",
+    "google": "google.com",
+    "dropbox": "dropbox.com",
+    "github": "github.com",
+    "notion": "notion.so",
+    "figma": "figma.com",
+    "canva": "canva.com",
+    "slack": "slack.com",
+    "zoom": "zoom.us",
+    "asana": "asana.com",
+    "trello": "trello.com",
+    "monday": "monday.com",
     # Cloud & Hosting
-    'aws': 'aws.amazon.com',
-    'azure': 'azure.microsoft.com',
-    'google cloud': 'cloud.google.com',
-    'vercel': 'vercel.com',
-    'netlify': 'netlify.com',
-    'heroku': 'heroku.com',
-    'digitalocean': 'digitalocean.com',
-
+    "aws": "aws.amazon.com",
+    "azure": "azure.microsoft.com",
+    "google cloud": "cloud.google.com",
+    "vercel": "vercel.com",
+    "netlify": "netlify.com",
+    "heroku": "heroku.com",
+    "digitalocean": "digitalocean.com",
     # Social Media
-    'linkedin': 'linkedin.com',
-    'twitter': 'twitter.com',
-    'facebook': 'facebook.com',
-    'instagram': 'instagram.com',
-    'tiktok': 'tiktok.com',
-
+    "linkedin": "linkedin.com",
+    "twitter": "twitter.com",
+    "facebook": "facebook.com",
+    "instagram": "instagram.com",
+    "tiktok": "tiktok.com",
     # Productivity
-    'office 365': 'microsoft.com',
-    'google workspace': 'google.com',
-    'evernote': 'evernote.com',
-    'lastpass': 'lastpass.com',
-    '1password': '1password.com',
-    'dashlane': 'dashlane.com',
-
+    "office 365": "microsoft.com",
+    "google workspace": "google.com",
+    "evernote": "evernote.com",
+    "lastpass": "lastpass.com",
+    "1password": "1password.com",
+    "dashlane": "dashlane.com",
     # Email & Marketing
-    'mailchimp': 'mailchimp.com',
-    'sendgrid': 'sendgrid.com',
-    'constant contact': 'constantcontact.com',
-    'hubspot': 'hubspot.com',
-
+    "mailchimp": "mailchimp.com",
+    "sendgrid": "sendgrid.com",
+    "constant contact": "constantcontact.com",
+    "hubspot": "hubspot.com",
     # E-commerce
-    'shopify': 'shopify.com',
-    'woocommerce': 'woocommerce.com',
-    'square': 'squareup.com',
-
+    "shopify": "shopify.com",
+    "woocommerce": "woocommerce.com",
+    "square": "squareup.com",
     # Payment
-    'stripe': 'stripe.com',
-    'paypal': 'paypal.com',
-
+    "stripe": "stripe.com",
+    "paypal": "paypal.com",
     # Communication
-    'whatsapp': 'whatsapp.com',
-    'telegram': 'telegram.org',
-    'discord': 'discord.com',
+    "whatsapp": "whatsapp.com",
+    "telegram": "telegram.org",
+    "discord": "discord.com",
 }
 
 
@@ -123,8 +116,8 @@ async def download_logo(domain: str) -> bytes | None:
             response = await client.get(url, timeout=10.0, follow_redirects=True)
 
             if response.status_code == 200:
-                content_type = response.headers.get('content-type', '')
-                if 'image' in content_type:
+                content_type = response.headers.get("content-type", "")
+                if "image" in content_type:
                     return response.content
 
             return None
@@ -150,7 +143,7 @@ async def get_provider_logo(provider_name: str):
             media_type="image/png",
             headers={
                 "Cache-Control": "public, max-age=86400",  # Cache for 24 hours
-            }
+            },
         )
 
     # Download logo
@@ -167,5 +160,5 @@ async def get_provider_logo(provider_name: str):
         media_type="image/png",
         headers={
             "Cache-Control": "public, max-age=86400",
-        }
+        },
     )
