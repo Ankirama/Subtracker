@@ -17,6 +17,7 @@ import {
   useColorMode,
   Heading,
   Divider,
+  Image,
 } from '@chakra-ui/react'
 import { Link as RouterLink, useLocation, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
@@ -82,10 +83,19 @@ export const DashboardLayout = () => {
       >
         <VStack align="stretch" spacing={6} h="full">
           {/* Logo */}
-          <Box>
-            <Heading size="md" color="blue.500">
-              📧 SubTracker
-            </Heading>
+          <Box as={RouterLink} to="/dashboard">
+            <HStack spacing={3}>
+              <Image
+                src="/logo.png"
+                alt="SubTracker Logo"
+                h="40px"
+                w="40px"
+                objectFit="contain"
+              />
+              <Heading size="md" color="blue.500">
+                SubTracker
+              </Heading>
+            </HStack>
           </Box>
 
           {/* Navigation */}
