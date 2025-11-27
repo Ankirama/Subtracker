@@ -62,6 +62,9 @@ jobs:
             cat pip-audit.json
           fi
 
+      - name: Create logs directory
+        run: sudo mkdir -p /app/logs && sudo chmod 777 /app/logs
+
       - name: Run tests
         working-directory: backend
         env:
