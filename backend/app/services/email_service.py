@@ -1,10 +1,9 @@
 """
-Email service for sending notifications via SendGrid.
+Email service for sending notifications via Resend.
 
 Handles all email delivery with HTML templates for different notification types.
 """
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content
+import resend
 from typing import Optional, List
 from datetime import datetime
 import logging
@@ -19,22 +18,26 @@ logger = logging.getLogger(__name__)
 
 
 class EmailService:
-    """Service for sending emails via SendGrid."""
+    """Service for sending emails via Resend."""
 
     def __init__(self, db: Optional[Session] = None):
         """
-        Initialize SendGrid client.
+        Initialize Resend client.
 
         Args:
             db: Optional database session to check admin settings
         """
         # Get config values (admin settings override env vars)
-        api_key = get_config_value('sendgrid.api_key', settings.SENDGRID_API_KEY, db)
-        from_email = get_config_value('sendgrid.from_email', settings.SENDGRID_FROM_EMAIL, db)
-        from_name = get_config_value('sendgrid.from_name', settings.SENDGRID_FROM_NAME, db)
+        api_key = get_config_value('resend.api_key', settings.RESEND_API_KEY, db)
+        from_email = get_config_value('resend.from_email', settings.RESEND_FROM_EMAIL, db)
+        from_name = get_config_value('resend.from_name', settings.RESEND_FROM_NAME, db)
 
-        self.client = SendGridAPIClient(api_key)
-        self.from_email = Email(from_email, from_name)
+        # Configure Resend with API key
+        resend.api_key = api_key
+
+        # Store from email info
+        self.from_email = from_email
+        self.from_name = from_name
 
     def send_email(
         self,
@@ -44,28 +47,32 @@ class EmailService:
         plain_content: Optional[str] = None
     ) -> tuple[bool, Optional[str]]:
         """
-        Send an email via SendGrid.
+        Send an email via Resend.
 
         Returns (success: bool, error_message: Optional[str])
         """
         try:
-            message = Mail(
-                from_email=self.from_email,
-                to_emails=To(to_email),
-                subject=subject,
-                html_content=Content("text/html", html_content)
-            )
+            # Prepare email params
+            params = {
+                "from": f"{self.from_name} <{self.from_email}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+            }
 
+            # Add plain text if provided
             if plain_content:
-                message.plain_text_content = Content("text/plain", plain_content)
+                params["text"] = plain_content
 
-            response = self.client.send(message)
+            # Send email via Resend
+            email_response = resend.Emails.send(params)
 
-            if response.status_code in [200, 201, 202]:
-                logger.info(f"Email sent successfully to {to_email}: {subject}")
+            # Check if email was sent successfully
+            if email_response and email_response.get('id'):
+                logger.info(f"Email sent successfully to {to_email}: {subject} (ID: {email_response['id']})")
                 return True, None
             else:
-                error_msg = f"SendGrid returned status {response.status_code}"
+                error_msg = "Resend returned no email ID"
                 logger.error(f"Failed to send email to {to_email}: {error_msg}")
                 return False, error_msg
 
@@ -408,7 +415,7 @@ Subscription Tracker Team
         <p>If you wish to cancel or modify this subscription, please log in to your account.</p>
 
         <center>
-            <a href="https://subscriptiontracker.app/subscriptions" class="button">View Subscription</a>
+            <a href="https://subscriptionstracker.io/subscriptions" class="button">View Subscription</a>
         </center>
 
         <div class="footer">
@@ -580,7 +587,7 @@ Subscription Tracker Team
         ''' if upcoming_renewals else ''}
 
         <center>
-            <a href="https://subscriptiontracker.app/analytics" class="button">View Full Analytics</a>
+            <a href="https://subscriptionstracker.io/analytics" class="button">View Full Analytics</a>
         </center>
 
         <div class="footer">
@@ -756,7 +763,7 @@ Subscription Tracker Team
         </div>
 
         <center>
-            <a href="https://subscriptiontracker.app/analytics" class="button">View Detailed Analytics</a>
+            <a href="https://subscriptionstracker.io/analytics" class="button">View Detailed Analytics</a>
         </center>
 
         <div class="footer">

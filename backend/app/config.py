@@ -48,10 +48,10 @@ class Settings(BaseSettings):
     # Registration Control
     REQUIRE_INVITE_TOKEN: bool = True  # Require invite token for registration in production
 
-    # SendGrid
-    SENDGRID_API_KEY: str = "your_sendgrid_api_key_here"
-    SENDGRID_FROM_EMAIL: str = "noreply@subscriptiontracker.app"
-    SENDGRID_FROM_NAME: str = "Subscription Tracker"
+    # Resend (Email Service)
+    RESEND_API_KEY: str = "re_your_api_key_here"
+    RESEND_FROM_EMAIL: str = "noreply@subscriptionstracker.io"
+    RESEND_FROM_NAME: str = "Subscription Tracker"
 
     # Push Notifications (VAPID)
     VAPID_PUBLIC_KEY: str

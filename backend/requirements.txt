@@ -32,7 +32,7 @@ openai==1.10.0
 httpx==0.27.0  # For async HTTP requests (JMAP, OAuth)
 beautifulsoup4==4.12.3  # For HTML email parsing
 lxml==5.1.0  # For XML/HTML parsing
-sendgrid==6.11.0  # SendGrid for transactional emails
+resend==0.8.0  # Resend for transactional emails
 
 # Google APIs (Gmail integration)
 google-auth==2.27.0
