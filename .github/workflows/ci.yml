@@ -45,12 +45,12 @@ jobs:
 
       - name: Security scan with Strix
         working-directory: backend
+        env:
+          STRIX_LLM: ${{ secrets.STRIX_LLM }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
         run: |
-          pip install strix-scanner
-          strix scan --path . --format json --output strix-results.json || true
-          if [ -f strix-results.json ]; then
-            cat strix-results.json
-          fi
+          pipx install strix-agent
+          strix -n -t . || true
 
       - name: Dependency vulnerability scan
         working-directory: backend
