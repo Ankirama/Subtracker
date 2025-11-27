@@ -787,7 +787,9 @@ async def create_subscription_feedback(
     """
     try:
         # Get the subscription to verify ownership and capture snapshot
-        subscription = db.query(Subscription).join(Mailbox).filter(
+        subscription = db.query(Subscription).join(Mailbox).options(
+            joinedload(Subscription.source_emails)
+        ).filter(
             Subscription.id == feedback_data.subscription_id,
             Mailbox.user_id == current_user.id
         ).first()
@@ -820,8 +822,12 @@ async def create_subscription_feedback(
         if subscription.extraction_metadata:
             ai_classification_data = subscription.extraction_metadata
 
-        # Get source email IDs
-        source_email_ids = [email.id for email in subscription.source_emails]
+        # Get source email IDs (handle case where relationship might not be loaded)
+        try:
+            source_email_ids = [email.id for email in subscription.source_emails] if subscription.source_emails else []
+        except Exception as e:
+            logger.warning(f"Could not load source_emails for subscription {subscription.id}: {e}")
+            source_email_ids = []
 
         # Create feedback record
         feedback = SubscriptionFeedback(
