@@ -73,6 +73,10 @@ jobs:
           RESEND_FROM_NAME: Test
           OPENAI_API_KEY: test_openai_key
           REDIS_URL: redis://localhost:6379/0
+          CELERY_BROKER_URL: redis://localhost:6379/0
+          CELERY_RESULT_BACKEND: redis://localhost:6379/0
+          VAPID_PUBLIC_KEY: test_vapid_public_key_for_ci_testing_only
+          VAPID_PRIVATE_KEY: test_vapid_private_key_for_ci_testing_only
         run: |
           pytest tests/ -v --cov=app --cov-report=term-missing --cov-report=xml
 
