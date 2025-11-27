@@ -236,3 +236,4 @@ This is currently a personal project. More information about contributing will b
 - Built with [FastAPI](https://fastapi.tiangolo.com/)
 - Powered by [OpenAI](https://openai.com/)
 - UI components from [Chakra UI](https://chakra-ui.com/)
+# CI/CD Pipeline Active
