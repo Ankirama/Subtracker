@@ -43,14 +43,16 @@ jobs:
         run: |
           mypy app --ignore-missing-imports --no-strict-optional --disable-error-code=assignment --disable-error-code=arg-type --disable-error-code=union-attr --disable-error-code=var-annotated || true
 
-      - name: Security scan with Strix
-        working-directory: backend
-        env:
-          STRIX_LLM: ${{ secrets.STRIX_LLM }}
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-        run: |
-          pipx install strix-agent
-          strix -n -t . || true
+      # Strix disabled - run manually due to long execution time (LLM-powered analysis)
+      # To run manually: pipx install strix-agent && strix -n -t .
+      # - name: Security scan with Strix
+      #   working-directory: backend
+      #   env:
+      #     STRIX_LLM: ${{ secrets.STRIX_LLM }}
+      #     LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      #   run: |
+      #     pipx install strix-agent
+      #     strix -n -t . || true
 
       - name: Dependency vulnerability scan
         working-directory: backend
