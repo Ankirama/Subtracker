@@ -5,7 +5,7 @@ Supports Fastmail and other JMAP-compatible providers.
 
 import httpx
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone
+from datetime import datetime
 import logging
 
 from app.email_providers.base import EmailProviderInterface, EmailMessage, EmailFolder
@@ -427,7 +427,7 @@ class JMAPProvider(EmailProviderInterface):
             if not emails:
                 return None
 
-            email = emails[0]
+            emails[0]
             # Convert to EmailMessage (same logic as fetch_messages)
             # ... (implementation similar to above)
 

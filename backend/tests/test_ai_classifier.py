@@ -1,7 +1,7 @@
 """Comprehensive tests for ai_classifier service"""
 
 import pytest
-from unittest.mock import Mock, patch, AsyncMock, MagicMock
+from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 import json
 
@@ -109,7 +109,7 @@ class TestGetOpenAIClient:
         """Should use API key from admin settings if available"""
         mock_get_config.return_value = "admin_api_key"
 
-        client = get_openai_client(db=Mock())
+        get_openai_client(db=Mock())
 
         mock_openai.assert_called_once_with(api_key="admin_api_key")
         mock_get_config.assert_called_once()
@@ -124,7 +124,7 @@ class TestGetOpenAIClient:
         mock_settings.OPENAI_API_KEY = "settings_api_key"
         mock_get_config.return_value = "settings_api_key"
 
-        client = get_openai_client(db=None)
+        get_openai_client(db=None)
 
         mock_openai.assert_called_once_with(api_key="settings_api_key")
 

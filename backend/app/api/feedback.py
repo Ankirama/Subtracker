@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, and_, case, desc, String
 from typing import List
-from uuid import UUID
 import logging
 import json
 
@@ -178,7 +177,7 @@ async def get_dashboard_metrics(
                     and_(
                         CancellationFeedback.ai_confidence_at_feedback
                         >= high_confidence_threshold,
-                        CancellationFeedback.successfully_cancelled == True,
+                        CancellationFeedback.successfully_cancelled,
                     )
                 )
             ).scalar()
@@ -211,7 +210,7 @@ async def get_dashboard_metrics(
                     and_(
                         CancellationFeedback.ai_confidence_at_feedback
                         < high_confidence_threshold,
-                        CancellationFeedback.successfully_cancelled == True,
+                        CancellationFeedback.successfully_cancelled,
                     )
                 )
             ).scalar()
@@ -407,7 +406,7 @@ async def _get_provider_metrics(db: Session) -> List[ProviderMetrics]:
                 )
             ).label("positive_count"),
             func.sum(
-                case((CancellationFeedback.successfully_cancelled == True, 1), else_=0)
+                case((CancellationFeedback.successfully_cancelled, 1), else_=0)
             ).label("success_count"),
             func.count(
                 case(

@@ -52,7 +52,7 @@ def print_research_result(result: dict, title: str = "Research Result"):
             print(f"  {i}. {step}")
 
     if result.get("gotchas"):
-        print(f"\n⚠️ Gotchas:")
+        print("\n⚠️ Gotchas:")
         for gotcha in result["gotchas"]:
             print(f"  - {gotcha}")
 
@@ -155,7 +155,7 @@ async def test_caching(db: Session, provider: str):
 async def test_error_handling(db: Session):
     """Test error handling with invalid inputs"""
     logger.info(f"\n{'='*80}")
-    logger.info(f"Testing error handling")
+    logger.info("Testing error handling")
     logger.info(f"{'='*80}\n")
 
     service = CancellationResearchService(db)
@@ -204,7 +204,7 @@ async def test_database_storage(db: Session, provider: str):
         logger.error(f"❌ No record found in database for {provider}")
         return False
 
-    logger.info(f"✅ Found database record:")
+    logger.info("✅ Found database record:")
     logger.info(f"  - ID: {stored.id}")
     logger.info(f"  - Provider: {stored.provider_name}")
     logger.info(f"  - Difficulty: {stored.difficulty_rating.value}")

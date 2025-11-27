@@ -5,8 +5,7 @@ This allows runtime configuration changes through the admin panel without
 requiring application restarts.
 """
 
-from typing import Optional, Any
-from functools import lru_cache
+from typing import Any
 import logging
 
 from app.config import settings

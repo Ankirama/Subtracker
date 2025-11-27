@@ -7,7 +7,6 @@ Sends system-wide announcements to all users or specific user groups.
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from decimal import Decimal
 import logging
 import uuid
 import markdown
@@ -236,7 +235,7 @@ def broadcast_system_announcement(
 
         # Determine target users
         if target_all_users:
-            users = db.query(User).filter(User.is_active == True).all()
+            users = db.query(User).filter(User.is_active).all()
             logger.info(f"Broadcasting to all {len(users)} active users")
         else:
             if not target_user_ids:
@@ -247,7 +246,7 @@ def broadcast_system_announcement(
             user_uuids = [uuid.UUID(uid) for uid in target_user_ids]
             users = (
                 db.query(User)
-                .filter(User.id.in_(user_uuids), User.is_active == True)
+                .filter(User.id.in_(user_uuids), User.is_active)
                 .all()
             )
             logger.info(f"Broadcasting to {len(users)} specified users")
@@ -263,7 +262,7 @@ def broadcast_system_announcement(
                     NotificationPreference.user_id == user.id,
                     NotificationPreference.notification_type
                     == NotificationType.SYSTEM_ANNOUNCEMENT,
-                    NotificationPreference.enabled == True,
+                    NotificationPreference.enabled,
                 )
                 .first()
             )

@@ -17,9 +17,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.admin import AdminSetting
-from app.models.sync_history import SyncHistory  # Import to resolve relationships
 from app.config import settings
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 # Define all expected settings from config_helper
 EXPECTED_SETTINGS = {
@@ -215,7 +214,7 @@ def print_status(status: Dict[str, Any]):
     print("📊 ADMIN CONFIGURATION STATUS")
     print("=" * 70)
 
-    print(f"\n📈 Overview:")
+    print("\n📈 Overview:")
     print(f"   Total Expected Settings: {status['total_expected']}")
     print(f"   Total Found in Database: {status['total_found']}")
     print(f"   ✅ Valid:     {len(status['valid'])}")

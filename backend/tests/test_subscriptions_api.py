@@ -17,7 +17,6 @@ Tests cover:
 
 import pytest
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
 
 
 class TestSubscriptionsListEndpoint:

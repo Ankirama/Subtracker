@@ -8,19 +8,15 @@ from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from datetime import datetime, timedelta
-from app.config import settings
 from app.models.provider_cancellation import (
     ProviderCancellationInfo,
-    DifficultyRating,
     InstructionsSource,
 )
-from app.utils.config_helper import get_config_value
 from app.services.ai_classifier import get_openai_client
-from app.services.prompts import get_prompt, PromptVersion, get_prompt_metadata
+from app.services.prompts import get_prompt, PromptVersion
 from app.services.prompt_validation import validate_research
 import logging
 import json
-import asyncio
 import random
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,6 @@ Tests price change detection directly without using API calls.
 """
 
 import sys
-import os
 from pathlib import Path
 from decimal import Decimal
 
@@ -85,7 +84,7 @@ def run_test():
         # Run price check again
         print("\n📝 Step 4: Running price check (should detect change)...")
         result = check_price_changes()
-        print(f"\n📊 Task Result:")
+        print("\n📊 Task Result:")
         print(f"   Status: {result.get('status')}")
         print(f"   Changes detected: {result.get('price_changes_detected', 0)}")
         print(f"   Notifications created: {result.get('notifications_created', 0)}")

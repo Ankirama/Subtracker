@@ -53,7 +53,7 @@ async def list_notifications(
     query = db.query(Notification).filter(Notification.user_id == current_user.id)
 
     if unread_only:
-        query = query.filter(Notification.is_read == False)
+        query = query.filter(not Notification.is_read)
 
     if notification_type:
         query = query.filter(Notification.type == notification_type)
@@ -62,7 +62,7 @@ async def list_notifications(
     total = query.count()
     unread_count = (
         db.query(Notification)
-        .filter(Notification.user_id == current_user.id, Notification.is_read == False)
+        .filter(Notification.user_id == current_user.id, not Notification.is_read)
         .count()
     )
 
@@ -226,7 +226,7 @@ async def get_upcoming_renewals(
         .filter(
             and_(
                 Subscription.user_id == current_user.id,
-                Subscription.is_active == True,
+                Subscription.is_active,
                 or_(
                     and_(
                         Subscription.next_billing_date.isnot(None),

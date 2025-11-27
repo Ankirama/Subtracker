@@ -16,7 +16,6 @@ from app.models.user import User
 from app.tasks.trial_reminders import (
     should_send_trial_reminder,
     create_trial_notification,
-    send_trial_email,
     check_trial_reminders,
 )
 
@@ -227,7 +226,7 @@ class TestCheckTrialReminders:
         db_session.add(pref)
         db_session.commit()
 
-        result = check_trial_reminders()
+        check_trial_reminders()
 
         # Should not send notifications
         mock_send_email.assert_not_called()

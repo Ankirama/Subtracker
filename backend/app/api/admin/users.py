@@ -4,7 +4,7 @@ Admin API endpoints for user management.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from typing import Optional
 import uuid
 from datetime import datetime
@@ -94,8 +94,8 @@ async def get_user_stats(db: Session = Depends(get_db)):
     Get user statistics.
     """
     total_users = db.query(func.count(User.id)).scalar()
-    active_users = db.query(func.count(User.id)).filter(User.is_active == True).scalar()
-    admin_users = db.query(func.count(User.id)).filter(User.is_admin == True).scalar()
+    active_users = db.query(func.count(User.id)).filter(User.is_active).scalar()
+    admin_users = db.query(func.count(User.id)).filter(User.is_admin).scalar()
 
     # Users created in last 30 days
     from datetime import timedelta

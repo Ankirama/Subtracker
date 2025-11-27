@@ -3,7 +3,7 @@ Pydantic schemas for notification endpoints.
 """
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, Literal
+from typing import Optional
 from datetime import datetime
 from uuid import UUID
 

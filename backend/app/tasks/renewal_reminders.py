@@ -5,7 +5,7 @@ Checks for upcoming subscription renewals and sends notifications based on user 
 """
 
 from datetime import datetime, timedelta, date
-from typing import List, Tuple
+from typing import Tuple
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 import logging
@@ -269,7 +269,7 @@ def check_renewal_reminders():
                 and_(
                     NotificationPreference.notification_type
                     == NotificationType.RENEWAL_REMINDER,
-                    NotificationPreference.enabled == True,
+                    NotificationPreference.enabled,
                 )
             )
             .all()
@@ -287,7 +287,7 @@ def check_renewal_reminders():
                 .filter(
                     and_(
                         Subscription.user_id == pref.user_id,
-                        Subscription.is_active == True,
+                        Subscription.is_active,
                         or_(
                             Subscription.next_billing_date.isnot(None),
                             Subscription.renewal_date.isnot(None),

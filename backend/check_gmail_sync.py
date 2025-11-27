@@ -15,7 +15,6 @@ from app.models.mailbox import Mailbox
 from app.models.sync_history import SyncHistory
 from app.models.email_message import EmailMessage
 from sqlalchemy import desc
-from datetime import datetime, timedelta
 
 
 def check_gmail_sync(mailbox_id: str):
@@ -92,7 +91,7 @@ def check_gmail_sync(mailbox_id: str):
         # Check batching pattern
         if latest_sync and latest_sync.emails_processed:
             batch_count = (latest_sync.emails_processed // mailbox.batch_size) + 1
-            print(f"🔍 Pagination Analysis:")
+            print("🔍 Pagination Analysis:")
             print(f"   Batch Size: {mailbox.batch_size}")
             print(f"   Emails Processed: {latest_sync.emails_processed}")
             print(f"   Expected Batches: ≥{batch_count}")
@@ -103,7 +102,7 @@ def check_gmail_sync(mailbox_id: str):
                 print("❌ PAGINATION BUG CONFIRMED!")
                 print(f"   Only fetched {latest_sync.emails_processed} emails")
                 print(f"   This is ≤ batch_size ({mailbox.batch_size})")
-                print(f"   Indicates pagination stopped after first batch")
+                print("   Indicates pagination stopped after first batch")
                 print()
                 print("🔧 Root Cause:")
                 print("   Gmail provider's fetch_messages() doesn't implement")

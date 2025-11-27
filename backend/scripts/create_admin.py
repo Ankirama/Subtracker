@@ -82,11 +82,11 @@ def create_admin_user(email: str, password: str, display_name: str = None):
         )
         session.commit()
 
-        print(f"Admin user created successfully!")
+        print("Admin user created successfully!")
         print(f"  Email: {email}")
         print(f"  Display Name: {display_name or '(not set)'}")
         print(f"  ID: {user_id}")
-        print(f"\nYou can now log in at your Subscription Tracker instance.")
+        print("\nYou can now log in at your Subscription Tracker instance.")
 
     except Exception as e:
         session.rollback()

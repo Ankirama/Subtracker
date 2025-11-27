@@ -10,9 +10,7 @@ Tests cover:
 - Empty data handling
 """
 
-import pytest
 from datetime import datetime, timezone, timedelta, date
-from decimal import Decimal
 
 from app.services.export_service import ExportService
 

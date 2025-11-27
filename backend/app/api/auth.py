@@ -84,8 +84,7 @@ async def register(
     from app.models.invite_token import InviteToken
 
     # Get client info
-    ip_address = request.client.host if request.client else None
-    user_agent = request.headers.get("user-agent")
+    request.headers.get("user-agent")
 
     # Check invite token if required
     invite = None
@@ -126,7 +125,7 @@ async def register(
         ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"This invite is for a different email address",
+                detail="This invite is for a different email address",
             )
 
     # Check if user already exists
@@ -615,7 +614,6 @@ async def delete_account(
     Returns:
         Success message
     """
-    from app.schemas.auth import DeleteAccountRequest
     from app.security.password import verify_password
 
     # Verify password

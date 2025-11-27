@@ -220,7 +220,6 @@ async def get_config_status(
         Configuration status with lists of missing, incomplete, and valid settings
     """
     from app.models.admin import AdminSetting
-    from app.config import settings as app_settings
 
     # Define expected settings (matches config_helper mappings)
     EXPECTED_SETTINGS = {
@@ -327,7 +326,7 @@ async def get_config_status(
 
             # Check type mismatch
             if setting.value_type != expected["value_type"]:
-                issues.append(f"type_mismatch")
+                issues.append("type_mismatch")
 
             if issues:
                 incomplete.append(

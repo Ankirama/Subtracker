@@ -1,7 +1,7 @@
 """Comprehensive tests for AI optimizer service"""
 
 import pytest
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from unittest.mock import patch, MagicMock
 from uuid import uuid4
 from sqlalchemy.orm import Session

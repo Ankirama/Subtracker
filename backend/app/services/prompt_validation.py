@@ -4,7 +4,6 @@ AI response validation framework for cancellation research quality assurance.
 
 from typing import Dict, Any, List
 from datetime import datetime
-import re
 import logging
 
 logger = logging.getLogger(__name__)

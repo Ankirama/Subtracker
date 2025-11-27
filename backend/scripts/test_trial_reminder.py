@@ -5,7 +5,6 @@ Creates a test subscription with trial ending soon and triggers the reminder tas
 """
 
 import sys
-import os
 from datetime import date, timedelta, datetime, timezone
 from pathlib import Path
 
@@ -203,9 +202,9 @@ def run_test():
 
     # Cleanup instructions
     print("🧹 Cleanup (optional):")
-    print(f"   To delete test user and subscriptions, run:")
+    print("   To delete test user and subscriptions, run:")
     print(
-        f'   python -c "from app.database import SessionLocal; from app.models.user import User; db = SessionLocal(); user = db.query(User).filter(User.email==\\"bother@ankirama.com\\").first(); db.delete(user) if user else None; db.commit(); print(\\"Cleaned up\\")"'
+        '   python -c "from app.database import SessionLocal; from app.models.user import User; db = SessionLocal(); user = db.query(User).filter(User.email==\\"bother@ankirama.com\\").first(); db.delete(user) if user else None; db.commit(); print(\\"Cleaned up\\")"'
     )
     print()
 

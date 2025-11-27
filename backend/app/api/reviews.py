@@ -5,7 +5,6 @@ Provides intelligent suggestions for which subscriptions to review or cancel.
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from uuid import UUID
 
 from app.database import get_db
 from app.security.dependencies import get_current_user

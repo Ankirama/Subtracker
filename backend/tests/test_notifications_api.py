@@ -11,12 +11,10 @@ Tests cover:
 - Summary preview
 """
 
-import pytest
 from datetime import datetime, timezone, timedelta, date
 
 from app.models.notification import (
     Notification,
-    NotificationPreference,
     NotificationType,
 )
 
@@ -294,7 +292,7 @@ class TestMarkAllNotificationsRead:
         # Verify all are now read
         unread_count = (
             db_session.query(Notification)
-            .filter(Notification.user_id == test_user.id, Notification.is_read == False)
+            .filter(Notification.user_id == test_user.id, not Notification.is_read)
             .count()
         )
         assert unread_count == 0

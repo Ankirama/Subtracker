@@ -6,7 +6,6 @@ import csv
 import io
 from datetime import datetime, date
 from typing import List, Optional
-from decimal import Decimal
 
 from app.models.subscription import Subscription
 

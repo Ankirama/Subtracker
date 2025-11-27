@@ -17,8 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.hybrid import hybrid_property
-from datetime import datetime, timedelta
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import uuid
 

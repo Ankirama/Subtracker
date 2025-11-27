@@ -328,7 +328,7 @@ def check_trial_reminders():
                 db.query(Subscription)
                 .filter(
                     and_(
-                        Subscription.is_active == True,
+                        Subscription.is_active,
                         Subscription.trial_end_date == target_date,
                         Subscription.trial_status.in_(
                             ["trial", None]

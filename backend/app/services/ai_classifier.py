@@ -210,7 +210,7 @@ async def classify_email(
             logger.info(f"Classification result: {result}")
             return result
 
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             logger.error(f"Failed to parse OpenAI response as JSON: {result_text}")
             # Return conservative default
             return {

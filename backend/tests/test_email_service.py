@@ -1,10 +1,8 @@
 """Comprehensive tests for email_service"""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from uuid import uuid4
-from datetime import datetime, date
-from decimal import Decimal
+from unittest.mock import Mock, patch
+from datetime import datetime
 
 from app.services.email_service import EmailService
 
@@ -73,7 +71,7 @@ class TestEmailServiceInit:
             mock_settings.SENDGRID_FROM_EMAIL = "test@example.com"
             mock_settings.SENDGRID_FROM_NAME = "Test"
 
-            service = EmailService()
+            EmailService()
 
             mock_client.assert_called_once_with("admin_override_key")
 

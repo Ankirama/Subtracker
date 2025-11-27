@@ -6,7 +6,6 @@ Provides AI-powered cancellation research and subscription cancellation manageme
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from typing import Optional
 from uuid import UUID
 from datetime import datetime
 

@@ -187,7 +187,7 @@ class NotificationService:
             .filter(
                 Notification.id.in_(notification_ids),
                 Notification.user_id == user_id,
-                Notification.is_read == False,
+                not Notification.is_read,
             )
             .update(
                 {"is_read": True, "read_at": datetime.now()}, synchronize_session=False
@@ -208,7 +208,7 @@ class NotificationService:
         """
         updated_count = (
             db.query(Notification)
-            .filter(Notification.user_id == user_id, Notification.is_read == False)
+            .filter(Notification.user_id == user_id, not Notification.is_read)
             .update(
                 {"is_read": True, "read_at": datetime.now()}, synchronize_session=False
             )
@@ -226,7 +226,7 @@ class NotificationService:
         """Get count of unread notifications for a user."""
         return (
             db.query(Notification)
-            .filter(Notification.user_id == user_id, Notification.is_read == False)
+            .filter(Notification.user_id == user_id, not Notification.is_read)
             .count()
         )
 

@@ -10,7 +10,6 @@ Tests cover:
 - Duplicate detection
 """
 
-import pytest
 from uuid import uuid4
 
 from app.models.category import Category, DEFAULT_CATEGORIES

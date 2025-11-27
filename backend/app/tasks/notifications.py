@@ -3,9 +3,7 @@ Celery tasks for automatic notification generation
 """
 
 from datetime import datetime, timedelta
-from typing import Dict, List
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
+from sqlalchemy import or_
 from celery.utils.log import get_task_logger
 
 from app.celery_app import celery_app
@@ -16,9 +14,7 @@ from app.models.notification import (
     NotificationPreference,
     NotificationType,
 )
-from app.models.user import User
 from app.services.notification_service import NotificationService
-from app.services.email_service import EmailService
 
 logger = get_task_logger(__name__)
 
@@ -41,7 +37,7 @@ def send_renewal_reminders():
             .filter(
                 NotificationPreference.notification_type
                 == NotificationType.RENEWAL_REMINDER.value,
-                NotificationPreference.enabled == True,
+                NotificationPreference.enabled,
             )
             .all()
         )
@@ -55,7 +51,7 @@ def send_renewal_reminders():
                 db.query(Subscription)
                 .filter(
                     Subscription.user_id == pref.user_id,
-                    Subscription.is_active == True,
+                    Subscription.is_active,
                     Subscription.next_billing_date.isnot(None),
                     Subscription.next_billing_date >= target_date - timedelta(days=1),
                     Subscription.next_billing_date <= target_date + timedelta(days=1),
@@ -82,7 +78,7 @@ def send_renewal_reminders():
                     days_until = (
                         subscription.next_billing_date - datetime.utcnow().date()
                     ).days
-                    notification = NotificationService.create_notification(
+                    NotificationService.create_notification(
                         db=db,
                         user_id=pref.user_id,
                         notification_type=NotificationType.RENEWAL_REMINDER,
@@ -137,7 +133,7 @@ def send_weekly_summaries_deprecated():
             .filter(
                 NotificationPreference.notification_type
                 == NotificationType.WEEKLY_SUMMARY.value,
-                NotificationPreference.enabled == True,
+                NotificationPreference.enabled,
                 or_(
                     NotificationPreference.summary_day_of_week == current_day,
                     NotificationPreference.summary_day_of_week.is_(
@@ -153,7 +149,7 @@ def send_weekly_summaries_deprecated():
             subscriptions = (
                 db.query(Subscription)
                 .filter(
-                    Subscription.user_id == pref.user_id, Subscription.is_active == True
+                    Subscription.user_id == pref.user_id, Subscription.is_active
                 )
                 .all()
             )
@@ -188,7 +184,7 @@ def send_weekly_summaries_deprecated():
                 )
 
             # Create weekly summary notification
-            notification = NotificationService.create_notification(
+            NotificationService.create_notification(
                 db=db,
                 user_id=pref.user_id,
                 notification_type=NotificationType.WEEKLY_SUMMARY,
@@ -247,7 +243,7 @@ def send_monthly_summaries_deprecated():
             .filter(
                 NotificationPreference.notification_type
                 == NotificationType.MONTHLY_SUMMARY.value,
-                NotificationPreference.enabled == True,
+                NotificationPreference.enabled,
                 or_(
                     NotificationPreference.summary_day_of_month == current_day,
                     NotificationPreference.summary_day_of_month.is_(
@@ -263,7 +259,7 @@ def send_monthly_summaries_deprecated():
             subscriptions = (
                 db.query(Subscription)
                 .filter(
-                    Subscription.user_id == pref.user_id, Subscription.is_active == True
+                    Subscription.user_id == pref.user_id, Subscription.is_active
                 )
                 .all()
             )
@@ -295,14 +291,14 @@ def send_monthly_summaries_deprecated():
 
             # Build summary message
             message_parts = [
-                f"Monthly subscription report:",
+                "Monthly subscription report:",
                 f"• {len(subscriptions)} active subscription{'s' if len(subscriptions) != 1 else ''}",
                 f"• ${total_monthly_cost:.2f}/month (${yearly_projection:.2f}/year projected)",
                 f"• {len(upcoming_renewals)} renewal{'s' if len(upcoming_renewals) != 1 else ''} this month",
             ]
 
             # Create monthly summary notification
-            notification = NotificationService.create_notification(
+            NotificationService.create_notification(
                 db=db,
                 user_id=pref.user_id,
                 notification_type=NotificationType.MONTHLY_SUMMARY,
@@ -351,7 +347,7 @@ def check_inactive_subscriptions():
             .filter(
                 NotificationPreference.notification_type
                 == NotificationType.INACTIVE_SUBSCRIPTION.value,
-                NotificationPreference.enabled == True,
+                NotificationPreference.enabled,
             )
             .all()
         )
@@ -364,7 +360,7 @@ def check_inactive_subscriptions():
                 db.query(Subscription)
                 .filter(
                     Subscription.user_id == pref.user_id,
-                    Subscription.is_active == True,
+                    Subscription.is_active,
                     or_(
                         Subscription.last_confirmed_at < inactive_threshold,
                         Subscription.last_confirmed_at.is_(None),
@@ -403,7 +399,7 @@ def check_inactive_subscriptions():
                     )
 
                     # Create inactive subscription notification
-                    notification = NotificationService.create_notification(
+                    NotificationService.create_notification(
                         db=db,
                         user_id=pref.user_id,
                         notification_type=NotificationType.INACTIVE_SUBSCRIPTION,

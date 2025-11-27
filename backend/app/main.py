@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from app.config import settings
 import logging
 from logging.handlers import RotatingFileHandler
-import os
 from pathlib import Path
 
 # Configure logging to both stdout and file

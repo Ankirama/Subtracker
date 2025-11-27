@@ -358,7 +358,7 @@ def check_price_changes():
         # Get all active subscriptions with prices
         subscriptions = (
             db.query(Subscription)
-            .filter(Subscription.is_active == True, Subscription.amount.isnot(None))
+            .filter(Subscription.is_active, Subscription.amount.isnot(None))
             .all()
         )
 

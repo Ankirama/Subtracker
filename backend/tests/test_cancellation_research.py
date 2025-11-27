@@ -13,11 +13,8 @@ from app.services.cancellation_research import (
 )
 from app.models.provider_cancellation import (
     ProviderCancellationInfo,
-    DifficultyRating,
     InstructionsSource,
 )
-from app.models.user import User
-from app.services.prompts import PromptVersion
 
 
 @pytest.fixture
@@ -322,7 +319,7 @@ class TestCallOpenAIResearch:
                     "recommended_action": "accept",
                 }
 
-                result = await cancellation_service._call_openai_research("Netflix")
+                await cancellation_service._call_openai_research("Netflix")
 
                 # Verify OpenAI was called
                 mock_client.chat.completions.create.assert_called_once()
@@ -551,7 +548,7 @@ class TestResearchCancellationConvenienceFunction:
         ) as mock_research:
             mock_research.return_value = sample_research_data
 
-            result = await research_cancellation(
+            await research_cancellation(
                 "Spotify", db_session, force_refresh=True
             )
 

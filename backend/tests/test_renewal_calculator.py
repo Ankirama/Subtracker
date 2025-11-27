@@ -10,7 +10,6 @@ Tests cover:
 - Edge cases and error handling
 """
 
-import pytest
 from datetime import datetime, timedelta, timezone
 from dateutil.relativedelta import relativedelta
 

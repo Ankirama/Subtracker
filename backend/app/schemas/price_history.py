@@ -2,7 +2,7 @@
 Pydantic schemas for Price History API requests and responses.
 """
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 from uuid import UUID

@@ -389,7 +389,6 @@ def get_subscription_emails(db: Session, subscription_id: str) -> List[Dict]:
 
     Returns list of dicts with 'date', 'body_text', 'body_html' sorted by date (newest first).
     """
-    from app.models.subscription import Subscription
     from app.models.email_message import EmailMessage, subscription_emails
 
     results = (

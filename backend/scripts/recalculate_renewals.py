@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.subscription import Subscription
 from app.services.renewal_calculator import RenewalCalculator, get_subscription_emails
-from datetime import datetime
 
 
 def recalculate_all_subscriptions():
@@ -45,7 +44,7 @@ def recalculate_all_subscriptions():
                 subscription_emails_data = get_subscription_emails(db, subscription.id)
 
                 if not subscription_emails_data:
-                    print(f"  ⚠️  No emails found, skipping")
+                    print("  ⚠️  No emails found, skipping")
                     skipped += 1
                     continue
 
@@ -103,7 +102,7 @@ def recalculate_all_subscriptions():
                     print(f"  ✅ Updated: {', '.join(changes)}")
                     updated += 1
                 else:
-                    print(f"  ➡️  No changes needed")
+                    print("  ➡️  No changes needed")
                     skipped += 1
 
             except Exception as e:
@@ -115,7 +114,7 @@ def recalculate_all_subscriptions():
         db.commit()
 
         print(f"\n{'='*60}")
-        print(f"Recalculation complete!")
+        print("Recalculation complete!")
         print(f"  Total subscriptions: {total}")
         print(f"  Updated: {updated}")
         print(f"  Skipped (no changes): {skipped}")

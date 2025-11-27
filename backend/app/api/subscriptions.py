@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 from dateutil.relativedelta import relativedelta
 
@@ -15,7 +15,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.mailbox import Mailbox
 from app.models.subscription import Subscription
-from app.models.email_message import EmailMessage, subscription_emails
+from app.models.email_message import subscription_emails
 from app.models.subscription_feedback import SubscriptionFeedback
 from app.models.price_history import PriceHistory
 from app.schemas.subscription import (
@@ -25,7 +25,6 @@ from app.schemas.subscription import (
     SubscriptionListResponse,
     SubscriptionStats,
     SubscriptionDetailResponse,
-    SubscriptionEmailLink,
     EmailMessageResponse,
     AnalyticsResponse,
     MonthlySpendingData,
@@ -134,7 +133,7 @@ async def list_subscriptions(
 
     # Apply trial filter (default: exclude trials)
     if exclude_trials:
-        query = query.filter(Subscription.is_confirmed == True)
+        query = query.filter(Subscription.is_confirmed)
 
     # Apply filters
     if mailbox_id:
@@ -144,9 +143,9 @@ async def list_subscriptions(
     if status_filter:
         # Convert status filter to boolean for is_active field
         if status_filter.lower() == "active":
-            query = query.filter(Subscription.is_active == True)
+            query = query.filter(Subscription.is_active)
         elif status_filter.lower() == "inactive":
-            query = query.filter(Subscription.is_active == False)
+            query = query.filter(not Subscription.is_active)
 
     if category:
         query = query.filter(Subscription.category == category)
@@ -189,12 +188,12 @@ async def get_subscription_stats(
     query = (
         db.query(Subscription)
         .join(Mailbox)
-        .filter(Mailbox.user_id == current_user.id, Subscription.is_active == True)
+        .filter(Mailbox.user_id == current_user.id, Subscription.is_active)
     )
 
     # Apply trial filter
     if exclude_trials:
-        query = query.filter(Subscription.is_confirmed == True)
+        query = query.filter(Subscription.is_confirmed)
 
     subscriptions = query.all()
 
@@ -1028,8 +1027,8 @@ async def get_subscription_price_statistics(
     return stats
 
 
-@router.post("/update-status")
-async def update_subscription_status(
+@router.post("/update-renewal-status")
+async def update_subscription_renewal_status(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
@@ -1080,7 +1079,6 @@ async def update_subscription_status(
 
             # Store old status for comparison
             old_active = subscription.is_active
-            old_renewal = subscription.renewal_date
 
             # Calculate renewal date, active status, trial status, and confirmation
             renewal_date, is_active, trial_status, is_confirmed = (

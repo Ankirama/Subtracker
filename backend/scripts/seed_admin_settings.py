@@ -18,7 +18,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.admin import AdminSetting
-from app.models.sync_history import SyncHistory  # Import to resolve relationships
 from app.config import settings
 from app.utils.encryption import encryption_service
 import uuid

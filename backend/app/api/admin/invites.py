@@ -114,7 +114,7 @@ async def list_invites(
     query = db.query(InviteToken)
 
     if not include_used:
-        query = query.filter(InviteToken.is_used == False)
+        query = query.filter(not InviteToken.is_used)
 
     invites = query.order_by(InviteToken.created_at.desc()).all()
 

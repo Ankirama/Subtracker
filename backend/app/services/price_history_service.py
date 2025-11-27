@@ -4,8 +4,6 @@ Price history service for tracking and analyzing subscription price changes.
 
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
-from decimal import Decimal
-from datetime import datetime
 
 from app.models.price_history import PriceHistory
 from app.models.subscription import Subscription

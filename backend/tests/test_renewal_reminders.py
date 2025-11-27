@@ -17,7 +17,6 @@ from app.tasks.renewal_reminders import (
     get_renewal_date,
     should_send_reminder,
     create_renewal_notification,
-    send_renewal_email,
     check_renewal_reminders,
 )
 
@@ -257,7 +256,7 @@ class TestCheckRenewalReminders:
         db_session.add(pref)
         db_session.commit()
 
-        result = check_renewal_reminders()
+        check_renewal_reminders()
 
         # Should not send notifications
         mock_send_email.assert_not_called()
@@ -316,7 +315,7 @@ class TestCheckRenewalReminders:
         subscription_renewing_soon.is_active = False
         db_session.commit()
 
-        result = check_renewal_reminders()
+        check_renewal_reminders()
 
         # Should not send notifications for inactive subscriptions
         mock_send_email.assert_not_called()

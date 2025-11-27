@@ -4,7 +4,7 @@ Admin API endpoints for security events management.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, desc
+from sqlalchemy import func, desc
 from typing import Optional
 import uuid
 from datetime import datetime, timedelta
@@ -107,7 +107,7 @@ async def get_security_stats(db: Session = Depends(get_db)):
     total_events = db.query(func.count(SecurityEvent.id)).scalar()
     unresolved_events = (
         db.query(func.count(SecurityEvent.id))
-        .filter(SecurityEvent.is_resolved == False)
+        .filter(not SecurityEvent.is_resolved)
         .scalar()
     )
 
@@ -123,7 +123,7 @@ async def get_security_stats(db: Session = Depends(get_db)):
     critical_unresolved = (
         db.query(func.count(SecurityEvent.id))
         .filter(
-            SecurityEvent.severity == "critical", SecurityEvent.is_resolved == False
+            SecurityEvent.severity == "critical", not SecurityEvent.is_resolved
         )
         .scalar()
     )
@@ -134,7 +134,7 @@ async def get_security_stats(db: Session = Depends(get_db)):
         count = (
             db.query(func.count(SecurityEvent.id))
             .filter(
-                SecurityEvent.severity == severity, SecurityEvent.is_resolved == False
+                SecurityEvent.severity == severity, not SecurityEvent.is_resolved
             )
             .scalar()
         )

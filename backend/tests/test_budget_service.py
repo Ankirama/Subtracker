@@ -2,7 +2,7 @@
 
 import pytest
 from uuid import uuid4
-from datetime import datetime, date
+from datetime import datetime
 from decimal import Decimal
 from sqlalchemy.orm import Session
 

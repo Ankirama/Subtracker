@@ -3,7 +3,6 @@
 Test script for ReviewSuggestionsService.
 Creates test subscriptions and validates suggestion algorithm.
 """
-import asyncio
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta, date
@@ -246,7 +245,7 @@ def main():
         cleanup_test_subscriptions(db, user.id)
 
         # Create test subscriptions
-        test_subs = create_test_subscriptions(db, user.id, mailbox.id)
+        create_test_subscriptions(db, user.id, mailbox.id)
 
         # Test the service
         logger.info("\n" + "=" * 80)
@@ -258,7 +257,7 @@ def main():
 
         # Display results
         print("\n" + "=" * 80)
-        print(f"📊 REVIEW SUGGESTIONS RESULTS")
+        print("📊 REVIEW SUGGESTIONS RESULTS")
         print("=" * 80)
         print(f"Total suggestions: {result.total_count}")
         print(f"Critical: {result.critical_count}")
@@ -301,12 +300,12 @@ def main():
                 f"✅ Found {result.critical_count} critical suggestion(s) (trial ending today)"
             )
         else:
-            print(f"❌ Expected at least 1 critical suggestion")
+            print("❌ Expected at least 1 critical suggestion")
 
         if result.high_priority_count >= 2:
             print(f"✅ Found {result.high_priority_count} high priority suggestion(s)")
         else:
-            print(f"❌ Expected at least 2 high priority suggestions")
+            print("❌ Expected at least 2 high priority suggestions")
 
         # Check specific suggestions
         providers_found = {s.provider for s in result.suggestions}
@@ -319,7 +318,7 @@ def main():
         }
 
         if expected_providers.issubset(providers_found):
-            print(f"✅ Found all expected providers in suggestions")
+            print("✅ Found all expected providers in suggestions")
         else:
             missing = expected_providers - providers_found
             print(f"❌ Missing providers: {missing}")

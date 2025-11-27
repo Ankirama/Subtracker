@@ -401,7 +401,7 @@ Respond in JSON format:
         """Generate AI-powered insights about subscription portfolio."""
         insights = []
 
-        total_subs = len(subscriptions)
+        len(subscriptions)
         total_monthly = sum(AIOptimizer._get_monthly_cost(s) for s in subscriptions)
         total_savings = sum(r.get("potential_savings", 0) for r in recommendations)
 

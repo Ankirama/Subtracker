@@ -43,7 +43,7 @@ class AuthTester:
             self.access_token = data["access_token"]
             self.refresh_token = data["refresh_token"]
             self.user_id = data["user"]["id"]
-            print(f"✅ Registration successful")
+            print("✅ Registration successful")
             print(f"User ID: {self.user_id}")
             print(f"Access Token: {self.access_token[:20]}...")
             print(f"Refresh Token: {self.refresh_token[:20]}...")
@@ -67,7 +67,7 @@ class AuthTester:
             self.access_token = data["access_token"]
             self.refresh_token = data["refresh_token"]
             self.user_id = data["user"]["id"]
-            print(f"✅ Login successful")
+            print("✅ Login successful")
             print(f"User ID: {self.user_id}")
             print(f"Access Token: {self.access_token[:20]}...")
         else:
@@ -89,7 +89,7 @@ class AuthTester:
 
         if response.status_code == 200:
             data = response.json()
-            print(f"✅ Get current user successful")
+            print("✅ Get current user successful")
             print(f"User info: {json.dumps(data, indent=2)}")
         else:
             print(f"❌ Get current user failed: {response.text}")
@@ -110,7 +110,7 @@ class AuthTester:
             data = response.json()
             old_token = self.access_token[:20] if self.access_token else "None"
             self.access_token = data["access_token"]
-            print(f"✅ Token refresh successful")
+            print("✅ Token refresh successful")
             print(f"Old token: {old_token}...")
             print(f"New token: {self.access_token[:20]}...")
         else:

@@ -8,14 +8,14 @@ Provides comprehensive security protection including:
 - Request/response logging for audit trails
 """
 
-from fastapi import Request, Response
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
-from typing import Dict, Optional
+from typing import Dict
 import time
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 import re
 
 logger = logging.getLogger(__name__)

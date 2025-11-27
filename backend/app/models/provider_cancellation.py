@@ -134,7 +134,7 @@ class ProviderCancellationInfo(Base):
         if not self.last_verified_at:
             return True
 
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         age_days = (
             datetime.now(self.last_verified_at.tzinfo) - self.last_verified_at

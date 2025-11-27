@@ -11,8 +11,8 @@ Tests cover:
 """
 
 import pytest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, patch, MagicMock
+from datetime import datetime, timedelta
+from unittest.mock import patch, MagicMock
 from sqlalchemy.orm import Session
 
 from app.models.user import User
@@ -527,7 +527,6 @@ class TestUnverifiedAccountCleanup:
     def test_cleanup_deletes_old_unverified_accounts(self, db_session):
         """Cleanup task deletes accounts >7 days old without verification."""
         from unittest.mock import patch
-        from app.database import get_db
 
         # Create old unverified user (8 days old)
         password_hash, salt = hash_password("testpassword123")

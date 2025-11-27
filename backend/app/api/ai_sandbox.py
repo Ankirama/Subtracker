@@ -5,10 +5,9 @@ AI Sandbox API endpoints for testing and reviewing email classification/extracti
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
 from datetime import datetime, timezone
-import re
 
 from app.database import get_db
 from app.models.user import User
@@ -180,7 +179,7 @@ async def get_uncertain_emails(
         # Build base query for uncertain emails
         filter_conditions = [
             EmailMessage.mailbox_id.in_(mailbox_ids),
-            EmailMessage.is_subscription == True,
+            EmailMessage.is_subscription,
             or_(
                 EmailMessage.classification_confidence < 0.8,  # Low confidence
                 EmailMessage.id.notin_(  # No subscription created

@@ -4,14 +4,13 @@ Analyzes subscriptions and suggests which ones users should review or cancel.
 """
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select
 from datetime import datetime, timedelta, date, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from uuid import UUID
 from collections import defaultdict
 
 from app.models.subscription import Subscription
-from app.models.email_message import EmailMessage, subscription_emails
 from app.schemas.cancellation import (
     ReviewSuggestion,
     ReviewSuggestionReason,
@@ -76,7 +75,7 @@ class ReviewSuggestionsService:
         # Get all active subscriptions for user
         stmt = select(Subscription).where(
             Subscription.user_id == user_id,
-            Subscription.is_active == True,
+            Subscription.is_active,
             Subscription.cancellation_status != "cancelled",
         )
         subscriptions = self.db.execute(stmt).scalars().all()
@@ -233,7 +232,7 @@ class ReviewSuggestionsService:
         suggestions = []
         now = datetime.now(timezone.utc)
         thirty_days_ago = now - timedelta(days=30)
-        sixty_days_ago = now - timedelta(days=60)
+        now - timedelta(days=60)
 
         for sub in subscriptions:
             # Skip if we don't have email tracking

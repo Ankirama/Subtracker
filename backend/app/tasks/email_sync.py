@@ -5,7 +5,7 @@ Celery tasks for email synchronization and subscription detection.
 from celery import Task
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
-from typing import Dict, List, Any
+from typing import Dict, Any
 from uuid import UUID
 import logging
 import asyncio
@@ -22,8 +22,6 @@ from app.security.encryption import decrypt_credentials
 from app.config import settings
 from app.utils.config_helper import get_config_value
 from app.services.renewal_calculator import RenewalCalculator, get_subscription_emails
-from app.services.ai_classifier import classify_emails_batch
-from app.services.subscription_extractor import extract_subscriptions_batch
 from app.services.email_filter import should_process_email
 
 logger = logging.getLogger(__name__)
@@ -423,7 +421,7 @@ async def _sync_mailbox_async(
                                         )
                                     )
                                     logger.info(
-                                        f"Linked price update email to subscription"
+                                        "Linked price update email to subscription"
                                     )
 
                                 subscriptions_updated += 1
@@ -753,7 +751,7 @@ async def _sync_mailbox_async(
                                         extraction_data=extraction_data_json,
                                     )
                                 )
-                                logger.info(f"Linked email to subscription")
+                                logger.info("Linked email to subscription")
 
                     db.commit()
 

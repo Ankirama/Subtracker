@@ -29,7 +29,7 @@ from app.schemas.sync_history import (
     SyncProgressResponse,
 )
 from app.security.dependencies import get_current_user
-from app.security.encryption import encrypt_credentials, decrypt_credentials
+from app.security.encryption import encrypt_credentials
 from app.email_providers import JMAPProvider, GmailProvider
 import logging
 
@@ -161,7 +161,7 @@ async def list_mailboxes(
     query = db.query(Mailbox).filter(Mailbox.user_id == current_user.id)
 
     if active_only:
-        query = query.filter(Mailbox.is_active == True)
+        query = query.filter(Mailbox.is_active)
 
     mailboxes = query.order_by(Mailbox.created_at.desc()).all()
 

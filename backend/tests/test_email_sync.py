@@ -1,8 +1,7 @@
 """Comprehensive tests for email sync task."""
 
-import pytest
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch
 from sqlalchemy.orm import Session
 from uuid import uuid4
 

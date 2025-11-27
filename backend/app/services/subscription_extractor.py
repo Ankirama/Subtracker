@@ -6,7 +6,6 @@ Uses OpenAI GPT to extract structured subscription information from emails.
 from openai import AsyncOpenAI, RateLimitError, APIError
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from decimal import Decimal
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.email_providers.base import EmailMessage
@@ -229,7 +228,7 @@ async def extract_subscription_data(
                 )
                 return None
 
-        except json.JSONDecodeError as e:
+        except json.JSONDecodeError:
             logger.error(f"Failed to parse extraction response as JSON: {result_text}")
             return None
 

@@ -17,7 +17,6 @@ from app.tasks.notifications import (
     check_inactive_subscriptions,
     _convert_to_monthly,
 )
-from app.tasks.summary_tasks import send_weekly_summaries, send_monthly_summaries
 
 
 @pytest.fixture

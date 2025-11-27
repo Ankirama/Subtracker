@@ -1,7 +1,7 @@
 """Comprehensive tests for summary tasks."""
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime
 from unittest.mock import patch, MagicMock
 from sqlalchemy.orm import Session
 

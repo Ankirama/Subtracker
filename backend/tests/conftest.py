@@ -2,7 +2,6 @@
 Test configuration and fixtures for the subscription tracker backend.
 """
 
-import os
 import pytest
 import json
 from typing import Generator

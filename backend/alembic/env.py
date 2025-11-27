@@ -12,8 +12,6 @@ from app.database import Base
 from app.config import settings
 
 # Import all models so Alembic can detect them
-from app.models.user import User
-from app.models.notification import Notification, NotificationPreference
 
 # from app.models.mailbox import Mailbox
 # from app.models.subscription import Subscription

@@ -2,13 +2,11 @@
 Gmail email provider implementation using Gmail API with OAuth2.
 """
 
-import httpx
 import base64
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 import logging
 from email.utils import parsedate_to_datetime
-import json
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
@@ -186,7 +184,7 @@ class GmailProvider(EmailProviderInterface):
             logger.info(f"Gmail: Starting new query pagination (limit={limit})")
         elif query != self._last_query:
             # Query changed, reset pagination
-            logger.warning(f"Gmail: Query changed mid-pagination, resetting")
+            logger.warning("Gmail: Query changed mid-pagination, resetting")
             self._page_token = None
             self._last_query = query
 

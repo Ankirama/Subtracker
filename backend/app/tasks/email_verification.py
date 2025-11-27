@@ -34,7 +34,7 @@ def cleanup_unverified_users():
         # Find unverified users older than 7 days
         unverified_users = (
             db.query(User)
-            .filter(User.email_verified == False, User.created_at < cutoff_date)
+            .filter(not User.email_verified, User.created_at < cutoff_date)
             .all()
         )
 

@@ -1,7 +1,6 @@
 """Comprehensive tests for email_templates"""
 
 import pytest
-from datetime import datetime
 
 from app.services.email_templates import EmailTemplates
 

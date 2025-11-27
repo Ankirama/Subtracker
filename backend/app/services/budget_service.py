@@ -4,10 +4,9 @@ Budget service for calculating spending, tracking budgets, and generating alerts
 
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from datetime import datetime, date
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from typing import List, Dict, Optional
-from decimal import Decimal
 
 from app.models.budget import Budget
 from app.models.subscription import Subscription
@@ -132,7 +131,7 @@ class BudgetService:
         # Build query for active subscriptions
         query = db.query(Subscription).filter(
             and_(
-                Subscription.mailbox_id.in_(mailbox_ids), Subscription.is_active == True
+                Subscription.mailbox_id.in_(mailbox_ids), Subscription.is_active
             )
         )
 

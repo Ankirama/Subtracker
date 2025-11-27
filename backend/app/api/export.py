@@ -74,7 +74,7 @@ async def export_subscriptions_csv(
                 <= datetime.combine(end_date, datetime.max.time())
             )
         if active_only:
-            query = query.filter(Subscription.is_active == True)
+            query = query.filter(Subscription.is_active)
         if category:
             query = query.filter(Subscription.category == category)
 
@@ -151,7 +151,7 @@ async def export_subscriptions_pdf(
                 <= datetime.combine(end_date, datetime.max.time())
             )
         if active_only:
-            query = query.filter(Subscription.is_active == True)
+            query = query.filter(Subscription.is_active)
         if category:
             query = query.filter(Subscription.category == category)
 

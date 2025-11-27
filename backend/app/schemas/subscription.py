@@ -5,7 +5,6 @@ Pydantic schemas for subscription endpoints.
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from typing import Optional, Literal
 from datetime import datetime
-from decimal import Decimal
 from uuid import UUID
 
 

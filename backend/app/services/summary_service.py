@@ -7,7 +7,6 @@ Aggregates subscription data and spending patterns for email digests.
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from collections import defaultdict
 
 from app.models.subscription import Subscription
@@ -177,7 +176,7 @@ class SummaryService:
             ai_analysis = AIOptimizer.analyze_subscriptions(
                 db, user, active_subscriptions
             )
-        except Exception as e:
+        except Exception:
             # If AI analysis fails, continue without it
             ai_analysis = {
                 "total_recommendations": 0,

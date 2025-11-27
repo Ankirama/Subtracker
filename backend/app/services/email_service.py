@@ -11,7 +11,6 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models.notification import NotificationType
 from app.utils.config_helper import get_config_value
 from app.services.email_templates import EmailTemplates
 

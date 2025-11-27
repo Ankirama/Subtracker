@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 from app.database import get_db
-from app.schemas.admin import LogEntryResponse, LogListResponse
+from app.schemas.admin import LogListResponse
 from app.security.dependencies import get_current_admin_user
 
 router = APIRouter(prefix="/admin/logs", tags=["admin-logs"])
@@ -197,7 +197,7 @@ async def get_log_stats():
                     errors_24h += 1
                 elif log["level"] == "WARNING":
                     warnings_24h += 1
-        except:
+        except (ValueError, KeyError):
             continue
 
     return {

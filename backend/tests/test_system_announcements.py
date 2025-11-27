@@ -1,10 +1,8 @@
 """Comprehensive tests for system announcements task."""
 
 import pytest
-from datetime import datetime
 from unittest.mock import patch, MagicMock, AsyncMock
 from sqlalchemy.orm import Session
-import uuid
 
 from app.models.notification import (
     Notification,

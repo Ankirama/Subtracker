@@ -2,7 +2,6 @@
 Provider logo and metadata endpoints
 """
 
-import os
 import hashlib
 import httpx
 from pathlib import Path

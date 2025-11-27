@@ -4,8 +4,7 @@ Celery tasks for sending weekly and monthly subscription summaries.
 Generates comprehensive spending reports and sends them via email based on user preferences.
 """
 
-from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
+from datetime import datetime
 import logging
 
 from app.celery_app import celery_app
@@ -46,7 +45,7 @@ def send_weekly_summaries():
             .filter(
                 NotificationPreference.notification_type
                 == NotificationType.WEEKLY_SUMMARY,
-                NotificationPreference.enabled == True,
+                NotificationPreference.enabled,
                 NotificationPreference.summary_day_of_week == current_day_of_week,
             )
             .all()
@@ -74,7 +73,7 @@ def send_weekly_summaries():
                         user_id=user.id,
                         type=NotificationType.WEEKLY_SUMMARY,
                         priority=NotificationPriority.LOW,
-                        title=f"📊 Your Weekly Subscription Summary",
+                        title="📊 Your Weekly Subscription Summary",
                         message=f"Total spending: €{summary_data['total_monthly_cost']:.2f}/mo • {summary_data['total_subscriptions']} active subscriptions",
                         notification_metadata=summary_data,
                     )
@@ -154,7 +153,7 @@ def send_monthly_summaries():
             .filter(
                 NotificationPreference.notification_type
                 == NotificationType.MONTHLY_SUMMARY,
-                NotificationPreference.enabled == True,
+                NotificationPreference.enabled,
                 NotificationPreference.summary_day_of_month == current_day_of_month,
             )
             .all()
@@ -182,7 +181,7 @@ def send_monthly_summaries():
                         user_id=user.id,
                         type=NotificationType.MONTHLY_SUMMARY,
                         priority=NotificationPriority.LOW,
-                        title=f"📈 Your Monthly Subscription Summary",
+                        title="📈 Your Monthly Subscription Summary",
                         message=f"Total spending: €{summary_data['total_monthly_cost']:.2f}/mo • {summary_data['new_subscriptions_count']} new, {summary_data['cancelled_subscriptions_count']} cancelled",
                         notification_metadata=summary_data,
                     )

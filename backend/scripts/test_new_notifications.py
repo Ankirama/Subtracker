@@ -7,11 +7,9 @@ Tests:
 """
 
 import sys
-import os
 from pathlib import Path
 from decimal import Decimal
 import requests
-import json
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -51,7 +49,6 @@ def get_admin_token():
             db.commit()
             print(f"✅ Updated {admin.email} to admin")
 
-        admin_id = admin.id
     finally:
         db.close()
 
@@ -214,7 +211,7 @@ def test_system_announcements():
 
     if response.status_code == 201:
         result = response.json()
-        print(f"✅ Announcement broadcast initiated:")
+        print("✅ Announcement broadcast initiated:")
         print(f"   Announcement ID: {result['announcement_id']}")
         print(f"   Message: {result['message']}")
     else:
@@ -244,7 +241,6 @@ def test_system_announcements():
             f"✅ Found {len(announcement_notifications)} system announcement notification(s):"
         )
         for notif in announcement_notifications[:3]:  # Show first 3
-            metadata = notif.notification_metadata
             user = db.query(User).filter(User.id == notif.user_id).first()
             print(f"\n   📧 Notification ID: {notif.id}")
             print(f"      User: {user.email if user else 'Unknown'}")

@@ -198,7 +198,7 @@ def main():
             logger.info(f"Migrated {result['migrated_emails']} email relationships")
 
         logger.info(f"\n{'='*60}")
-        logger.info(f"Cleanup complete!")
+        logger.info("Cleanup complete!")
         logger.info(f"Total duplicate groups processed: {len(duplicate_groups)}")
         logger.info(f"Total subscriptions merged: {total_merged}")
         logger.info(f"Total subscriptions deleted: {total_deleted}")

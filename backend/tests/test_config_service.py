@@ -531,7 +531,7 @@ class TestAuditLog:
             key="audit.test", value="value", value_type="string", category="system"
         )
 
-        result = config_service.create_setting(setting_data, test_admin_user.id)
+        config_service.create_setting(setting_data, test_admin_user.id)
 
         audit_log = (
             db_session.query(AdminAuditLog)
