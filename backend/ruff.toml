@@ -1,0 +1,13 @@
+# Ruff configuration for backend
+[lint]
+# Ignore specific error codes
+ignore = [
+    "E402",  # Module level import not at top of file (intentional in main.py and scripts)
+    "F823",  # Local variable referenced before assignment (false positives with imports)
+]
+
+# Per-file ignores
+[lint.per-file-ignores]
+"app/main.py" = ["E402"]
+"scripts/*.py" = ["E402"]
+"alembic/env.py" = ["E402"]
