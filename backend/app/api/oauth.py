@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 import secrets
 import logging
 import httpx
+import redis
+import json
 
 from app.database import get_db
 from app.models.user import User
@@ -27,9 +29,16 @@ GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 GMAIL_SCOPES = ["https://www.googleapis.com/auth/gmail.readonly", "email", "profile"]
 
-# In-memory state storage (for production, use Redis)
-# This stores state -> user_id mappings for OAuth flow
-oauth_states = {}
+# OAuth state TTL in seconds (10 minutes)
+OAUTH_STATE_TTL = 600
+
+# Redis client for OAuth state storage (shared across workers)
+try:
+    redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+    logger.info("Redis client initialized for OAuth state storage")
+except Exception as e:
+    logger.error(f"Failed to connect to Redis for OAuth: {e}")
+    redis_client = None
 
 
 @router.get("/google/authorize")
@@ -51,11 +60,28 @@ async def google_authorize(
     # Generate state token for CSRF protection
     state = secrets.token_urlsafe(32)
 
-    # Store state -> user_id mapping (expires after 10 minutes)
-    oauth_states[state] = {
-        "user_id": str(current_user.id),
-        "created_at": datetime.now(timezone.utc)
-    }
+    # Store state -> user_id mapping in Redis (expires after 10 minutes)
+    if redis_client:
+        try:
+            state_data = {
+                "user_id": str(current_user.id),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            redis_key = f"oauth:state:{state}"
+            redis_client.setex(redis_key, OAUTH_STATE_TTL, json.dumps(state_data))
+            logger.info(f"Stored OAuth state in Redis for user {current_user.id}")
+        except Exception as e:
+            logger.error(f"Failed to store OAuth state in Redis: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="OAuth state storage failed. Please try again."
+            )
+    else:
+        logger.error("Redis client not available for OAuth state storage")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OAuth service temporarily unavailable"
+        )
 
     # Build authorization URL
     params = {
@@ -97,15 +123,41 @@ async def google_callback(
             url=f"{settings.FRONTEND_URL}/mailboxes/add?error={error}"
         )
 
-    # Validate state
-    state_data = oauth_states.pop(state, None)
-    if not state_data:
-        logger.error(f"Invalid OAuth state: {state}")
+    # Validate state by retrieving from Redis
+    if not redis_client:
+        logger.error("Redis client not available for OAuth state validation")
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/mailboxes/add?error=oauth_unavailable"
+        )
+
+    try:
+        redis_key = f"oauth:state:{state}"
+        state_json = redis_client.get(redis_key)
+
+        if not state_json:
+            logger.error(f"Invalid or expired OAuth state: {state}")
+            return RedirectResponse(
+                url=f"{settings.FRONTEND_URL}/mailboxes/add?error=invalid_state"
+            )
+
+        # Delete the state from Redis (one-time use)
+        redis_client.delete(redis_key)
+
+        # Parse state data
+        state_data = json.loads(state_json)
+        user_id = state_data["user_id"]
+        logger.info(f"OAuth state validated for user {user_id}")
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse OAuth state data: {e}")
         return RedirectResponse(
             url=f"{settings.FRONTEND_URL}/mailboxes/add?error=invalid_state"
         )
-
-    user_id = state_data["user_id"]
+    except Exception as e:
+        logger.error(f"Failed to validate OAuth state: {e}")
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/mailboxes/add?error=invalid_state"
+        )
 
     try:
         # Exchange code for tokens
