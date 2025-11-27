@@ -6,7 +6,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 import uuid
 
 from app.database import Base
@@ -40,7 +40,10 @@ class PriceHistory(Base):
     detected_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
-    subscription = relationship("Subscription", backref="price_history", passive_deletes=True)
+    subscription = relationship(
+        "Subscription",
+        backref=backref("price_history", passive_deletes=True)
+    )
 
     def __repr__(self):
         return f"<PriceHistory(id={self.id}, subscription_id={self.subscription_id}, change={self.old_amount} -> {self.new_amount})>"
