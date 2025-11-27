@@ -63,20 +63,20 @@ services:
     labels:
       - traefik.enable=true
       # API Router - handles /api/* requests
-      - traefik.http.routers.subtracker-api.rule=Host(`${SUBDOMAIN}.${DOMAIN_NAME}`) && PathPrefix(`/api`)
+      - traefik.http.routers.subtracker-api.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/api`)
       - traefik.http.routers.subtracker-api.tls=true
       - traefik.http.routers.subtracker-api.entrypoints=web,websecure
       - traefik.http.routers.subtracker-api.tls.certresolver=mytlschallenge
       - traefik.http.routers.subtracker-api.service=subtracker-api-svc
       - traefik.http.services.subtracker-api-svc.loadbalancer.server.port=8000
       # Health check endpoint
-      - traefik.http.routers.subtracker-health.rule=Host(`${SUBDOMAIN}.${DOMAIN_NAME}`) && Path(`/health`)
+      - traefik.http.routers.subtracker-health.rule=Host(`${DOMAIN_NAME}`) && Path(`/health`)
       - traefik.http.routers.subtracker-health.tls=true
       - traefik.http.routers.subtracker-health.entrypoints=web,websecure
       - traefik.http.routers.subtracker-health.tls.certresolver=mytlschallenge
       - traefik.http.routers.subtracker-health.service=subtracker-api-svc
       # Docs endpoint
-      - traefik.http.routers.subtracker-docs.rule=Host(`${SUBDOMAIN}.${DOMAIN_NAME}`) && (Path(`/docs`) || Path(`/redoc`) || PathPrefix(`/openapi`))
+      - traefik.http.routers.subtracker-docs.rule=Host(`${DOMAIN_NAME}`) && (Path(`/docs`) || Path(`/redoc`) || PathPrefix(`/openapi`))
       - traefik.http.routers.subtracker-docs.tls=true
       - traefik.http.routers.subtracker-docs.entrypoints=web,websecure
       - traefik.http.routers.subtracker-docs.tls.certresolver=mytlschallenge
@@ -160,14 +160,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: https://${SUBDOMAIN}.${DOMAIN_NAME}/api
+        VITE_API_URL: https://${DOMAIN_NAME}/api
     container_name: subtracker_frontend
     networks:
       - proxy
     labels:
       - traefik.enable=true
       # Frontend Router - handles all other requests
-      - traefik.http.routers.subtracker-frontend.rule=Host(`${SUBDOMAIN}.${DOMAIN_NAME}`)
+      - traefik.http.routers.subtracker-frontend.rule=Host(`${DOMAIN_NAME}`)
       - traefik.http.routers.subtracker-frontend.tls=true
       - traefik.http.routers.subtracker-frontend.entrypoints=web,websecure
       - traefik.http.routers.subtracker-frontend.tls.certresolver=mytlschallenge
