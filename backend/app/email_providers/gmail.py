@@ -43,6 +43,9 @@ class GmailProvider(EmailProviderInterface):
         self.email_address = credentials.get('email_address')
         self.service = None
         self._creds = None
+        # Gmail pagination state
+        self._page_token = None
+        self._last_query = None
 
     def _get_credentials(self) -> Credentials:
         """Build Google credentials object from stored tokens."""
@@ -139,12 +142,21 @@ class GmailProvider(EmailProviderInterface):
         position: int = 0
     ) -> tuple[List[EmailMessage], bool]:
         """
-        Fetch messages from Gmail.
+        Fetch messages from Gmail with proper pageToken-based pagination.
 
-        Note: Gmail uses pageToken-based pagination, not position-based.
-        For now, position parameter is accepted but ignored to maintain
-        interface compatibility. Multi-page pagination would require
-        storing pageTokens between calls.
+        Gmail uses pageToken for pagination. The position parameter indicates
+        whether this is a new query (position=0) or a continuation (position>0).
+        PageTokens are stored in instance variables between calls.
+
+        Args:
+            folder: Gmail label to filter by
+            since_date: Only fetch messages after this date
+            limit: Max messages per batch (Gmail API max is 500)
+            search_query: Additional search query
+            position: 0 for new query, >0 for continuation
+
+        Returns:
+            Tuple of (messages, has_more) where has_more indicates more pages exist
         """
         if not self._authenticated:
             await self.authenticate()
@@ -166,17 +178,42 @@ class GmailProvider(EmailProviderInterface):
 
         query = ' '.join(query_parts) if query_parts else None
 
+        # Reset pageToken if this is a new query (position=0)
+        if position == 0:
+            self._page_token = None
+            self._last_query = query
+            logger.info(f"Gmail: Starting new query pagination (limit={limit})")
+        elif query != self._last_query:
+            # Query changed, reset pagination
+            logger.warning(f"Gmail: Query changed mid-pagination, resetting")
+            self._page_token = None
+            self._last_query = query
+
         try:
+            # Build API request with pageToken if available
+            request_params = {
+                'userId': 'me',
+                'q': query,
+                'maxResults': min(limit, 500)  # Gmail API limit is 500
+            }
+
+            if self._page_token:
+                request_params['pageToken'] = self._page_token
+                logger.info(f"Gmail: Fetching page with token (limit={limit})")
+
             # List message IDs
-            # Note: Gmail API supports maxResults up to 500
-            results = self.service.users().messages().list(
-                userId='me',
-                q=query,
-                maxResults=min(limit, 500)  # Gmail API limit is 500
-            ).execute()
+            results = self.service.users().messages().list(**request_params).execute()
 
             message_refs = results.get('messages', [])
             next_page_token = results.get('nextPageToken')
+
+            # Store pageToken for next call
+            self._page_token = next_page_token
+
+            logger.info(
+                f"Gmail API returned {len(message_refs)} message IDs, "
+                f"has_more={bool(next_page_token)}"
+            )
 
             # Fetch full message details
             for msg_ref in message_refs:
@@ -194,12 +231,15 @@ class GmailProvider(EmailProviderInterface):
                     logger.warning(f"Failed to fetch message {msg_ref['id']}: {e}")
                     continue
 
-            # Determine if there are more messages
-            # For now, we return False for has_more since we don't implement
-            # multi-page pagination with pageTokens
-            has_more = bool(next_page_token) and position == 0
+            # Return has_more based on presence of nextPageToken
+            has_more = bool(next_page_token)
 
-            logger.info(f"Fetched {len(messages)} messages from Gmail (has_more: {has_more})")
+            logger.info(
+                f"Gmail: Fetched {len(messages)} messages, "
+                f"has_more={has_more}, "
+                f"position={position}"
+            )
+
             return messages, has_more
 
         except HttpError as e:
