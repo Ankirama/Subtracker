@@ -421,9 +421,11 @@ async def _sync_mailbox_async(
                             )
 
                             # Update existing subscription (filter out metadata fields like is_price_update)
+                            # Skip None values to avoid overwriting valid data with None and violating NOT NULL constraints
                             filtered_data = filter_subscription_data(subscription_data)
                             for key, value in filtered_data.items():
-                                setattr(existing_sub, key, value)
+                                if value is not None:  # Only update with non-None values
+                                    setattr(existing_sub, key, value)
                             existing_sub.updated_at = datetime.now(timezone.utc)
                             subscription_record = existing_sub
                             subscriptions_updated += 1
