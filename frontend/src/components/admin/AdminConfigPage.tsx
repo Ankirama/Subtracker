@@ -78,6 +78,8 @@ export const AdminConfigPage = () => {
   const toast = useToast()
   const borderColor = useColorModeValue('gray.200', 'gray.700')
   const bgColor = useColorModeValue('white', 'gray.800')
+  const missingBgColor = useColorModeValue('red.50', 'red.900')
+  const incompleteBgColor = useColorModeValue('orange.50', 'gray.700')
 
   useEffect(() => {
     loadSettings()
@@ -282,7 +284,7 @@ export const AdminConfigPage = () => {
 
             {/* Missing Settings */}
             {configStatus.missing.length > 0 && (
-              <Box borderWidth="1px" borderRadius="lg" borderColor="red.300" p={4} bg={useColorModeValue('red.50', 'red.900')}>
+              <Box borderWidth="1px" borderRadius="lg" borderColor="red.300" p={4} bg={missingBgColor}>
                 <Heading size="sm" color="red.600" mb={3}>
                   ❌ Missing Required Settings ({configStatus.missing.length})
                 </Heading>
@@ -305,7 +307,7 @@ export const AdminConfigPage = () => {
 
             {/* Incomplete Settings */}
             {configStatus.incomplete.length > 0 && (
-              <Box borderWidth="1px" borderRadius="lg" borderColor="orange.300" p={4} bg={useColorModeValue('orange.50', 'gray.700')}>
+              <Box borderWidth="1px" borderRadius="lg" borderColor="orange.300" p={4} bg={incompleteBgColor}>
                 <Heading size="sm" color="orange.600" mb={3}>
                   ⚠️ Incomplete Settings ({configStatus.incomplete.length})
                 </Heading>

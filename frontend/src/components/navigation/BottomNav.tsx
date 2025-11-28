@@ -19,6 +19,7 @@ export const BottomNav = () => {
   const location = useLocation()
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.700')
+  const hoverBgColor = useColorModeValue('gray.50', 'gray.700')
   const activeColor = 'blue.500'
   const inactiveColor = useColorModeValue('gray.600', 'gray.400')
 
@@ -56,7 +57,7 @@ export const BottomNav = () => {
               justifyContent="center"
               alignItems="center"
               h="full"
-              _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}
+              _hover={{ bg: hoverBgColor }}
               transition="background 0.2s"
             >
               <VStack spacing={0.5} py={1}>
