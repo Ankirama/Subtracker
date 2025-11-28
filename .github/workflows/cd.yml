@@ -99,80 +99,36 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to production
+      - name: Copy deployment script to server
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
+          scp -i ~/.ssh/deploy_key deploy-prod.sh $SSH_USER@$SSH_HOST:$DEPLOY_PATH/
+
+      - name: Deploy to production
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
           ssh -i ~/.ssh/deploy_key $SSH_USER@$SSH_HOST << 'ENDSSH'
             set -e
 
-            echo "📦 Deploying to production..."
+            echo "📦 Starting production deployment..."
             cd ${{ secrets.DEPLOY_PATH }}
 
-            # Create backup of current state
-            echo "💾 Creating backup..."
-            BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
-            mkdir -p "$BACKUP_DIR"
-            docker-compose config > "$BACKUP_DIR/docker-compose-backup.yml" || true
+            # Set environment variables for deployment
+            export GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+            export GHCR_USER="${{ github.actor }}"
+            export GITHUB_REPOSITORY="${{ github.repository }}"
+            export IMAGE_TAG="${{ github.sha }}"
 
-            # Pull latest code
-            echo "⬇️ Pulling latest code..."
-            git fetch origin
-            git reset --hard origin/main
-
-            # Login to GitHub Container Registry
-            echo "🔐 Logging into GitHub Container Registry..."
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-            # Pull latest images
-            echo "📥 Pulling latest Docker images..."
-            docker-compose pull
-
-            # Stop services
-            echo "🛑 Stopping services..."
-            docker-compose down
-
-            # Start services with new images
-            echo "🚀 Starting services..."
-            docker-compose up -d
-
-            # Wait for services to be ready
-            echo "⏳ Waiting for services to start..."
-            sleep 10
-
-            # Run database migrations
-            echo "🔄 Running database migrations..."
-            docker-compose exec -T backend alembic upgrade head
-
-            # Health check
-            echo "🏥 Running health checks..."
-            sleep 5
-
-            # Check backend health
-            BACKEND_STATUS=$(docker-compose exec -T backend curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health || echo "000")
-            if [ "$BACKEND_STATUS" != "200" ]; then
-              echo "❌ Backend health check failed (status: $BACKEND_STATUS)"
-              echo "📋 Backend logs:"
-              docker-compose logs --tail=50 backend
-              exit 1
-            fi
-
-            echo "✅ Backend is healthy"
-
-            # Check services are running
-            if ! docker-compose ps | grep -q "Up"; then
-              echo "❌ Some services are not running"
-              docker-compose ps
-              exit 1
-            fi
-
-            echo "✅ Deployment successful!"
-
-            # Cleanup old images
-            echo "🧹 Cleaning up old Docker images..."
-            docker image prune -f --filter "until=168h"
+            # Run deployment script
+            chmod +x deploy-prod.sh
+            ./deploy-prod.sh ${{ github.sha }}
 
           ENDSSH
 
@@ -186,40 +142,12 @@ jobs:
             exit 1
           fi
 
-      - name: Rollback on failure
+      - name: Deployment failed notification
         if: failure()
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh -i ~/.ssh/deploy_key $SSH_USER@$SSH_HOST << 'ENDSSH'
-            set -e
-
-            echo "⚠️ Deployment failed, attempting rollback..."
-            cd ${{ secrets.DEPLOY_PATH }}
-
-            # Find latest backup
-            LATEST_BACKUP=$(ls -t backups/ | head -1)
-
-            if [ -n "$LATEST_BACKUP" ]; then
-              echo "🔄 Rolling back to $LATEST_BACKUP..."
-
-              # Restore docker-compose config if exists
-              if [ -f "backups/$LATEST_BACKUP/docker-compose-backup.yml" ]; then
-                cp "backups/$LATEST_BACKUP/docker-compose-backup.yml" docker-compose.yml
-              fi
-
-              # Restart with previous configuration
-              docker-compose down
-              docker-compose up -d
-
-              echo "✅ Rollback completed"
-            else
-              echo "⚠️ No backup found for rollback"
-            fi
-
-          ENDSSH
+          echo "❌ Deployment failed"
+          echo "Note: Automatic rollback is handled by deploy-prod.sh script"
+          exit 1
 
   # Post-deployment health checks
   health-check:

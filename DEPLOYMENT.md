@@ -1,323 +1,241 @@
-# Deployment Guide
+# Subscription Tracker - Deployment Guide
 
-This guide explains how to deploy updates to your Subscription Tracker application.
+Complete deployment guide for the Subscription Tracker application using the hybrid CI/CD approach.
 
-## Quick Reference
+## Quick Start
 
-| Script | Use Case | What It Does |
-|--------|----------|--------------|
-| `./deploy.sh [env]` | Full deployment with dependency changes | Pull → Rebuild → Restart → Health Check |
-| `./update.sh [env]` | Quick code updates (no dependency changes) | Pull → Copy files → Restart → Health Check |
-| `./restart.sh [env]` | Simple restart (no changes) | Restart all containers → Health Check |
+1. **Configure GitHub Secrets** (see "GitHub Repository Secrets" section)
+2. **Set up production server** with Docker + Traefik
+3. **Merge to main branch** → Automatic deployment starts
+4. **Monitor deployment** in GitHub Actions
 
-**Note**: `[env]` can be `dev` or `prod`. Defaults to `prod` if not specified.
+## Architecture Overview
 
-## Environment Selection
-
-All deployment scripts support both development and production environments:
-
-```bash
-# Production (default)
-./deploy.sh
-./deploy.sh prod
-
-# Development
-./deploy.sh dev
+```
+GitHub CI (Build/Test) → GHCR (Images) → Production Server (Deploy)
 ```
 
-The scripts automatically use the correct docker-compose file:
-- `dev` → docker-compose.dev.yml
-- `prod` → docker-compose.prod.yml
+**Deployment Flow:**
+- CI: Tests code, builds Docker images
+- CD: Pushes images to GitHub Container Registry
+- Server: Pulls pre-built images and deploys
 
-## Deployment Scenarios
+## Required Secrets
 
-### 1. Full Deployment (New Dependencies or Major Changes)
-
-Use this when:
-- Dependencies changed (requirements.txt, package.json)
-- Docker configuration changed
-- First-time deployment
-- After major updates
+Configure in `Settings → Secrets and variables → Actions`:
 
 ```bash
-# Production
-./deploy.sh
-./deploy.sh prod
+SSH_HOST=192.168.1.100           # Server IP/hostname
+SSH_USER=ubuntu                  # SSH username
+SSH_PRIVATE_KEY=<private-key>    # Full SSH private key
+DEPLOY_PATH=/var/www/subtracker # Deployment directory
 
-# Development
-./deploy.sh dev
+# Application secrets (also in 'production' environment)
+JWT_SECRET_KEY=<jwt-secret>
+ENCRYPTION_KEY=<fernet-key>
+RESEND_API_KEY=<resend-key>
+OPENAI_API_KEY=<openai-key>
+VAPID_PUBLIC_KEY=<vapid-public>
+VAPID_PRIVATE_KEY=<vapid-private>
 ```
 
-**What happens:**
-1. Pulls latest code from Git (main branch)
-2. Stops all containers
-3. Rebuilds containers from scratch
-4. Starts all services
-5. Checks health status
+## Production Server Setup
 
-**Time:** ~2-5 minutes (depending on rebuild)
-
----
-
-### 2. Quick Update (Code Changes Only)
-
-Use this when:
-- Only Python/TypeScript code changed
-- No new dependencies
-- Quick bug fixes or feature updates
+### Initial Setup
 
 ```bash
-# Production
-./update.sh
-./update.sh prod
+# Install Docker
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
 
-# Development
-./update.sh dev
+# Create deployment directory
+sudo mkdir -p /var/www/subtracker
+sudo chown $USER:$USER /var/www/subtracker
+cd /var/www/subtracker
+
+# Clone repository
+git clone https://github.com/Ankirama/Subtracker.git .
+
+# Create environment file
+cp .env.example .env.production
+nano .env.production  # Configure variables
 ```
 
-**What happens:**
-1. Pulls latest code from Git
-2. Copies updated Python files to running containers
-3. Restarts backend and Celery (frontend auto-reloads)
-4. Checks health status
-
-**Time:** ~10-15 seconds
-
-**Note:** Frontend uses Vite hot-reload, so changes appear automatically without restart.
-
----
-
-### 3. Simple Restart
-
-Use this when:
-- Services are misbehaving
-- Need to clear state
-- No code changes needed
+### Traefik Setup
 
 ```bash
-# Production
-./restart.sh
-./restart.sh prod
+# Create proxy network
+docker network create proxy
 
-# Development
-./restart.sh dev
+# Create traefik directory
+mkdir -p traefik
+touch traefik/acme.json
+chmod 600 traefik/acme.json
+
+# Start Traefik (see Traefik configuration below)
+docker compose -f docker-compose.traefik.yml up -d
 ```
 
-**What happens:**
-1. Restarts all containers
-2. Waits for services to be ready
-3. Checks health status
+## Deployment Methods
 
-**Time:** ~5-10 seconds
+### Automatic (Recommended)
 
----
+Merge to `main` branch triggers automatic deployment:
+1. CI builds and tests
+2. CD builds Docker images
+3. Pushes to GHCR
+4. Deploys to production
+5. Runs health checks
+6. Auto-rolls back on failure
 
-## Manual Deployment
-
-If you prefer manual control, here's what each script does:
-
-### Full Deployment (Manual)
-```bash
-# Set environment (dev or prod)
-ENV=prod  # or dev
-COMPOSE_FILE="docker-compose.${ENV}.yml"
-
-# Pull latest changes
-git pull origin main
-
-# Rebuild and restart
-docker compose -f $COMPOSE_FILE down
-docker compose -f $COMPOSE_FILE build --no-cache
-docker compose -f $COMPOSE_FILE up -d
-
-# Check health
-curl http://localhost:8000/health
-curl http://localhost:5173
-```
-
-### Quick Update (Manual)
-```bash
-# Set environment (dev or prod)
-ENV=prod  # or dev
-COMPOSE_FILE="docker-compose.${ENV}.yml"
-
-# Pull latest changes
-git pull origin main
-
-# Copy files to containers
-docker cp backend/app/. subscriptions_backend:/app/app/
-docker cp backend/app/. subscriptions_celery:/app/app/
-
-# Restart services
-docker compose -f $COMPOSE_FILE restart backend celery_worker celery_beat
-
-# Check health
-curl http://localhost:8000/health
-```
-
----
-
-## Checking Service Status
-
-After any deployment, you can check:
+### Manual Deployment
 
 ```bash
-# Set environment
-ENV=prod  # or dev
-COMPOSE_FILE="docker-compose.${ENV}.yml"
+# Via GitHub Actions
+# Go to: Actions → CD - Deploy to Production → Run workflow
 
-# Container status
-docker compose -f $COMPOSE_FILE ps
-
-# Backend health
-curl http://localhost:8000/health
-
-# Frontend health
-curl http://localhost:5173
-
-# View logs
-docker compose -f $COMPOSE_FILE logs -f backend
-docker compose -f $COMPOSE_FILE logs -f celery_worker
-docker compose -f $COMPOSE_FILE logs -f celery_beat
-docker compose -f $COMPOSE_FILE logs -f frontend
+# Or SSH to server
+ssh user@server
+cd /var/www/subtracker
+./deploy-prod.sh latest
 ```
 
----
+## Commands
+
+### Check Status
+
+```bash
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+### Manual Operations
+
+```bash
+# Pull latest images
+docker compose -f docker-compose.prod.yml pull
+
+# Restart service
+docker compose -f docker-compose.prod.yml restart backend
+
+# Run migrations
+docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+
+# Database backup
+docker compose -f docker-compose.prod.yml exec postgres pg_dump -U subtracker subtracker_prod > backup.sql
+```
+
+### Health Checks
+
+```bash
+# API health
+curl https://subscriptionstracker.io/api/health
+
+# Frontend
+curl https://subscriptionstracker.io
+
+# Internal check
+docker compose -f docker-compose.prod.yml exec backend curl http://localhost:8000/health
+```
+
+## Rollback
+
+### Automatic Rollback
+
+`deploy-prod.sh` automatically rolls back if:
+- Health checks fail
+- Migrations fail
+- Services don't start
+
+### Manual Rollback
+
+```bash
+# List backups
+ls -la backups/
+
+# Restore from backup
+BACKUP="backups/20250128_120000"
+cp "$BACKUP/docker-compose-backup.yml" docker-compose.prod.yml
+docker compose -f docker-compose.prod.yml down
+docker compose -f docker-compose.prod.yml up -d
+
+# Deploy specific version
+./deploy-prod.sh abc123def  # Git commit SHA
+./deploy-prod.sh v1.2.3     # Git tag
+```
 
 ## Troubleshooting
+
+### Deployment Fails
+
+```bash
+# 1. Check GitHub Actions logs
+# 2. Verify secrets are set
+# 3. Check server logs
+docker compose logs backend
+
+# Common issues:
+# - SSH connection: Check SSH_HOST, SSH_USER, SSH_PRIVATE_KEY
+# - Health check: Check .env.production variables
+# - Permission: sudo usermod -aG docker $USER
+```
 
 ### Services Won't Start
 
 ```bash
-# Check logs for errors (replace ENV with dev or prod)
-ENV=prod
-docker compose -f docker-compose.${ENV}.yml logs backend
-docker compose -f docker-compose.${ENV}.yml logs celery_worker
-docker compose -f docker-compose.${ENV}.yml logs celery_beat
+# Check status
+docker compose -f docker-compose.prod.yml ps
 
-# Try a full rebuild
-./deploy.sh $ENV
+# View logs
+docker compose -f docker-compose.prod.yml logs <service>
+
+# Validate config
+docker compose -f docker-compose.prod.yml config
+
+# Check resources
+df -h && free -m
 ```
 
-### Database Connection Issues
+### Database Issues
 
 ```bash
-# Check PostgreSQL is running (replace ENV with dev or prod)
-ENV=prod
-docker compose -f docker-compose.${ENV}.yml ps postgres
+# Test connection
+docker compose exec backend python -c "from app.database import engine; print(engine.connect())"
 
-# Restart database
-docker compose -f docker-compose.${ENV}.yml restart postgres
+# Run migrations
+docker compose exec backend alembic upgrade head
 
-# Check database logs
-docker compose -f docker-compose.${ENV}.yml logs postgres
+# Reset database (⚠️ DESTRUCTIVE)
+docker compose down -v
+docker compose up -d
+docker compose exec backend alembic upgrade head
 ```
 
-### Port Already in Use
+## Security
+
+1. Rotate secrets regularly
+2. Keep Docker/system updated
+3. Monitor logs for suspicious activity
+4. Automated daily database backups
+5. Use Let's Encrypt for SSL/TLS
+
+## Monitoring
 
 ```bash
-# Find what's using the port
-lsof -i :8000  # Backend
-lsof -i :5173  # Frontend
-lsof -i :5432  # PostgreSQL
+# All service logs
+docker compose -f docker-compose.prod.yml logs -f
 
-# Stop the conflicting process or change ports in docker-compose.yml
-```
+# Specific service
+docker compose -f docker-compose.prod.yml logs -f backend
 
-### Celery Tasks Not Running
+# Resource usage
+docker stats
 
-```bash
-# Check Celery status (replace ENV with dev or prod)
-ENV=prod
-docker compose -f docker-compose.${ENV}.yml logs celery_worker
-docker compose -f docker-compose.${ENV}.yml logs celery_beat
-
-# Restart Celery
-docker compose -f docker-compose.${ENV}.yml restart celery_worker celery_beat
-
-# Check Redis connection
-docker compose -f docker-compose.${ENV}.yml logs redis
+# Errors
+docker compose logs | grep -i error
 ```
 
 ---
 
-## Production Deployment Checklist
-
-Before deploying to production:
-
-- [ ] All tests passing
-- [ ] Environment variables configured
-- [ ] Database migrations applied
-- [ ] Backups created
-- [ ] SSL certificates configured
-- [ ] Firewall rules set
-- [ ] Monitoring enabled
-- [ ] Error tracking configured
-
----
-
-## Environment Variables
-
-Key environment variables to configure:
-
-```env
-# Backend
-DATABASE_URL=postgresql://user:pass@host:5432/dbname
-REDIS_URL=redis://redis:6379/0
-SECRET_KEY=your-secret-key
-ENCRYPTION_KEY=your-encryption-key
-
-# OAuth (if using Gmail)
-GOOGLE_CLIENT_ID=your-client-id
-GOOGLE_CLIENT_SECRET=your-client-secret
-
-# Email (if using email notifications)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email
-SMTP_PASSWORD=your-password
-```
-
----
-
-## Best Practices
-
-1. **Always test in development first**
-   - Test changes locally before deploying
-   - Run tests: `docker exec subscriptions_backend pytest`
-
-2. **Use appropriate script**
-   - Code-only changes → `./update.sh [env]` (fast)
-   - Dependency changes → `./deploy.sh [env]` (full rebuild)
-   - Just restarting → `./restart.sh [env]` (quick)
-   - Always specify environment (dev/prod), defaults to prod
-
-3. **Monitor after deployment**
-   - Check logs: `docker compose -f docker-compose.[env].yml logs -f`
-   - Test critical features
-   - Monitor error rates
-
-4. **Keep backups**
-   - Database backups before major deployments
-   - Git tags for releases: `git tag v1.0.0`
-
-5. **Rollback plan**
-   - Keep previous version tagged
-   - Know how to revert: `git checkout v1.0.0`
-   - Database rollback scripts ready
-
----
-
-## Getting Help
-
-If you encounter issues:
-
-1. Check logs: `docker-compose logs [service]`
-2. Verify container status: `docker-compose ps`
-3. Check documentation in project README
-4. Review error messages carefully
-
-For specific services:
-- Backend API: http://localhost:8000/docs
-- Database: Use your database client
-- Redis: Use Redis CLI or GUI tool
+**Last Updated:** 2025-01-28  
+**For issues:** Check GitHub Issues or contact DevOps team
