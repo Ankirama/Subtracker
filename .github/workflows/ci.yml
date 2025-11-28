@@ -11,6 +11,7 @@ jobs:
   backend-quality:
     name: Backend Quality & Security
     runs-on: ubuntu-latest
+    environment: test
 
     steps:
       - name: Checkout code
@@ -67,7 +68,6 @@ jobs:
 
       - name: Run tests
         working-directory: backend
-        environment: test
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
           JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
