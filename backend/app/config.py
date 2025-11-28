@@ -51,8 +51,8 @@ class Settings(BaseSettings):
     )
 
     # Resend (Email Service)
-    RESEND_API_KEY: str
-    RESEND_FROM_EMAIL: str
+    RESEND_API_KEY: str = "test_key"  # Default for testing
+    RESEND_FROM_EMAIL: str = "test@example.com"  # Default for testing
     RESEND_FROM_NAME: str = "Subscription Tracker"
 
     # Push Notifications (VAPID)
