@@ -67,19 +67,20 @@ jobs:
 
       - name: Run tests
         working-directory: backend
+        environment: test
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
-          JWT_SECRET_KEY: test_secret_key_for_ci
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-          RESEND_API_KEY: test_resend_key
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM_EMAIL: test@example.com
           RESEND_FROM_NAME: Test
-          OPENAI_API_KEY: test_openai_key
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           REDIS_URL: redis://localhost:6379/0
           CELERY_BROKER_URL: redis://localhost:6379/0
           CELERY_RESULT_BACKEND: redis://localhost:6379/0
-          VAPID_PUBLIC_KEY: test_vapid_public_key_for_ci_testing_only
-          VAPID_PRIVATE_KEY: test_vapid_private_key_for_ci_testing_only
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         run: |
           pytest tests/ -v --cov=app --cov-report=term-missing --cov-report=xml
 
