@@ -185,7 +185,7 @@ jobs:
           echo "🔍 Checking API health..."
 
           # Check backend API
-          API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://subscriptionstracker.io/api/health)
+          API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://subscriptionstracker.io/health)
 
           if [ "$API_STATUS" == "200" ]; then
             echo "✅ API is healthy (status: $API_STATUS)"
