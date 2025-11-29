@@ -32,7 +32,7 @@ class ConfigHelper:
         Get configuration value with priority: admin settings > env vars > default.
 
         Args:
-            key: Configuration key (e.g., 'sendgrid.api_key', 'openai.api_key')
+            key: Configuration key (e.g., 'resend.api_key', 'openai.api_key')
             default: Default value if not found
 
         Returns:

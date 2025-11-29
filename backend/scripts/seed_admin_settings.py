@@ -33,17 +33,17 @@ def seed_admin_settings(db: Session, overwrite: bool = False):
     """
     # Define settings to seed with metadata
     settings_to_seed = [
-        # SendGrid configuration
+        # Resend configuration
         {
-            "key": "sendgrid.api_key",
+            "key": "resend.api_key",
             "value": settings.RESEND_API_KEY,
             "value_type": "string",
             "is_secret": True,
-            "description": "SendGrid API key for sending transactional emails",
+            "description": "Resend API key for sending transactional emails",
             "category": "email",
         },
         {
-            "key": "sendgrid.from_email",
+            "key": "resend.from_email",
             "value": settings.RESEND_FROM_EMAIL,
             "value_type": "string",
             "is_secret": False,
@@ -51,7 +51,7 @@ def seed_admin_settings(db: Session, overwrite: bool = False):
             "category": "email",
         },
         {
-            "key": "sendgrid.from_name",
+            "key": "resend.from_name",
             "value": settings.RESEND_FROM_NAME,
             "value_type": "string",
             "is_secret": False,

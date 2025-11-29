@@ -92,7 +92,7 @@ class Notification(Base):
     # Email delivery tracking
     email_sent = Column(Boolean, default=False, nullable=False)
     email_sent_at = Column(DateTime(timezone=True), nullable=True)
-    email_error = Column(Text, nullable=True)  # Store SendGrid errors if any
+    email_error = Column(Text, nullable=True)  # Store email service errors if any
 
     # Timestamps
     created_at = Column(

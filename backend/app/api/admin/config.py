@@ -223,19 +223,19 @@ async def get_config_status(
 
     # Define expected settings (matches config_helper mappings)
     EXPECTED_SETTINGS = {
-        "sendgrid.api_key": {
+        "resend.api_key": {
             "category": "email",
             "value_type": "string",
             "is_secret": True,
             "required": True,
         },
-        "sendgrid.from_email": {
+        "resend.from_email": {
             "category": "email",
             "value_type": "string",
             "is_secret": False,
             "required": True,
         },
-        "sendgrid.from_name": {
+        "resend.from_name": {
             "category": "email",
             "value_type": "string",
             "is_secret": False,

@@ -22,16 +22,16 @@ from typing import Dict, Any
 
 # Define all expected settings from config_helper
 EXPECTED_SETTINGS = {
-    # SendGrid configuration
-    "sendgrid.api_key": {
+    # Resend configuration
+    "resend.api_key": {
         "category": "email",
         "value_type": "string",
         "is_secret": True,
-        "description": "SendGrid API key for sending transactional emails",
+        "description": "Resend API key for sending transactional emails",
         "required": True,
         "env_value": lambda: settings.RESEND_API_KEY,
     },
-    "sendgrid.from_email": {
+    "resend.from_email": {
         "category": "email",
         "value_type": "string",
         "is_secret": False,
@@ -39,7 +39,7 @@ EXPECTED_SETTINGS = {
         "required": True,
         "env_value": lambda: settings.RESEND_FROM_EMAIL,
     },
-    "sendgrid.from_name": {
+    "resend.from_name": {
         "category": "email",
         "value_type": "string",
         "is_secret": False,
