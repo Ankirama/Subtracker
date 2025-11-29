@@ -3,13 +3,18 @@ Celery tasks for sending weekly and monthly subscription summaries.
 
 Generates comprehensive spending reports and sends them via email based on user preferences.
 """
-from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
+
+from datetime import datetime
 import logging
 
 from app.celery_app import celery_app
 from app.database import SessionLocal
-from app.models.notification import Notification, NotificationPreference, NotificationType, NotificationPriority
+from app.models.notification import (
+    Notification,
+    NotificationPreference,
+    NotificationType,
+    NotificationPriority,
+)
 from app.models.user import User
 from app.services.summary_service import SummaryService
 from app.services.email_templates import EmailTemplates
@@ -35,13 +40,20 @@ def send_weekly_summaries():
         current_day_of_week = datetime.now().weekday()
 
         # Get all users with weekly summary enabled
-        preferences = db.query(NotificationPreference).filter(
-            NotificationPreference.notification_type == NotificationType.WEEKLY_SUMMARY,
-            NotificationPreference.enabled == True,
-            NotificationPreference.summary_day_of_week == current_day_of_week
-        ).all()
+        preferences = (
+            db.query(NotificationPreference)
+            .filter(
+                NotificationPreference.notification_type
+                == NotificationType.WEEKLY_SUMMARY,
+                NotificationPreference.enabled,
+                NotificationPreference.summary_day_of_week == current_day_of_week,
+            )
+            .all()
+        )
 
-        logger.info(f"Found {len(preferences)} users with weekly summaries enabled for day {current_day_of_week}")
+        logger.info(
+            f"Found {len(preferences)} users with weekly summaries enabled for day {current_day_of_week}"
+        )
 
         sent_count = 0
         error_count = 0
@@ -61,9 +73,9 @@ def send_weekly_summaries():
                         user_id=user.id,
                         type=NotificationType.WEEKLY_SUMMARY,
                         priority=NotificationPriority.LOW,
-                        title=f"📊 Your Weekly Subscription Summary",
+                        title="📊 Your Weekly Subscription Summary",
                         message=f"Total spending: €{summary_data['total_monthly_cost']:.2f}/mo • {summary_data['total_subscriptions']} active subscriptions",
-                        notification_metadata=summary_data
+                        notification_metadata=summary_data,
                     )
                     db.add(notification)
                     db.commit()
@@ -72,14 +84,18 @@ def send_weekly_summaries():
                 if pref.email_enabled and user.email:
                     try:
                         # Get configured frontend URL for email links
-                        frontend_url = get_config_value('frontend_url', settings.FRONTEND_URL, db)
-                        html_content = EmailTemplates.generate_summary_email(summary_data, frontend_url)
+                        frontend_url = get_config_value(
+                            "frontend_url", settings.FRONTEND_URL, db
+                        )
+                        html_content = EmailTemplates.generate_summary_email(
+                            summary_data, frontend_url
+                        )
 
                         email_service = EmailService()
                         email_service.send_email(
                             to_email=user.email,
                             subject=f"📊 Your Weekly Subscription Summary - €{summary_data['total_monthly_cost']:.2f}/mo",
-                            html_content=html_content
+                            html_content=html_content,
                         )
 
                         # Update notification with email status
@@ -99,11 +115,15 @@ def send_weekly_summaries():
                         error_count += 1
 
             except Exception as e:
-                logger.error(f"Error processing weekly summary for user {pref.user_id}: {str(e)}")
+                logger.error(
+                    f"Error processing weekly summary for user {pref.user_id}: {str(e)}"
+                )
                 error_count += 1
                 continue
 
-        logger.info(f"Weekly summary task completed: {sent_count} sent, {error_count} errors")
+        logger.info(
+            f"Weekly summary task completed: {sent_count} sent, {error_count} errors"
+        )
         return {"sent": sent_count, "errors": error_count}
 
     except Exception as e:
@@ -128,13 +148,20 @@ def send_monthly_summaries():
         current_day_of_month = datetime.now().day
 
         # Get all users with monthly summary enabled
-        preferences = db.query(NotificationPreference).filter(
-            NotificationPreference.notification_type == NotificationType.MONTHLY_SUMMARY,
-            NotificationPreference.enabled == True,
-            NotificationPreference.summary_day_of_month == current_day_of_month
-        ).all()
+        preferences = (
+            db.query(NotificationPreference)
+            .filter(
+                NotificationPreference.notification_type
+                == NotificationType.MONTHLY_SUMMARY,
+                NotificationPreference.enabled,
+                NotificationPreference.summary_day_of_month == current_day_of_month,
+            )
+            .all()
+        )
 
-        logger.info(f"Found {len(preferences)} users with monthly summaries enabled for day {current_day_of_month}")
+        logger.info(
+            f"Found {len(preferences)} users with monthly summaries enabled for day {current_day_of_month}"
+        )
 
         sent_count = 0
         error_count = 0
@@ -154,9 +181,9 @@ def send_monthly_summaries():
                         user_id=user.id,
                         type=NotificationType.MONTHLY_SUMMARY,
                         priority=NotificationPriority.LOW,
-                        title=f"📈 Your Monthly Subscription Summary",
+                        title="📈 Your Monthly Subscription Summary",
                         message=f"Total spending: €{summary_data['total_monthly_cost']:.2f}/mo • {summary_data['new_subscriptions_count']} new, {summary_data['cancelled_subscriptions_count']} cancelled",
-                        notification_metadata=summary_data
+                        notification_metadata=summary_data,
                     )
                     db.add(notification)
                     db.commit()
@@ -165,14 +192,18 @@ def send_monthly_summaries():
                 if pref.email_enabled and user.email:
                     try:
                         # Get configured frontend URL for email links
-                        frontend_url = get_config_value('frontend_url', settings.FRONTEND_URL, db)
-                        html_content = EmailTemplates.generate_summary_email(summary_data, frontend_url)
+                        frontend_url = get_config_value(
+                            "frontend_url", settings.FRONTEND_URL, db
+                        )
+                        html_content = EmailTemplates.generate_summary_email(
+                            summary_data, frontend_url
+                        )
 
                         email_service = EmailService()
                         email_service.send_email(
                             to_email=user.email,
                             subject=f"📈 Your Monthly Subscription Summary - €{summary_data['total_monthly_cost']:.2f}/mo",
-                            html_content=html_content
+                            html_content=html_content,
                         )
 
                         # Update notification with email status
@@ -192,11 +223,15 @@ def send_monthly_summaries():
                         error_count += 1
 
             except Exception as e:
-                logger.error(f"Error processing monthly summary for user {pref.user_id}: {str(e)}")
+                logger.error(
+                    f"Error processing monthly summary for user {pref.user_id}: {str(e)}"
+                )
                 error_count += 1
                 continue
 
-        logger.info(f"Monthly summary task completed: {sent_count} sent, {error_count} errors")
+        logger.info(
+            f"Monthly summary task completed: {sent_count} sent, {error_count} errors"
+        )
         return {"sent": sent_count, "errors": error_count}
 
     except Exception as e:

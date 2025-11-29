@@ -1,6 +1,7 @@
 """
 Admin system announcements API endpoints
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import uuid
@@ -15,11 +16,15 @@ from app.models.admin import AdminAuditLog
 router = APIRouter()
 
 
-@router.post("/announcements/broadcast", response_model=SystemAnnouncementResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/announcements/broadcast",
+    response_model=SystemAnnouncementResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_system_announcement(
     announcement_data: SystemAnnouncementCreate,
     current_user: User = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Create and broadcast a system announcement to users.
@@ -42,7 +47,7 @@ async def create_system_announcement(
     if not announcement_data.target_all_users and not announcement_data.target_user_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Must either target all users or provide specific user IDs"
+            detail="Must either target all users or provide specific user IDs",
         )
 
     # Generate unique announcement ID
@@ -58,9 +63,13 @@ async def create_system_announcement(
             "title": announcement_data.title,
             "priority": announcement_data.priority,
             "target_all_users": announcement_data.target_all_users,
-            "target_user_count": len(announcement_data.target_user_ids) if announcement_data.target_user_ids else "all"
+            "target_user_count": (
+                len(announcement_data.target_user_ids)
+                if announcement_data.target_user_ids
+                else "all"
+            ),
         },
-        severity="info"
+        severity="info",
     )
     db.add(audit_log)
     db.commit()
@@ -72,7 +81,11 @@ async def create_system_announcement(
         message=announcement_data.message,
         priority=announcement_data.priority,
         target_all_users=announcement_data.target_all_users,
-        target_user_ids=[str(uid) for uid in announcement_data.target_user_ids] if announcement_data.target_user_ids else None
+        target_user_ids=(
+            [str(uid) for uid in announcement_data.target_user_ids]
+            if announcement_data.target_user_ids
+            else None
+        ),
     )
 
     return SystemAnnouncementResponse(
@@ -80,5 +93,5 @@ async def create_system_announcement(
         announcement_id=announcement_id,
         notifications_created=0,  # Will be updated when task completes
         emails_sent=0,  # Will be updated when task completes
-        message=f"System announcement '{announcement_data.title}' is being broadcast. Task ID: {task.id}"
+        message=f"System announcement '{announcement_data.title}' is being broadcast. Task ID: {task.id}",
     )

@@ -10,6 +10,7 @@ Finds and merges duplicate subscriptions based on stable fields:
 
 Keeps the oldest subscription and migrates all email relationships.
 """
+
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
@@ -33,27 +34,32 @@ def find_duplicate_groups(db):
     Returns:
         List of tuples: (mailbox_id, provider, amount, billing_cycle, email_sender, count)
     """
-    duplicates = db.query(
-        Subscription.mailbox_id,
-        Subscription.provider,
-        Subscription.amount,
-        Subscription.billing_cycle,
-        Subscription.email_sender,
-        func.count(Subscription.id).label('count')
-    ).group_by(
-        Subscription.mailbox_id,
-        Subscription.provider,
-        Subscription.amount,
-        Subscription.billing_cycle,
-        Subscription.email_sender
-    ).having(
-        func.count(Subscription.id) > 1
-    ).all()
+    duplicates = (
+        db.query(
+            Subscription.mailbox_id,
+            Subscription.provider,
+            Subscription.amount,
+            Subscription.billing_cycle,
+            Subscription.email_sender,
+            func.count(Subscription.id).label("count"),
+        )
+        .group_by(
+            Subscription.mailbox_id,
+            Subscription.provider,
+            Subscription.amount,
+            Subscription.billing_cycle,
+            Subscription.email_sender,
+        )
+        .having(func.count(Subscription.id) > 1)
+        .all()
+    )
 
     return duplicates
 
 
-def merge_duplicate_subscriptions(db, mailbox_id, provider, amount, billing_cycle, email_sender):
+def merge_duplicate_subscriptions(
+    db, mailbox_id, provider, amount, billing_cycle, email_sender
+):
     """
     Merge duplicate subscriptions for a given composite key.
 
@@ -67,13 +73,18 @@ def merge_duplicate_subscriptions(db, mailbox_id, provider, amount, billing_cycl
         Dict with merge statistics
     """
     # Find all subscriptions matching this key
-    subscriptions = db.query(Subscription).filter(
-        Subscription.mailbox_id == mailbox_id,
-        Subscription.provider == provider,
-        Subscription.amount == amount,
-        Subscription.billing_cycle == billing_cycle,
-        Subscription.email_sender == email_sender
-    ).order_by(Subscription.created_at).all()
+    subscriptions = (
+        db.query(Subscription)
+        .filter(
+            Subscription.mailbox_id == mailbox_id,
+            Subscription.provider == provider,
+            Subscription.amount == amount,
+            Subscription.billing_cycle == billing_cycle,
+            Subscription.email_sender == email_sender,
+        )
+        .order_by(Subscription.created_at)
+        .all()
+    )
 
     if len(subscriptions) <= 1:
         logger.info(f"No duplicates found for {provider}")
@@ -83,7 +94,9 @@ def merge_duplicate_subscriptions(db, mailbox_id, provider, amount, billing_cycl
     kept_subscription = subscriptions[0]
     duplicate_subscriptions = subscriptions[1:]
 
-    logger.info(f"Merging {len(duplicate_subscriptions)} duplicates for {provider} (keeping {kept_subscription.id})")
+    logger.info(
+        f"Merging {len(duplicate_subscriptions)} duplicates for {provider} (keeping {kept_subscription.id})"
+    )
 
     deleted_ids = []
     migrated_emails = 0
@@ -101,7 +114,7 @@ def merge_duplicate_subscriptions(db, mailbox_id, provider, amount, billing_cycl
             existing = db.execute(
                 subscription_emails.select().where(
                     subscription_emails.c.subscription_id == kept_subscription.id,
-                    subscription_emails.c.email_id == rel.email_id
+                    subscription_emails.c.email_id == rel.email_id,
                 )
             ).first()
 
@@ -112,7 +125,7 @@ def merge_duplicate_subscriptions(db, mailbox_id, provider, amount, billing_cycl
                         subscription_id=kept_subscription.id,
                         email_id=rel.email_id,
                         extraction_role=rel.extraction_role,
-                        extraction_data=rel.extraction_data
+                        extraction_data=rel.extraction_data,
                     )
                 )
                 migrated_emails += 1
@@ -121,7 +134,7 @@ def merge_duplicate_subscriptions(db, mailbox_id, provider, amount, billing_cycl
             db.execute(
                 subscription_emails.delete().where(
                     subscription_emails.c.subscription_id == dup.id,
-                    subscription_emails.c.email_id == rel.email_id
+                    subscription_emails.c.email_id == rel.email_id,
                 )
             )
 
@@ -139,7 +152,7 @@ def merge_duplicate_subscriptions(db, mailbox_id, provider, amount, billing_cycl
         "merged": len(duplicate_subscriptions),
         "kept": str(kept_subscription.id),
         "deleted": deleted_ids,
-        "migrated_emails": migrated_emails
+        "migrated_emails": migrated_emails,
     }
 
 
@@ -168,27 +181,24 @@ def main():
         # Process each duplicate group
         for group in duplicate_groups:
             mailbox_id, provider, amount, billing_cycle, email_sender, count = group
-            logger.info(f"\nProcessing duplicate group: {provider} (€{amount}/{billing_cycle}) - {count} subscriptions")
-
-            result = merge_duplicate_subscriptions(
-                db,
-                mailbox_id,
-                provider,
-                amount,
-                billing_cycle,
-                email_sender
+            logger.info(
+                f"\nProcessing duplicate group: {provider} (€{amount}/{billing_cycle}) - {count} subscriptions"
             )
 
-            total_merged += result['merged']
-            total_deleted += len(result['deleted'])
-            total_migrated_emails += result['migrated_emails']
+            result = merge_duplicate_subscriptions(
+                db, mailbox_id, provider, amount, billing_cycle, email_sender
+            )
+
+            total_merged += result["merged"]
+            total_deleted += len(result["deleted"])
+            total_migrated_emails += result["migrated_emails"]
 
             logger.info(f"Kept: {result['kept']}")
             logger.info(f"Deleted: {', '.join(result['deleted'])}")
             logger.info(f"Migrated {result['migrated_emails']} email relationships")
 
         logger.info(f"\n{'='*60}")
-        logger.info(f"Cleanup complete!")
+        logger.info("Cleanup complete!")
         logger.info(f"Total duplicate groups processed: {len(duplicate_groups)}")
         logger.info(f"Total subscriptions merged: {total_merged}")
         logger.info(f"Total subscriptions deleted: {total_deleted}")

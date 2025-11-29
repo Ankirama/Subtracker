@@ -3,6 +3,7 @@ Email service for sending notifications via Resend.
 
 Handles all email delivery with HTML templates for different notification types.
 """
+
 import resend
 from typing import Optional, List
 from datetime import datetime
@@ -10,7 +11,6 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models.notification import NotificationType
 from app.utils.config_helper import get_config_value
 from app.services.email_templates import EmailTemplates
 
@@ -28,9 +28,11 @@ class EmailService:
             db: Optional database session to check admin settings
         """
         # Get config values (admin settings override env vars)
-        api_key = get_config_value('resend.api_key', settings.RESEND_API_KEY, db)
-        from_email = get_config_value('resend.from_email', settings.RESEND_FROM_EMAIL, db)
-        from_name = get_config_value('resend.from_name', settings.RESEND_FROM_NAME, db)
+        api_key = get_config_value("resend.api_key", settings.RESEND_API_KEY, db)
+        from_email = get_config_value(
+            "resend.from_email", settings.RESEND_FROM_EMAIL, db
+        )
+        from_name = get_config_value("resend.from_name", settings.RESEND_FROM_NAME, db)
 
         # Configure Resend with API key
         resend.api_key = api_key
@@ -44,7 +46,7 @@ class EmailService:
         to_email: str,
         subject: str,
         html_content: str,
-        plain_content: Optional[str] = None
+        plain_content: Optional[str] = None,
     ) -> tuple[bool, Optional[str]]:
         """
         Send an email via Resend.
@@ -68,8 +70,10 @@ class EmailService:
             email_response = resend.Emails.send(params)
 
             # Check if email was sent successfully
-            if email_response and email_response.get('id'):
-                logger.info(f"Email sent successfully to {to_email}: {subject} (ID: {email_response['id']})")
+            if email_response and email_response.get("id"):
+                logger.info(
+                    f"Email sent successfully to {to_email}: {subject} (ID: {email_response['id']})"
+                )
                 return True, None
             else:
                 error_msg = "Resend returned no email ID"
@@ -89,7 +93,7 @@ class EmailService:
         renewal_date: datetime,
         amount: float,
         currency: str,
-        days_until_renewal: int
+        days_until_renewal: int,
     ) -> tuple[bool, Optional[str]]:
         """Send renewal reminder email."""
         subject = f"Reminder: {subscription_name} renews in {days_until_renewal} days"
@@ -100,7 +104,7 @@ class EmailService:
             renewal_date=renewal_date,
             amount=amount,
             currency=currency,
-            days_until_renewal=days_until_renewal
+            days_until_renewal=days_until_renewal,
         )
 
         plain_content = f"""
@@ -126,7 +130,7 @@ Subscription Tracker Team
         total_spent: float,
         currency: str,
         subscriptions: List[dict],
-        upcoming_renewals: List[dict]
+        upcoming_renewals: List[dict],
     ) -> tuple[bool, Optional[str]]:
         """Send weekly spending summary email."""
         subject = f"Your Weekly Subscription Summary - {currency} {total_spent:.2f}"
@@ -136,7 +140,7 @@ Subscription Tracker Team
             total_spent=total_spent,
             currency=currency,
             subscriptions=subscriptions,
-            upcoming_renewals=upcoming_renewals
+            upcoming_renewals=upcoming_renewals,
         )
 
         plain_content = f"""
@@ -166,7 +170,7 @@ Subscription Tracker Team
         currency: str,
         subscriptions: List[dict],
         spending_breakdown: dict,
-        comparison_last_month: Optional[dict] = None
+        comparison_last_month: Optional[dict] = None,
     ) -> tuple[bool, Optional[str]]:
         """Send monthly spending summary email."""
         subject = f"Your Monthly Subscription Summary - {currency} {total_spent:.2f}"
@@ -177,7 +181,7 @@ Subscription Tracker Team
             currency=currency,
             subscriptions=subscriptions,
             spending_breakdown=spending_breakdown,
-            comparison_last_month=comparison_last_month
+            comparison_last_month=comparison_last_month,
         )
 
         plain_content = f"""
@@ -198,11 +202,7 @@ Subscription Tracker Team
         return self.send_email(to_email, subject, html_content, plain_content)
 
     def send_2fa_otp_email(
-        self,
-        to_email: str,
-        user_name: str,
-        otp_code: str,
-        expires_in_minutes: int = 10
+        self, to_email: str, user_name: str, otp_code: str, expires_in_minutes: int = 10
     ) -> tuple[bool, Optional[str]]:
         """
         Send 2FA OTP code email.
@@ -221,7 +221,7 @@ Subscription Tracker Team
         html_content = EmailTemplates.generate_2fa_otp_email(
             user_name=user_name,
             otp_code=otp_code,
-            expires_in_minutes=expires_in_minutes
+            expires_in_minutes=expires_in_minutes,
         )
 
         plain_content = f"""
@@ -243,10 +243,7 @@ Subscription Tracker Team
         return self.send_email(to_email, subject, html_content, plain_content)
 
     def send_email_verification(
-        self,
-        to_email: str,
-        user_name: str,
-        verification_url: str
+        self, to_email: str, user_name: str, verification_url: str
     ) -> tuple[bool, Optional[str]]:
         """
         Send email verification email.
@@ -262,8 +259,7 @@ Subscription Tracker Team
         subject = "Complete Your Registration - Subscription Tracker"
 
         html_content = EmailTemplates.generate_email_verification_email(
-            user_name=user_name,
-            verification_url=verification_url
+            user_name=user_name, verification_url=verification_url
         )
 
         plain_content = f"""
@@ -295,7 +291,7 @@ Subscription Tracker Team
         renewal_date: datetime,
         amount: float,
         currency: str,
-        days_until_renewal: int
+        days_until_renewal: int,
     ) -> str:
         """Get HTML template for renewal reminder."""
         return f"""
@@ -433,7 +429,7 @@ Subscription Tracker Team
         total_spent: float,
         currency: str,
         subscriptions: List[dict],
-        upcoming_renewals: List[dict]
+        upcoming_renewals: List[dict],
     ) -> str:
         """Get HTML template for weekly summary."""
 
@@ -606,13 +602,15 @@ Subscription Tracker Team
         currency: str,
         subscriptions: List[dict],
         spending_breakdown: dict,
-        comparison_last_month: Optional[dict] = None
+        comparison_last_month: Optional[dict] = None,
     ) -> str:
         """Get HTML template for monthly summary."""
 
         # Build subscription list HTML
         subs_html = ""
-        for sub in sorted(subscriptions, key=lambda x: x.get('amount', 0), reverse=True)[:10]:
+        for sub in sorted(
+            subscriptions, key=lambda x: x.get("amount", 0), reverse=True
+        )[:10]:
             subs_html += f"""
             <div class="detail-row">
                 <span class="detail-label">{sub['name']}</span>
@@ -623,8 +621,12 @@ Subscription Tracker Team
         # Build comparison HTML if available
         comparison_html = ""
         if comparison_last_month:
-            diff = total_spent - comparison_last_month.get('total', 0)
-            diff_percent = (diff / comparison_last_month.get('total', 1)) * 100 if comparison_last_month.get('total', 0) > 0 else 0
+            diff = total_spent - comparison_last_month.get("total", 0)
+            diff_percent = (
+                (diff / comparison_last_month.get("total", 1)) * 100
+                if comparison_last_month.get("total", 0) > 0
+                else 0
+            )
             trend_emoji = "📈" if diff > 0 else "📉"
             trend_color = "#e53e3e" if diff > 0 else "#38a169"
 

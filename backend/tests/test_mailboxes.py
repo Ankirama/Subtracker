@@ -11,6 +11,7 @@ Tests cover:
 - Get sync status
 - Trigger sync (success, inactive mailbox, failure)
 """
+
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime, timezone
@@ -20,69 +21,71 @@ import uuid
 class TestMailboxConnectionTest:
     """Test POST /api/mailboxes/test - test mailbox connection."""
 
-    @patch('app.api.mailboxes.get_email_provider')
+    @patch("app.api.mailboxes.get_email_provider")
     @pytest.mark.asyncio
-    async def test_test_connection_success(self, mock_get_provider, client, auth_headers):
+    async def test_test_connection_success(
+        self, mock_get_provider, client, auth_headers
+    ):
         """Successfully test mailbox connection."""
         # Mock the email provider
         mock_provider = AsyncMock()
         mock_provider.test_connection.return_value = {
-            'success': True,
-            'message': 'Connection successful',
-            'provider_info': {'server': 'mail.example.com'}
+            "success": True,
+            "message": "Connection successful",
+            "provider_info": {"server": "mail.example.com"},
         }
         mock_provider.close = AsyncMock()
         mock_get_provider.return_value = mock_provider
 
         test_data = {
             "provider_type": "jmap",
-            "credentials": {
-                "username": "test@example.com",
-                "password": "testpass"
-            }
+            "credentials": {"username": "test@example.com", "password": "testpass"},
         }
 
-        response = client.post("/api/mailboxes/test", headers=auth_headers, json=test_data)
+        response = client.post(
+            "/api/mailboxes/test", headers=auth_headers, json=test_data
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['success'] is True
-        assert 'Connection successful' in data['message']
+        assert data["success"] is True
+        assert "Connection successful" in data["message"]
 
-    @patch('app.api.mailboxes.get_email_provider')
+    @patch("app.api.mailboxes.get_email_provider")
     @pytest.mark.asyncio
-    async def test_test_connection_failure(self, mock_get_provider, client, auth_headers):
+    async def test_test_connection_failure(
+        self, mock_get_provider, client, auth_headers
+    ):
         """Test connection failure is handled gracefully."""
         # Mock provider that fails
         mock_provider = AsyncMock()
         mock_provider.test_connection.return_value = {
-            'success': False,
-            'message': 'Authentication failed',
-            'provider_info': None
+            "success": False,
+            "message": "Authentication failed",
+            "provider_info": None,
         }
         mock_provider.close = AsyncMock()
         mock_get_provider.return_value = mock_provider
 
         test_data = {
             "provider_type": "jmap",
-            "credentials": {
-                "username": "test@example.com",
-                "password": "wrongpass"
-            }
+            "credentials": {"username": "test@example.com", "password": "wrongpass"},
         }
 
-        response = client.post("/api/mailboxes/test", headers=auth_headers, json=test_data)
+        response = client.post(
+            "/api/mailboxes/test", headers=auth_headers, json=test_data
+        )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['success'] is False
-        assert 'failed' in data['message'].lower()
+        assert data["success"] is False
+        assert "failed" in data["message"].lower()
 
     def test_test_connection_no_auth(self, client):
         """Cannot test connection without authentication."""
         test_data = {
             "provider_type": "jmap",
-            "credentials": {"username": "test", "password": "pass"}
+            "credentials": {"username": "test", "password": "pass"},
         }
 
         response = client.post("/api/mailboxes/test", json=test_data)
@@ -93,14 +96,14 @@ class TestMailboxConnectionTest:
 class TestMailboxCreate:
     """Test POST /api/mailboxes - create mailbox."""
 
-    @patch('app.api.mailboxes.get_email_provider')
+    @patch("app.api.mailboxes.get_email_provider")
     def test_create_mailbox_success(self, mock_get_provider, client, auth_headers):
         """Successfully create a new mailbox."""
         # Mock successful connection test
         mock_provider = AsyncMock()
         mock_provider.test_connection.return_value = {
-            'success': True,
-            'message': 'Connected'
+            "success": True,
+            "message": "Connected",
         }
         mock_provider.close = AsyncMock()
         mock_get_provider.return_value = mock_provider
@@ -111,32 +114,36 @@ class TestMailboxCreate:
             "credentials": {
                 "server_url": "https://jmap.example.com",
                 "username": "newmailbox@example.com",
-                "password": "securepass123"
+                "password": "securepass123",
             },
             "display_name": "My Work Email",
             "sync_frequency": "daily",
             "batch_size": 100,
-            "import_date_filter": "30days"
+            "import_date_filter": "30days",
         }
 
-        response = client.post("/api/mailboxes/", headers=auth_headers, json=mailbox_data)
+        response = client.post(
+            "/api/mailboxes/", headers=auth_headers, json=mailbox_data
+        )
 
         assert response.status_code == 201
         data = response.json()
-        assert data['email_address'] == "newmailbox@example.com"
-        assert data['display_name'] == "My Work Email"
-        assert data['provider_type'] == "jmap"
-        assert data['is_active'] is True
-        assert 'id' in data
+        assert data["email_address"] == "newmailbox@example.com"
+        assert data["display_name"] == "My Work Email"
+        assert data["provider_type"] == "jmap"
+        assert data["is_active"] is True
+        assert "id" in data
         # Credentials should not be in response
-        assert 'credentials' not in data
-        assert 'encrypted_credentials' not in data
+        assert "credentials" not in data
+        assert "encrypted_credentials" not in data
 
-    @patch('app.api.mailboxes.get_email_provider')
-    def test_create_mailbox_duplicate_email(self, mock_get_provider, client, auth_headers, test_mailbox):
+    @patch("app.api.mailboxes.get_email_provider")
+    def test_create_mailbox_duplicate_email(
+        self, mock_get_provider, client, auth_headers, test_mailbox
+    ):
         """Cannot create mailbox with duplicate email address."""
         mock_provider = AsyncMock()
-        mock_provider.test_connection.return_value = {'success': True, 'message': 'OK'}
+        mock_provider.test_connection.return_value = {"success": True, "message": "OK"}
         mock_provider.close = AsyncMock()
         mock_get_provider.return_value = mock_provider
 
@@ -146,23 +153,27 @@ class TestMailboxCreate:
             "credentials": {
                 "server_url": "https://jmap.example.com",
                 "username": "test",
-                "password": "pass"
-            }
+                "password": "pass",
+            },
         }
 
-        response = client.post("/api/mailboxes/", headers=auth_headers, json=mailbox_data)
+        response = client.post(
+            "/api/mailboxes/", headers=auth_headers, json=mailbox_data
+        )
 
         assert response.status_code == 400
-        assert "already exists" in response.json()['detail'].lower()
+        assert "already exists" in response.json()["detail"].lower()
 
-    @patch('app.api.mailboxes.get_email_provider')
-    def test_create_mailbox_connection_test_fails(self, mock_get_provider, client, auth_headers):
+    @patch("app.api.mailboxes.get_email_provider")
+    def test_create_mailbox_connection_test_fails(
+        self, mock_get_provider, client, auth_headers
+    ):
         """Cannot create mailbox if connection test fails."""
         # Mock failed connection test
         mock_provider = AsyncMock()
         mock_provider.test_connection.return_value = {
-            'success': False,
-            'message': 'Invalid credentials'
+            "success": False,
+            "message": "Invalid credentials",
         }
         mock_provider.close = AsyncMock()
         mock_get_provider.return_value = mock_provider
@@ -173,21 +184,23 @@ class TestMailboxCreate:
             "credentials": {
                 "server_url": "https://jmap.example.com",
                 "username": "test",
-                "password": "wrongpass"
-            }
+                "password": "wrongpass",
+            },
         }
 
-        response = client.post("/api/mailboxes/", headers=auth_headers, json=mailbox_data)
+        response = client.post(
+            "/api/mailboxes/", headers=auth_headers, json=mailbox_data
+        )
 
         assert response.status_code == 400
-        assert "failed" in response.json()['detail'].lower()
+        assert "failed" in response.json()["detail"].lower()
 
     def test_create_mailbox_no_auth(self, client):
         """Cannot create mailbox without authentication."""
         mailbox_data = {
             "provider_type": "jmap",
             "email_address": "test@example.com",
-            "credentials": {"username": "test", "password": "pass"}
+            "credentials": {"username": "test", "password": "pass"},
         }
 
         response = client.post("/api/mailboxes/", json=mailbox_data)
@@ -199,10 +212,12 @@ class TestMailboxCreate:
         mailbox_data = {
             "provider_type": "invalid_provider",
             "email_address": "test@example.com",
-            "credentials": {"username": "test", "password": "pass"}
+            "credentials": {"username": "test", "password": "pass"},
         }
 
-        response = client.post("/api/mailboxes/", headers=auth_headers, json=mailbox_data)
+        response = client.post(
+            "/api/mailboxes/", headers=auth_headers, json=mailbox_data
+        )
 
         # Should fail during provider creation
         assert response.status_code in [400, 422]
@@ -219,9 +234,11 @@ class TestMailboxList:
         data = response.json()
         assert isinstance(data, list)
         assert len(data) >= 1
-        assert any(m['id'] == str(test_mailbox.id) for m in data)
+        assert any(m["id"] == str(test_mailbox.id) for m in data)
 
-    def test_list_mailboxes_active_only(self, client, auth_headers, db_session, test_mailbox):
+    def test_list_mailboxes_active_only(
+        self, client, auth_headers, db_session, test_mailbox
+    ):
         """List only active mailboxes by default."""
         # Create inactive mailbox
         from app.models.mailbox import Mailbox
@@ -232,7 +249,7 @@ class TestMailboxList:
             email_address="inactive@example.com",
             provider_type="jmap",
             encrypted_credentials=encrypt_credentials({"user": "test"}),
-            is_active=False
+            is_active=False,
         )
         db_session.add(inactive_mailbox)
         db_session.commit()
@@ -242,13 +259,15 @@ class TestMailboxList:
 
         assert response.status_code == 200
         data = response.json()
-        emails = [m['email_address'] for m in data]
+        emails = [m["email_address"] for m in data]
 
         # Should only see active mailbox
         assert test_mailbox.email_address in emails
         assert "inactive@example.com" not in emails
 
-    def test_list_mailboxes_include_inactive(self, client, auth_headers, db_session, test_mailbox):
+    def test_list_mailboxes_include_inactive(
+        self, client, auth_headers, db_session, test_mailbox
+    ):
         """Can optionally include inactive mailboxes."""
         # Create inactive mailbox
         from app.models.mailbox import Mailbox
@@ -259,7 +278,7 @@ class TestMailboxList:
             email_address="inactive@example.com",
             provider_type="jmap",
             encrypted_credentials=encrypt_credentials({"user": "test"}),
-            is_active=False
+            is_active=False,
         )
         db_session.add(inactive_mailbox)
         db_session.commit()
@@ -269,7 +288,7 @@ class TestMailboxList:
 
         assert response.status_code == 200
         data = response.json()
-        emails = [m['email_address'] for m in data]
+        emails = [m["email_address"] for m in data]
 
         # Should see both mailboxes
         assert test_mailbox.email_address in emails
@@ -293,7 +312,7 @@ class TestMailboxList:
             password_hash=password_hash,
             salt=salt,
             is_active=True,
-            email_verified=True
+            email_verified=True,
         )
         db_session.add(new_user)
         db_session.commit()
@@ -301,7 +320,7 @@ class TestMailboxList:
         # Login as new user
         login_response = client.post(
             "/api/auth/login",
-            json={"email": "nomail@example.com", "password": "testpass"}
+            json={"email": "nomail@example.com", "password": "testpass"},
         )
         new_auth_headers = {
             "Authorization": f"Bearer {login_response.json()['access_token']}"
@@ -318,24 +337,18 @@ class TestMailboxGetById:
 
     def test_get_mailbox_success(self, client, auth_headers, test_mailbox):
         """Get mailbox by ID successfully."""
-        response = client.get(
-            f"/api/mailboxes/{test_mailbox.id}",
-            headers=auth_headers
-        )
+        response = client.get(f"/api/mailboxes/{test_mailbox.id}", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
-        assert data['id'] == str(test_mailbox.id)
-        assert data['email_address'] == test_mailbox.email_address
+        assert data["id"] == str(test_mailbox.id)
+        assert data["email_address"] == test_mailbox.email_address
 
     def test_get_mailbox_not_found(self, client, auth_headers):
         """Get non-existent mailbox returns 404."""
         fake_id = uuid.uuid4()
 
-        response = client.get(
-            f"/api/mailboxes/{fake_id}",
-            headers=auth_headers
-        )
+        response = client.get(f"/api/mailboxes/{fake_id}", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -351,7 +364,7 @@ class TestMailboxGetById:
             password_hash=password_hash,
             salt=salt,
             is_active=True,
-            email_verified=True
+            email_verified=True,
         )
         db_session.add(other_user)
         db_session.commit()
@@ -359,7 +372,7 @@ class TestMailboxGetById:
         # Login as other user
         login_response = client.post(
             "/api/auth/login",
-            json={"email": "other@example.com", "password": "otherpass"}
+            json={"email": "other@example.com", "password": "otherpass"},
         )
         other_auth_headers = {
             "Authorization": f"Bearer {login_response.json()['access_token']}"
@@ -367,8 +380,7 @@ class TestMailboxGetById:
 
         # Try to get test_mailbox (belongs to different user)
         response = client.get(
-            f"/api/mailboxes/{test_mailbox.id}",
-            headers=other_auth_headers
+            f"/api/mailboxes/{test_mailbox.id}", headers=other_auth_headers
         )
 
         assert response.status_code == 404  # Not found (for security)
@@ -388,29 +400,29 @@ class TestMailboxUpdate:
         update_data = {
             "display_name": "Updated Name",
             "sync_frequency": "daily",
-            "batch_size": 200
+            "batch_size": 200,
         }
 
         response = client.put(
-            f"/api/mailboxes/{test_mailbox.id}",
-            headers=auth_headers,
-            json=update_data
+            f"/api/mailboxes/{test_mailbox.id}", headers=auth_headers, json=update_data
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['display_name'] == "Updated Name"
-        assert data['sync_frequency'] == "daily"
-        assert data['batch_size'] == 200
+        assert data["display_name"] == "Updated Name"
+        assert data["sync_frequency"] == "daily"
+        assert data["batch_size"] == 200
 
-    @patch('app.api.mailboxes.get_email_provider')
-    def test_update_mailbox_credentials(self, mock_get_provider, client, auth_headers, test_mailbox):
+    @patch("app.api.mailboxes.get_email_provider")
+    def test_update_mailbox_credentials(
+        self, mock_get_provider, client, auth_headers, test_mailbox
+    ):
         """Update mailbox credentials with connection test."""
         # Mock successful connection test
         mock_provider = AsyncMock()
         mock_provider.test_connection.return_value = {
-            'success': True,
-            'message': 'Connected'
+            "success": True,
+            "message": "Connected",
         }
         mock_provider.close = AsyncMock()
         mock_get_provider.return_value = mock_provider
@@ -418,45 +430,40 @@ class TestMailboxUpdate:
         update_data = {
             "credentials": {
                 "username": "updated@example.com",
-                "password": "newpassword123"
+                "password": "newpassword123",
             }
         }
 
         response = client.put(
-            f"/api/mailboxes/{test_mailbox.id}",
-            headers=auth_headers,
-            json=update_data
+            f"/api/mailboxes/{test_mailbox.id}", headers=auth_headers, json=update_data
         )
 
         assert response.status_code == 200
 
-    @patch('app.api.mailboxes.get_email_provider')
-    def test_update_mailbox_invalid_credentials(self, mock_get_provider, client, auth_headers, test_mailbox):
+    @patch("app.api.mailboxes.get_email_provider")
+    def test_update_mailbox_invalid_credentials(
+        self, mock_get_provider, client, auth_headers, test_mailbox
+    ):
         """Cannot update with invalid credentials."""
         # Mock failed connection test
         mock_provider = AsyncMock()
         mock_provider.test_connection.return_value = {
-            'success': False,
-            'message': 'Authentication failed'
+            "success": False,
+            "message": "Authentication failed",
         }
         mock_provider.close = AsyncMock()
         mock_get_provider.return_value = mock_provider
 
         update_data = {
-            "credentials": {
-                "username": "test@example.com",
-                "password": "wrongpass"
-            }
+            "credentials": {"username": "test@example.com", "password": "wrongpass"}
         }
 
         response = client.put(
-            f"/api/mailboxes/{test_mailbox.id}",
-            headers=auth_headers,
-            json=update_data
+            f"/api/mailboxes/{test_mailbox.id}", headers=auth_headers, json=update_data
         )
 
         assert response.status_code == 400
-        assert "failed" in response.json()['detail'].lower()
+        assert "failed" in response.json()["detail"].lower()
 
     def test_update_mailbox_not_found(self, client, auth_headers):
         """Update non-existent mailbox returns 404."""
@@ -465,7 +472,7 @@ class TestMailboxUpdate:
         response = client.put(
             f"/api/mailboxes/{fake_id}",
             headers=auth_headers,
-            json={"display_name": "New Name"}
+            json={"display_name": "New Name"},
         )
 
         assert response.status_code == 404
@@ -473,8 +480,7 @@ class TestMailboxUpdate:
     def test_update_mailbox_no_auth(self, client, test_mailbox):
         """Cannot update mailbox without authentication."""
         response = client.put(
-            f"/api/mailboxes/{test_mailbox.id}",
-            json={"display_name": "New Name"}
+            f"/api/mailboxes/{test_mailbox.id}", json={"display_name": "New Name"}
         )
 
         assert response.status_code == 403
@@ -487,28 +493,19 @@ class TestMailboxDelete:
         """Successfully delete a mailbox."""
         mailbox_id = test_mailbox.id
 
-        response = client.delete(
-            f"/api/mailboxes/{mailbox_id}",
-            headers=auth_headers
-        )
+        response = client.delete(f"/api/mailboxes/{mailbox_id}", headers=auth_headers)
 
         assert response.status_code == 204
 
         # Verify deletion
-        get_response = client.get(
-            f"/api/mailboxes/{mailbox_id}",
-            headers=auth_headers
-        )
+        get_response = client.get(f"/api/mailboxes/{mailbox_id}", headers=auth_headers)
         assert get_response.status_code == 404
 
     def test_delete_mailbox_not_found(self, client, auth_headers):
         """Delete non-existent mailbox returns 404."""
         fake_id = uuid.uuid4()
 
-        response = client.delete(
-            f"/api/mailboxes/{fake_id}",
-            headers=auth_headers
-        )
+        response = client.delete(f"/api/mailboxes/{fake_id}", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -522,45 +519,44 @@ class TestMailboxDelete:
 class TestMailboxSyncStatus:
     """Test GET /api/mailboxes/{id}/sync-status - get sync status."""
 
-    def test_get_sync_status_success(self, client, auth_headers, test_mailbox, db_session):
+    def test_get_sync_status_success(
+        self, client, auth_headers, test_mailbox, db_session
+    ):
         """Get mailbox sync status successfully."""
         # Set some sync status data
-        test_mailbox.last_sync_status = 'success'
+        test_mailbox.last_sync_status = "success"
         test_mailbox.last_sync_at = datetime.now(timezone.utc)
         test_mailbox.last_sync_emails_processed = 50
         test_mailbox.last_sync_subscriptions_found = 3
         db_session.commit()
 
         response = client.get(
-            f"/api/mailboxes/{test_mailbox.id}/sync-status",
-            headers=auth_headers
+            f"/api/mailboxes/{test_mailbox.id}/sync-status", headers=auth_headers
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['status'] == 'success'
-        assert data['total_emails_processed'] == 50
-        assert data['subscriptions_found'] == 3
-        assert 'last_sync_at' in data
+        assert data["status"] == "success"
+        assert data["total_emails_processed"] == 50
+        assert data["subscriptions_found"] == 3
+        assert "last_sync_at" in data
 
     def test_get_sync_status_never_synced(self, client, auth_headers, test_mailbox):
         """Get sync status for mailbox that was never synced."""
         response = client.get(
-            f"/api/mailboxes/{test_mailbox.id}/sync-status",
-            headers=auth_headers
+            f"/api/mailboxes/{test_mailbox.id}/sync-status", headers=auth_headers
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['status'] == 'never_synced'
+        assert data["status"] == "never_synced"
 
     def test_get_sync_status_not_found(self, client, auth_headers):
         """Get sync status for non-existent mailbox returns 404."""
         fake_id = uuid.uuid4()
 
         response = client.get(
-            f"/api/mailboxes/{fake_id}/sync-status",
-            headers=auth_headers
+            f"/api/mailboxes/{fake_id}/sync-status", headers=auth_headers
         )
 
         assert response.status_code == 404
@@ -575,54 +571,54 @@ class TestMailboxSyncStatus:
 class TestMailboxTriggerSync:
     """Test POST /api/mailboxes/{id}/sync - trigger sync."""
 
-    @patch('app.tasks.email_sync.sync_mailbox_emails')
-    def test_trigger_sync_success(self, mock_sync_task, client, auth_headers, test_mailbox):
+    @patch("app.tasks.email_sync.sync_mailbox_emails")
+    def test_trigger_sync_success(
+        self, mock_sync_task, client, auth_headers, test_mailbox
+    ):
         """Successfully trigger mailbox sync."""
         # Mock Celery task
         mock_task = MagicMock()
         mock_task.id = "test-task-id-123"
         mock_sync_task.delay.return_value = mock_task
 
-        sync_request = {
-            "force_full_sync": False,
-            "date_filter_override": None
-        }
+        sync_request = {"force_full_sync": False, "date_filter_override": None}
 
         response = client.post(
             f"/api/mailboxes/{test_mailbox.id}/sync",
             headers=auth_headers,
-            json=sync_request
+            json=sync_request,
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['status'] == 'queued'
-        assert data['mailbox_id'] == str(test_mailbox.id)
+        assert data["status"] == "queued"
+        assert data["mailbox_id"] == str(test_mailbox.id)
 
         # Verify task was called
         mock_sync_task.delay.assert_called_once()
 
-    @patch('app.tasks.email_sync.sync_mailbox_emails')
-    def test_trigger_sync_with_date_filter(self, mock_sync_task, client, auth_headers, test_mailbox):
+    @patch("app.tasks.email_sync.sync_mailbox_emails")
+    def test_trigger_sync_with_date_filter(
+        self, mock_sync_task, client, auth_headers, test_mailbox
+    ):
         """Trigger sync with custom date filter."""
         mock_task = MagicMock()
         mock_task.id = "test-task-id-456"
         mock_sync_task.delay.return_value = mock_task
 
-        sync_request = {
-            "force_full_sync": False,
-            "date_filter_override": "7days"
-        }
+        sync_request = {"force_full_sync": False, "date_filter_override": "7days"}
 
         response = client.post(
             f"/api/mailboxes/{test_mailbox.id}/sync",
             headers=auth_headers,
-            json=sync_request
+            json=sync_request,
         )
 
         assert response.status_code == 200
 
-    def test_trigger_sync_inactive_mailbox(self, client, auth_headers, test_mailbox, db_session):
+    def test_trigger_sync_inactive_mailbox(
+        self, client, auth_headers, test_mailbox, db_session
+    ):
         """Cannot trigger sync for inactive mailbox."""
         # Deactivate mailbox
         test_mailbox.is_active = False
@@ -633,11 +629,11 @@ class TestMailboxTriggerSync:
         response = client.post(
             f"/api/mailboxes/{test_mailbox.id}/sync",
             headers=auth_headers,
-            json=sync_request
+            json=sync_request,
         )
 
         assert response.status_code == 400
-        assert "inactive" in response.json()['detail'].lower()
+        assert "inactive" in response.json()["detail"].lower()
 
     def test_trigger_sync_not_found(self, client, auth_headers):
         """Trigger sync for non-existent mailbox returns 404."""
@@ -646,7 +642,7 @@ class TestMailboxTriggerSync:
         response = client.post(
             f"/api/mailboxes/{fake_id}/sync",
             headers=auth_headers,
-            json={"force_full_sync": False}
+            json={"force_full_sync": False},
         )
 
         assert response.status_code == 404
@@ -654,14 +650,15 @@ class TestMailboxTriggerSync:
     def test_trigger_sync_no_auth(self, client, test_mailbox):
         """Cannot trigger sync without authentication."""
         response = client.post(
-            f"/api/mailboxes/{test_mailbox.id}/sync",
-            json={"force_full_sync": False}
+            f"/api/mailboxes/{test_mailbox.id}/sync", json={"force_full_sync": False}
         )
 
         assert response.status_code == 403
 
-    @patch('app.tasks.email_sync.sync_mailbox_emails')
-    def test_trigger_sync_task_failure(self, mock_sync_task, client, auth_headers, test_mailbox):
+    @patch("app.tasks.email_sync.sync_mailbox_emails")
+    def test_trigger_sync_task_failure(
+        self, mock_sync_task, client, auth_headers, test_mailbox
+    ):
         """Handle sync task queue failure gracefully."""
         # Mock task failure
         mock_sync_task.delay.side_effect = Exception("Celery connection failed")
@@ -671,8 +668,8 @@ class TestMailboxTriggerSync:
         response = client.post(
             f"/api/mailboxes/{test_mailbox.id}/sync",
             headers=auth_headers,
-            json=sync_request
+            json=sync_request,
         )
 
         assert response.status_code == 500
-        assert "failed to queue" in response.json()['detail'].lower()
+        assert "failed to queue" in response.json()["detail"].lower()

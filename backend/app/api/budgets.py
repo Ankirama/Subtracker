@@ -1,6 +1,7 @@
 """
 Budget API endpoints for managing spending limits and alerts.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -14,7 +15,7 @@ from app.schemas.budget import (
     BudgetUpdate,
     BudgetResponse,
     BudgetStatusResponse,
-    BudgetAlertResponse
+    BudgetAlertResponse,
 )
 from app.services.budget_service import BudgetService
 from app.security.dependencies import get_current_user
@@ -29,7 +30,7 @@ router = APIRouter()
 async def create_budget(
     budget_data: BudgetCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Create a new budget.
@@ -37,15 +38,16 @@ async def create_budget(
     Budgets can be category-specific or overall (category=None).
     """
     # Check for duplicate budget name for this user
-    existing = db.query(Budget).filter(
-        Budget.user_id == current_user.id,
-        Budget.name == budget_data.name
-    ).first()
+    existing = (
+        db.query(Budget)
+        .filter(Budget.user_id == current_user.id, Budget.name == budget_data.name)
+        .first()
+    )
 
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Budget with name '{budget_data.name}' already exists"
+            detail=f"Budget with name '{budget_data.name}' already exists",
         )
 
     # Create budget
@@ -57,7 +59,7 @@ async def create_budget(
         limit_amount=budget_data.limit_amount,
         currency=budget_data.currency,
         alert_threshold=budget_data.alert_threshold,
-        alert_enabled='true' if budget_data.alert_enabled else 'false'
+        alert_enabled="true" if budget_data.alert_enabled else "false",
     )
 
     db.add(budget)
@@ -71,23 +73,24 @@ async def create_budget(
 
 @router.get("/", response_model=List[BudgetResponse])
 async def list_budgets(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
     Get all budgets for the current user.
     """
-    budgets = db.query(Budget).filter(
-        Budget.user_id == current_user.id
-    ).order_by(Budget.created_at.desc()).all()
+    budgets = (
+        db.query(Budget)
+        .filter(Budget.user_id == current_user.id)
+        .order_by(Budget.created_at.desc())
+        .all()
+    )
 
     return budgets
 
 
 @router.get("/status", response_model=List[BudgetStatusResponse])
 async def get_budgets_status(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
     Get status for all budgets including current spending and alerts.
@@ -98,8 +101,7 @@ async def get_budgets_status(
 
 @router.get("/alerts", response_model=List[BudgetAlertResponse])
 async def get_budget_alerts(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
     Get all active budget alerts (warning or exceeded).
@@ -112,20 +114,20 @@ async def get_budget_alerts(
 async def get_budget(
     budget_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get a specific budget by ID.
     """
-    budget = db.query(Budget).filter(
-        Budget.id == budget_id,
-        Budget.user_id == current_user.id
-    ).first()
+    budget = (
+        db.query(Budget)
+        .filter(Budget.id == budget_id, Budget.user_id == current_user.id)
+        .first()
+    )
 
     if not budget:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Budget not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Budget not found"
         )
 
     return budget
@@ -135,20 +137,20 @@ async def get_budget(
 async def get_budget_status(
     budget_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get detailed status for a specific budget including spending and alerts.
     """
-    budget = db.query(Budget).filter(
-        Budget.id == budget_id,
-        Budget.user_id == current_user.id
-    ).first()
+    budget = (
+        db.query(Budget)
+        .filter(Budget.id == budget_id, Budget.user_id == current_user.id)
+        .first()
+    )
 
     if not budget:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Budget not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Budget not found"
         )
 
     status = BudgetService.get_budget_status(db, budget)
@@ -160,41 +162,45 @@ async def update_budget(
     budget_id: UUID,
     budget_data: BudgetUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update an existing budget.
     """
-    budget = db.query(Budget).filter(
-        Budget.id == budget_id,
-        Budget.user_id == current_user.id
-    ).first()
+    budget = (
+        db.query(Budget)
+        .filter(Budget.id == budget_id, Budget.user_id == current_user.id)
+        .first()
+    )
 
     if not budget:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Budget not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Budget not found"
         )
 
     # Check for duplicate name if name is being changed
     if budget_data.name and budget_data.name != budget.name:
-        existing = db.query(Budget).filter(
-            Budget.user_id == current_user.id,
-            Budget.name == budget_data.name,
-            Budget.id != budget_id
-        ).first()
+        existing = (
+            db.query(Budget)
+            .filter(
+                Budget.user_id == current_user.id,
+                Budget.name == budget_data.name,
+                Budget.id != budget_id,
+            )
+            .first()
+        )
 
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Budget with name '{budget_data.name}' already exists"
+                detail=f"Budget with name '{budget_data.name}' already exists",
             )
 
     # Update fields
     update_data = budget_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        if field == 'alert_enabled':
-            setattr(budget, field, 'true' if value else 'false')
+        if field == "alert_enabled":
+            setattr(budget, field, "true" if value else "false")
         else:
             setattr(budget, field, value)
 
@@ -210,20 +216,20 @@ async def update_budget(
 async def delete_budget(
     budget_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete a budget.
     """
-    budget = db.query(Budget).filter(
-        Budget.id == budget_id,
-        Budget.user_id == current_user.id
-    ).first()
+    budget = (
+        db.query(Budget)
+        .filter(Budget.id == budget_id, Budget.user_id == current_user.id)
+        .first()
+    )
 
     if not budget:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Budget not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Budget not found"
         )
 
     db.delete(budget)

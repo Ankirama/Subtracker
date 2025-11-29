@@ -1,12 +1,12 @@
 """
 Budget service for calculating spending, tracking budgets, and generating alerts.
 """
+
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from datetime import datetime, date
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from typing import List, Dict, Optional
-from decimal import Decimal
 
 from app.models.budget import Budget
 from app.models.subscription import Subscription
@@ -29,16 +29,25 @@ class BudgetService:
         """
         today = datetime.now()
 
-        if period == 'monthly':
+        if period == "monthly":
             start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             end = start + relativedelta(months=1) - relativedelta(days=1)
-        elif period == 'quarterly':
+        elif period == "quarterly":
             # Get current quarter
             quarter_start_month = ((today.month - 1) // 3) * 3 + 1
-            start = today.replace(month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
+            start = today.replace(
+                month=quarter_start_month,
+                day=1,
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
             end = start + relativedelta(months=3) - relativedelta(days=1)
-        elif period == 'yearly':
-            start = today.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        elif period == "yearly":
+            start = today.replace(
+                month=1, day=1, hour=0, minute=0, second=0, microsecond=0
+            )
             end = today.replace(month=12, day=31, hour=23, minute=59, second=59)
         else:
             # Default to monthly
@@ -54,19 +63,21 @@ class BudgetService:
             return 0.0
 
         cycle_multipliers = {
-            'weekly': 4.33,
-            'monthly': 1.0,
-            'quarterly': 1/3,
-            'biannual': 1/6,
-            'yearly': 1/12,
-            'annual': 1/12,
+            "weekly": 4.33,
+            "monthly": 1.0,
+            "quarterly": 1 / 3,
+            "biannual": 1 / 6,
+            "yearly": 1 / 12,
+            "annual": 1 / 12,
         }
 
         multiplier = cycle_multipliers.get(billing_cycle.lower(), 1.0)
         return round(amount * multiplier, 2)
 
     @staticmethod
-    def _normalize_to_period(amount: float, billing_cycle: str, target_period: str) -> float:
+    def _normalize_to_period(
+        amount: float, billing_cycle: str, target_period: str
+    ) -> float:
         """
         Convert billing amount to target period (monthly, quarterly, yearly).
 
@@ -82,11 +93,11 @@ class BudgetService:
         monthly = BudgetService._normalize_billing_to_monthly(amount, billing_cycle)
 
         # Then convert from monthly to target period
-        if target_period == 'monthly':
+        if target_period == "monthly":
             return monthly
-        elif target_period == 'quarterly':
+        elif target_period == "quarterly":
             return monthly * 3
-        elif target_period == 'yearly':
+        elif target_period == "yearly":
             return monthly * 12
 
         return monthly
@@ -96,7 +107,7 @@ class BudgetService:
         db: Session,
         user_id: str,
         category: Optional[str] = None,
-        period: str = 'monthly'
+        period: str = "monthly",
     ) -> float:
         """
         Calculate current spending for a budget period.
@@ -119,10 +130,7 @@ class BudgetService:
 
         # Build query for active subscriptions
         query = db.query(Subscription).filter(
-            and_(
-                Subscription.mailbox_id.in_(mailbox_ids),
-                Subscription.is_active == True
-            )
+            and_(Subscription.mailbox_id.in_(mailbox_ids), Subscription.is_active)
         )
 
         # Apply category filter if specified
@@ -136,9 +144,7 @@ class BudgetService:
         for sub in subscriptions:
             if sub.amount:
                 normalized = BudgetService._normalize_to_period(
-                    float(sub.amount),
-                    sub.billing_cycle,
-                    period
+                    float(sub.amount), sub.billing_cycle, period
                 )
                 total += normalized
 
@@ -158,10 +164,7 @@ class BudgetService:
         """
         # Calculate current spending
         current_spending = BudgetService.calculate_spending(
-            db,
-            str(budget.user_id),
-            budget.category,
-            budget.period
+            db, str(budget.user_id), budget.category, budget.period
         )
 
         limit = float(budget.limit_amount)
@@ -170,30 +173,30 @@ class BudgetService:
 
         # Determine status
         if percentage_used >= 100:
-            status = 'exceeded'
+            status = "exceeded"
         elif percentage_used >= budget.alert_threshold:
-            status = 'warning'
+            status = "warning"
         else:
-            status = 'good'
+            status = "good"
 
         # Get period dates
         start_date, end_date = BudgetService._get_period_dates(budget.period)
 
         return {
-            'budget_id': str(budget.id),
-            'name': budget.name,
-            'category': budget.category,
-            'period': budget.period,
-            'limit_amount': limit,
-            'current_spending': current_spending,
-            'remaining': remaining,
-            'percentage_used': round(percentage_used, 2),
-            'status': status,
-            'alert_threshold': budget.alert_threshold,
-            'alert_enabled': budget.alert_enabled == 'true',
-            'period_start': start_date.date().isoformat(),
-            'period_end': end_date.date().isoformat(),
-            'currency': budget.currency
+            "budget_id": str(budget.id),
+            "name": budget.name,
+            "category": budget.category,
+            "period": budget.period,
+            "limit_amount": limit,
+            "current_spending": current_spending,
+            "remaining": remaining,
+            "percentage_used": round(percentage_used, 2),
+            "status": status,
+            "alert_threshold": budget.alert_threshold,
+            "alert_enabled": budget.alert_enabled == "true",
+            "period_start": start_date.date().isoformat(),
+            "period_end": end_date.date().isoformat(),
+            "currency": budget.currency,
         }
 
     @staticmethod
@@ -210,10 +213,7 @@ class BudgetService:
         """
         budgets = db.query(Budget).filter(Budget.user_id == user_id).all()
 
-        return [
-            BudgetService.get_budget_status(db, budget)
-            for budget in budgets
-        ]
+        return [BudgetService.get_budget_status(db, budget) for budget in budgets]
 
     @staticmethod
     def check_budget_alerts(db: Session, user_id: str) -> List[Dict]:
@@ -227,22 +227,23 @@ class BudgetService:
         Returns:
             List of budgets that need alerts (warning or exceeded)
         """
-        budgets = db.query(Budget).filter(
-            and_(
-                Budget.user_id == user_id,
-                Budget.alert_enabled == 'true'
-            )
-        ).all()
+        budgets = (
+            db.query(Budget)
+            .filter(and_(Budget.user_id == user_id, Budget.alert_enabled == "true"))
+            .all()
+        )
 
         alerts = []
         for budget in budgets:
             status = BudgetService.get_budget_status(db, budget)
 
-            if status['status'] in ['warning', 'exceeded']:
-                alerts.append({
-                    'budget': status,
-                    'alert_type': status['status'],
-                    'message': f"Budget '{budget.name}' is at {status['percentage_used']}% ({status['current_spending']}/{status['limit_amount']} {budget.currency})"
-                })
+            if status["status"] in ["warning", "exceeded"]:
+                alerts.append(
+                    {
+                        "budget": status,
+                        "alert_type": status["status"],
+                        "message": f"Budget '{budget.name}' is at {status['percentage_used']}% ({status['current_spending']}/{status['limit_amount']} {budget.currency})",
+                    }
+                )
 
         return alerts

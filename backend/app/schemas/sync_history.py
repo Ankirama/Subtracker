@@ -1,7 +1,8 @@
 """
 Pydantic schemas for sync history endpoints.
 """
-from pydantic import BaseModel, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
@@ -9,6 +10,7 @@ from uuid import UUID
 
 class SyncHistoryBase(BaseModel):
     """Base schema for sync history."""
+
     mailbox_id: UUID
     started_at: datetime
     status: str
@@ -20,6 +22,7 @@ class SyncHistoryBase(BaseModel):
 
 class SyncHistoryResponse(SyncHistoryBase):
     """Schema for sync history response."""
+
     id: UUID
     completed_at: Optional[datetime] = None
     duration_seconds: Optional[int] = None
@@ -41,6 +44,7 @@ class SyncHistoryResponse(SyncHistoryBase):
 
 class SyncHistoryList(BaseModel):
     """Schema for paginated sync history list."""
+
     items: list[SyncHistoryResponse]
     total: int
     limit: int
@@ -49,6 +53,7 @@ class SyncHistoryList(BaseModel):
 
 class SyncStatistics(BaseModel):
     """Schema for sync statistics summary."""
+
     total_syncs: int
     successful_syncs: int
     failed_syncs: int
@@ -62,6 +67,7 @@ class SyncStatistics(BaseModel):
 
 class SyncProgressResponse(BaseModel):
     """Schema for real-time sync progress (Issue #10)."""
+
     mailbox_id: UUID
     status: str  # 'in_progress', 'queued', 'completed', 'failed', 'cancelled'
     current_batch_number: Optional[int] = None

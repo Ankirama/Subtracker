@@ -4,6 +4,7 @@ Celery task for sending trial ending reminders.
 Checks for trial subscriptions ending soon and sends notifications to help users
 avoid unexpected charges.
 """
+
 from datetime import datetime, timedelta, date
 from typing import Tuple
 from sqlalchemy import and_
@@ -13,7 +14,12 @@ import logging
 from app.celery_app import celery_app
 from app.database import SessionLocal
 from app.models.subscription import Subscription
-from app.models.notification import Notification, NotificationPreference, NotificationType, NotificationPriority
+from app.models.notification import (
+    Notification,
+    NotificationPreference,
+    NotificationType,
+    NotificationPriority,
+)
 from app.models.user import User
 from app.services.email_service import EmailService
 
@@ -21,9 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def should_send_trial_reminder(
-    subscription: Subscription,
-    days_before: int,
-    db: Session
+    subscription: Subscription, days_before: int, db: Session
 ) -> bool:
     """
     Check if we should send a trial reminder for this subscription.
@@ -40,7 +44,7 @@ def should_send_trial_reminder(
         return False
 
     # Only send reminders for active trials
-    if subscription.trial_status not in ['trial', None]:
+    if subscription.trial_status not in ["trial", None]:
         return False
 
     # Calculate days until trial ends
@@ -52,14 +56,18 @@ def should_send_trial_reminder(
         return False
 
     # Check if we already sent a reminder for this trial recently
-    recent_reminder = db.query(Notification).filter(
-        and_(
-            Notification.user_id == subscription.user_id,
-            Notification.related_subscription_id == subscription.id,
-            Notification.type == NotificationType.TRIAL_ENDING,
-            Notification.created_at >= datetime.now() - timedelta(days=1)
+    recent_reminder = (
+        db.query(Notification)
+        .filter(
+            and_(
+                Notification.user_id == subscription.user_id,
+                Notification.related_subscription_id == subscription.id,
+                Notification.type == NotificationType.TRIAL_ENDING,
+                Notification.created_at >= datetime.now() - timedelta(days=1),
+            )
         )
-    ).first()
+        .first()
+    )
 
     if recent_reminder:
         logger.debug(f"Already sent trial reminder for subscription {subscription.id}")
@@ -69,9 +77,7 @@ def should_send_trial_reminder(
 
 
 def create_trial_notification(
-    subscription: Subscription,
-    days_before: int,
-    db: Session
+    subscription: Subscription, days_before: int, db: Session
 ) -> Notification:
     """
     Create a trial ending reminder notification.
@@ -104,30 +110,29 @@ def create_trial_notification(
         priority=priority,
         title=f"{urgency} {subscription.provider} Trial Ending",
         message=f"Your {subscription.provider} free trial ends {days_text} on {subscription.trial_end_date.strftime('%B %d, %Y')}. "
-                f"You'll be charged {subscription.currency} {subscription.amount:.2f} unless you cancel.",
+        f"You'll be charged {subscription.currency} {subscription.amount:.2f} unless you cancel.",
         notification_metadata={
             "trial_end_date": subscription.trial_end_date.isoformat(),
             "days_before": days_before,
             "amount": float(subscription.amount) if subscription.amount else None,
             "currency": subscription.currency,
             "billing_cycle": subscription.billing_cycle,
-            "trial_status": subscription.trial_status
-        }
+            "trial_status": subscription.trial_status,
+        },
     )
 
     db.add(notification)
     db.commit()
     db.refresh(notification)
 
-    logger.info(f"Created trial ending reminder for {subscription.provider} (user: {subscription.user_id}, days: {days_before})")
+    logger.info(
+        f"Created trial ending reminder for {subscription.provider} (user: {subscription.user_id}, days: {days_before})"
+    )
     return notification
 
 
 async def send_trial_email(
-    notification: Notification,
-    user: User,
-    subscription: Subscription,
-    db: Session
+    notification: Notification, user: User, subscription: Subscription, db: Session
 ) -> Tuple[bool, str | None]:
     """
     Send trial ending reminder email.
@@ -141,7 +146,11 @@ async def send_trial_email(
     Returns:
         (success, error_message)
     """
-    days_until = (subscription.trial_end_date - date.today()).days if subscription.trial_end_date else 0
+    days_until = (
+        (subscription.trial_end_date - date.today()).days
+        if subscription.trial_end_date
+        else 0
+    )
 
     # Urgency messaging
     if days_until == 0:
@@ -271,7 +280,7 @@ Subscription Tracker - Never get surprised by unexpected charges
         to_email=user.email,
         subject=subject,
         html_content=html_content,
-        plain_content=plain_content
+        plain_content=plain_content,
     )
 
     # Update notification status
@@ -281,7 +290,9 @@ Subscription Tracker - Never get surprised by unexpected charges
     db.commit()
 
     if success:
-        logger.info(f"Sent trial ending email to {user.email} for {subscription.provider}")
+        logger.info(
+            f"Sent trial ending email to {user.email} for {subscription.provider}"
+        )
     else:
         logger.error(f"Failed to send trial ending email to {user.email}: {error}")
 
@@ -313,62 +324,83 @@ def check_trial_reminders():
             # Get trial subscriptions ending on the target date
             target_date = date.today() + timedelta(days=days_before)
 
-            subscriptions = db.query(Subscription).filter(
-                and_(
-                    Subscription.is_active == True,
-                    Subscription.trial_end_date == target_date,
-                    Subscription.trial_status.in_(['trial', None])  # Active trials only
+            subscriptions = (
+                db.query(Subscription)
+                .filter(
+                    and_(
+                        Subscription.is_active,
+                        Subscription.trial_end_date == target_date,
+                        Subscription.trial_status.in_(
+                            ["trial", None]
+                        ),  # Active trials only
+                    )
                 )
-            ).all()
+                .all()
+            )
 
-            logger.info(f"Found {len(subscriptions)} trials ending in {days_before} days")
+            logger.info(
+                f"Found {len(subscriptions)} trials ending in {days_before} days"
+            )
 
             for subscription in subscriptions:
                 # Check user preferences for trial reminders
-                pref = db.query(NotificationPreference).filter(
-                    and_(
-                        NotificationPreference.user_id == subscription.user_id,
-                        NotificationPreference.notification_type == NotificationType.TRIAL_ENDING
+                pref = (
+                    db.query(NotificationPreference)
+                    .filter(
+                        and_(
+                            NotificationPreference.user_id == subscription.user_id,
+                            NotificationPreference.notification_type
+                            == NotificationType.TRIAL_ENDING,
+                        )
                     )
-                ).first()
+                    .first()
+                )
 
                 # If no preference exists, default to enabled
                 if pref is None or pref.enabled:
                     if should_send_trial_reminder(subscription, days_before, db):
                         # Create notification
-                        notification = create_trial_notification(subscription, days_before, db)
+                        notification = create_trial_notification(
+                            subscription, days_before, db
+                        )
                         total_reminders += 1
 
                         # Send email if enabled (default to True if no preference)
                         email_enabled = pref.email_enabled if pref else True
                         if email_enabled:
-                            user = db.query(User).filter(User.id == subscription.user_id).first()
+                            user = (
+                                db.query(User)
+                                .filter(User.id == subscription.user_id)
+                                .first()
+                            )
                             if user:
                                 # Run async function synchronously in Celery task
                                 import asyncio
+
                                 loop = asyncio.new_event_loop()
                                 asyncio.set_event_loop(loop)
                                 success, _ = loop.run_until_complete(
-                                    send_trial_email(notification, user, subscription, db)
+                                    send_trial_email(
+                                        notification, user, subscription, db
+                                    )
                                 )
                                 loop.close()
 
                                 if success:
                                     total_emails += 1
 
-        logger.info(f"Trial reminders check complete: {total_reminders} notifications created, {total_emails} emails sent")
+        logger.info(
+            f"Trial reminders check complete: {total_reminders} notifications created, {total_emails} emails sent"
+        )
         return {
             "status": "success",
             "notifications_created": total_reminders,
-            "emails_sent": total_emails
+            "emails_sent": total_emails,
         }
 
     except Exception as e:
         logger.error(f"Error in trial reminders task: {e}", exc_info=True)
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+        return {"status": "error", "error": str(e)}
     finally:
         if db is not None:
             db.close()

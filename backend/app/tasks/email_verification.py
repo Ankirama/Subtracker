@@ -1,6 +1,7 @@
 """
 Celery tasks for email verification cleanup and maintenance
 """
+
 from datetime import datetime, timedelta
 from celery.utils.log import get_task_logger
 
@@ -31,21 +32,26 @@ def cleanup_unverified_users():
         cutoff_date = datetime.utcnow() - timedelta(days=7)
 
         # Find unverified users older than 7 days
-        unverified_users = db.query(User).filter(
-            User.email_verified == False,
-            User.created_at < cutoff_date
-        ).all()
+        unverified_users = (
+            db.query(User)
+            .filter(not User.email_verified, User.created_at < cutoff_date)
+            .all()
+        )
 
         # Delete each unverified user
         for user in unverified_users:
-            logger.info(f"Deleting unverified user: {user.email} (created: {user.created_at})")
+            logger.info(
+                f"Deleting unverified user: {user.email} (created: {user.created_at})"
+            )
             db.delete(user)
             deleted_count += 1
 
         # Commit the deletions
         db.commit()
 
-        logger.info(f"Unverified user cleanup completed. Deleted {deleted_count} user(s)")
+        logger.info(
+            f"Unverified user cleanup completed. Deleted {deleted_count} user(s)"
+        )
         return {"success": True, "deleted_count": deleted_count}
 
     except Exception as e:

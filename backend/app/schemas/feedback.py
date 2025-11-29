@@ -1,6 +1,7 @@
 """
 Pydantic schemas for cancellation feedback.
 """
+
 from pydantic import BaseModel, Field, validator
 from typing import Optional, List
 from datetime import datetime
@@ -10,26 +11,52 @@ from uuid import UUID
 class FeedbackSubmission(BaseModel):
     """Schema for submitting feedback on cancellation instructions"""
 
-    provider_cancellation_id: UUID = Field(..., description="ID of the provider cancellation info")
-    feedback_type: str = Field(..., description="Type of feedback: helpful, not_helpful, inaccurate, incomplete, worked, failed")
+    provider_cancellation_id: UUID = Field(
+        ..., description="ID of the provider cancellation info"
+    )
+    feedback_type: str = Field(
+        ...,
+        description="Type of feedback: helpful, not_helpful, inaccurate, incomplete, worked, failed",
+    )
 
     # Success tracking
-    successfully_cancelled: Optional[bool] = Field(None, description="Did the user successfully cancel?")
-    time_taken_minutes: Optional[int] = Field(None, ge=0, le=240, description="Time taken in minutes (0-240)")
+    successfully_cancelled: Optional[bool] = Field(
+        None, description="Did the user successfully cancel?"
+    )
+    time_taken_minutes: Optional[int] = Field(
+        None, ge=0, le=240, description="Time taken in minutes (0-240)"
+    )
 
     # Ratings
-    helpfulness_rating: Optional[int] = Field(None, ge=1, le=5, description="Helpfulness rating (1-5)")
-    accuracy_rating: Optional[int] = Field(None, ge=1, le=5, description="Accuracy rating (1-5)")
+    helpfulness_rating: Optional[int] = Field(
+        None, ge=1, le=5, description="Helpfulness rating (1-5)"
+    )
+    accuracy_rating: Optional[int] = Field(
+        None, ge=1, le=5, description="Accuracy rating (1-5)"
+    )
 
     # Details
-    comment: Optional[str] = Field(None, max_length=2000, description="Optional written feedback")
-    issues_encountered: Optional[List[str]] = Field(None, description="List of issues encountered")
+    comment: Optional[str] = Field(
+        None, max_length=2000, description="Optional written feedback"
+    )
+    issues_encountered: Optional[List[str]] = Field(
+        None, description="List of issues encountered"
+    )
 
-    device_type: Optional[str] = Field(None, description="Device type: web, mobile, tablet")
+    device_type: Optional[str] = Field(
+        None, description="Device type: web, mobile, tablet"
+    )
 
     @validator("feedback_type")
     def validate_feedback_type(cls, v):
-        valid_types = ["helpful", "not_helpful", "inaccurate", "incomplete", "worked", "failed"]
+        valid_types = [
+            "helpful",
+            "not_helpful",
+            "inaccurate",
+            "incomplete",
+            "worked",
+            "failed",
+        ]
         if v not in valid_types:
             raise ValueError(f"feedback_type must be one of {valid_types}")
         return v
@@ -39,17 +66,26 @@ class FeedbackSubmission(BaseModel):
         if v is None:
             return v
         valid_issues = [
-            "incorrect_url", "missing_steps", "outdated_info", "requires_phone",
-            "requires_chat", "confusing_instructions", "took_too_long", "other"
+            "incorrect_url",
+            "missing_steps",
+            "outdated_info",
+            "requires_phone",
+            "requires_chat",
+            "confusing_instructions",
+            "took_too_long",
+            "other",
         ]
         for issue in v:
             if issue not in valid_issues:
-                raise ValueError(f"Invalid issue: {issue}. Must be one of {valid_issues}")
+                raise ValueError(
+                    f"Invalid issue: {issue}. Must be one of {valid_issues}"
+                )
         return v
 
 
 class FeedbackResponse(BaseModel):
     """Response schema for feedback"""
+
     id: UUID
     user_id: UUID
     provider_cancellation_id: UUID
@@ -74,6 +110,7 @@ class FeedbackResponse(BaseModel):
 
 class ProviderMetrics(BaseModel):
     """Metrics for a specific provider"""
+
     provider_name: str
     total_feedback: int
     helpful_count: int  # helpful or worked
@@ -87,6 +124,7 @@ class ProviderMetrics(BaseModel):
 
 class ValidationMetrics(BaseModel):
     """Overall feedback and validation metrics"""
+
     total_feedback: int
     high_confidence_success_rate: Optional[float]
     low_confidence_success_rate: Optional[float]
@@ -95,12 +133,14 @@ class ValidationMetrics(BaseModel):
 
 class DashboardMetrics(BaseModel):
     """Complete dashboard metrics"""
+
     overall_metrics: ValidationMetrics  # Renamed from 'validation' to match frontend
     provider_metrics: List[ProviderMetrics]
 
 
 class QuickFeedback(BaseModel):
     """Quick thumbs up/down feedback"""
+
     provider_cancellation_id: UUID
     was_helpful: bool  # True = thumbs up, False = thumbs down
     comment: Optional[str] = Field(None, max_length=500)

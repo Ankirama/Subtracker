@@ -2,10 +2,10 @@
 AI-powered subscription data extraction service.
 Uses OpenAI GPT to extract structured subscription information from emails.
 """
+
 from openai import AsyncOpenAI, RateLimitError, APIError
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from decimal import Decimal
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.email_providers.base import EmailMessage
@@ -28,7 +28,7 @@ def get_openai_client(db: Optional[Session] = None) -> AsyncOpenAI:
     Returns:
         Configured AsyncOpenAI client
     """
-    api_key = get_config_value('openai.api_key', settings.OPENAI_API_KEY, db)
+    api_key = get_config_value("openai.api_key", settings.OPENAI_API_KEY, db)
     return AsyncOpenAI(api_key=api_key)
 
 
@@ -145,8 +145,7 @@ Rules:
 
 
 async def extract_subscription_data(
-    email: EmailMessage,
-    db: Optional[Session] = None
+    email: EmailMessage, db: Optional[Session] = None
 ) -> Optional[Dict[str, Any]]:
     """
     Extract structured subscription information from an email.
@@ -166,13 +165,14 @@ async def extract_subscription_data(
         body = get_optimized_email_body(
             body_text=email.body_text,
             body_html=email.body_html,
-            mode="extraction"  # Uses 2500 char limit with key info extraction
+            mode="extraction",  # Uses 2500 char limit with key info extraction
         )
 
         # Format relevant headers
         relevant_headers = {
-            k: v for k, v in email.headers.items()
-            if k.lower() in ['list-unsubscribe', 'x-service-name', 'x-subscription-id']
+            k: v
+            for k, v in email.headers.items()
+            if k.lower() in ["list-unsubscribe", "x-service-name", "x-subscription-id"]
         }
 
         prompt = EXTRACTION_PROMPT.format(
@@ -181,7 +181,9 @@ async def extract_subscription_data(
             sender_name=email.sender_name or "Unknown",
             date=email.date.isoformat(),
             body=body[:3000],  # Limit to 3000 chars for context
-            headers=json.dumps(relevant_headers, indent=2) if relevant_headers else "None"
+            headers=(
+                json.dumps(relevant_headers, indent=2) if relevant_headers else "None"
+            ),
         )
 
         logger.info(f"Extracting subscription data from: {email.subject}")
@@ -190,16 +192,19 @@ async def extract_subscription_data(
         response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a precise data extraction assistant. Always respond with valid JSON."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are a precise data extraction assistant. Always respond with valid JSON.",
+                },
+                {"role": "user", "content": prompt},
             ],
             temperature=0.2,  # Very low temperature for consistent extraction
-            max_tokens=800
+            max_tokens=800,
         )
-        
+
         # Parse response
         result_text = response.choices[0].message.content.strip()
-        
+
         # Try to extract JSON from response
         try:
             # Remove markdown code blocks if present
@@ -207,24 +212,26 @@ async def extract_subscription_data(
                 result_text = result_text.split("```json")[1].split("```")[0].strip()
             elif "```" in result_text:
                 result_text = result_text.split("```")[1].split("```")[0].strip()
-            
+
             extracted = json.loads(result_text)
-            
+
             # Validate and clean extracted data
             cleaned = clean_extracted_data(extracted)
-            
+
             # Only return if we have minimum required fields
-            if cleaned.get('provider') and cleaned.get('confidence_score', 0) > 0.5:
+            if cleaned.get("provider") and cleaned.get("confidence_score", 0) > 0.5:
                 logger.info(f"Extracted subscription: {cleaned['provider']}")
                 return cleaned
             else:
-                logger.warning(f"Extraction confidence too low or missing provider: {cleaned}")
+                logger.warning(
+                    f"Extraction confidence too low or missing provider: {cleaned}"
+                )
                 return None
-                
-        except json.JSONDecodeError as e:
+
+        except json.JSONDecodeError:
             logger.error(f"Failed to parse extraction response as JSON: {result_text}")
             return None
-            
+
     except Exception as e:
         logger.error(f"Error extracting subscription data: {str(e)}")
         return None
@@ -237,120 +244,140 @@ def clean_extracted_data(data: Dict[str, Any]) -> Dict[str, Any]:
     cleaned = {}
 
     # Required string fields
-    cleaned['provider'] = str(data.get('provider', '')).strip() or None
-    cleaned['custom_label'] = str(data.get('description', '')).strip() or None  # Map description to custom_label
+    cleaned["provider"] = str(data.get("provider", "")).strip() or None
+    cleaned["custom_label"] = (
+        str(data.get("description", "")).strip() or None
+    )  # Map description to custom_label
 
     # Currency - validate it's a proper 3-letter ISO code or NULL
-    currency = str(data.get('currency', '')).upper().strip()
-    if currency in ('NONE', 'NULL', '') or len(currency) != 3:
-        cleaned['currency'] = None
+    currency = str(data.get("currency", "")).upper().strip()
+    if currency in ("NONE", "NULL", "") or len(currency) != 3:
+        cleaned["currency"] = None
     else:
-        cleaned['currency'] = currency[:3]  # Ensure max 3 chars
+        cleaned["currency"] = currency[:3]  # Ensure max 3 chars
 
-    cleaned['billing_cycle'] = str(data.get('billing_cycle', '')).lower() or None
+    cleaned["billing_cycle"] = str(data.get("billing_cycle", "")).lower() or None
 
     # Category - validate against allowed list, default to 'other' for unknown
     ALLOWED_CATEGORIES = [
-        'streaming', 'software', 'storage', 'productivity', 'entertainment',
-        'fitness', 'gaming', 'news', 'education', 'communication', 'finance', 'shopping', 'music', 'other'
+        "streaming",
+        "software",
+        "storage",
+        "productivity",
+        "entertainment",
+        "fitness",
+        "gaming",
+        "news",
+        "education",
+        "communication",
+        "finance",
+        "shopping",
+        "music",
+        "other",
     ]
-    category = str(data.get('category', 'other')).lower().strip()
-    cleaned['category'] = category if category in ALLOWED_CATEGORIES else 'other'
+    category = str(data.get("category", "other")).lower().strip()
+    cleaned["category"] = category if category in ALLOWED_CATEGORIES else "other"
 
-    cleaned['extraction_method'] = str(data.get('extraction_method', 'gpt-4o-mini'))
+    cleaned["extraction_method"] = str(data.get("extraction_method", "gpt-4o-mini"))
 
     # Payment processor metadata (JSONB)
-    payment_method_last4 = str(data.get('payment_method_last4', '')).strip() or None
+    payment_method_last4 = str(data.get("payment_method_last4", "")).strip() or None
     if payment_method_last4:
-        cleaned['payment_processor'] = {
-            'last4': payment_method_last4,
-            'extracted_at': datetime.now().isoformat()
+        cleaned["payment_processor"] = {
+            "last4": payment_method_last4,
+            "extracted_at": datetime.now().isoformat(),
         }
-    
+
     # Amount (Decimal)
-    amount = data.get('amount')
+    amount = data.get("amount")
     if amount is not None:
         try:
-            cleaned['amount'] = float(amount)  # SQLAlchemy Numeric will handle conversion
+            cleaned["amount"] = float(
+                amount
+            )  # SQLAlchemy Numeric will handle conversion
         except (ValueError, TypeError):
-            cleaned['amount'] = None
+            cleaned["amount"] = None
     else:
-        cleaned['amount'] = None
-    
+        cleaned["amount"] = None
+
     # Confidence score
-    confidence = data.get('confidence_score', 0.0)
+    confidence = data.get("confidence_score", 0.0)
     try:
-        cleaned['confidence_score'] = float(confidence)
-        cleaned['confidence_score'] = max(0.0, min(1.0, cleaned['confidence_score']))
+        cleaned["confidence_score"] = float(confidence)
+        cleaned["confidence_score"] = max(0.0, min(1.0, cleaned["confidence_score"]))
     except (ValueError, TypeError):
-        cleaned['confidence_score'] = 0.5
-    
+        cleaned["confidence_score"] = 0.5
+
     # Renewal date
-    renewal_date = data.get('renewal_date')
-    if renewal_date and renewal_date != 'null':
+    renewal_date = data.get("renewal_date")
+    if renewal_date and renewal_date != "null":
         try:
-            cleaned['renewal_date'] = datetime.fromisoformat(str(renewal_date).replace('Z', '+00:00'))
+            cleaned["renewal_date"] = datetime.fromisoformat(
+                str(renewal_date).replace("Z", "+00:00")
+            )
         except (ValueError, TypeError):
-            cleaned['renewal_date'] = None
+            cleaned["renewal_date"] = None
     else:
-        cleaned['renewal_date'] = None
+        cleaned["renewal_date"] = None
 
     # Email sender (for tracking)
-    email_sender = data.get('raw_email_data', {}).get('sender')
+    email_sender = data.get("raw_email_data", {}).get("sender")
     if email_sender:
-        cleaned['email_sender'] = email_sender
+        cleaned["email_sender"] = email_sender
 
     # Trial detection
-    trial_detected = data.get('trial_detected', False)
+    trial_detected = data.get("trial_detected", False)
     if trial_detected:
         # Store trial metadata in extraction_metadata
-        trial_keywords = data.get('trial_keywords_found', [])
-        cleaned['extraction_metadata'] = {
-            'trial_detected': True,
-            'trial_keywords': trial_keywords,
-            'detected_at': datetime.now().isoformat()
+        trial_keywords = data.get("trial_keywords_found", [])
+        cleaned["extraction_metadata"] = {
+            "trial_detected": True,
+            "trial_keywords": trial_keywords,
+            "detected_at": datetime.now().isoformat(),
         }
 
         # Extract trial end date
-        trial_end_date = data.get('trial_end_date')
-        if trial_end_date and trial_end_date != 'null':
+        trial_end_date = data.get("trial_end_date")
+        if trial_end_date and trial_end_date != "null":
             try:
-                cleaned['trial_end_date'] = datetime.fromisoformat(str(trial_end_date).replace('Z', '+00:00')).date()
+                cleaned["trial_end_date"] = datetime.fromisoformat(
+                    str(trial_end_date).replace("Z", "+00:00")
+                ).date()
             except (ValueError, TypeError):
-                cleaned['trial_end_date'] = None
+                cleaned["trial_end_date"] = None
         else:
-            cleaned['trial_end_date'] = None
+            cleaned["trial_end_date"] = None
     else:
-        cleaned['extraction_metadata'] = None
-        cleaned['trial_end_date'] = None
+        cleaned["extraction_metadata"] = None
+        cleaned["trial_end_date"] = None
 
     # Price update detection
-    is_price_update = data.get('is_price_update', False)
-    cleaned['is_price_update'] = bool(is_price_update)
+    is_price_update = data.get("is_price_update", False)
+    cleaned["is_price_update"] = bool(is_price_update)
 
     if is_price_update:
         # Extract old amount
-        old_amount = data.get('old_amount')
+        old_amount = data.get("old_amount")
         if old_amount is not None:
             try:
-                cleaned['old_amount'] = float(old_amount)
+                cleaned["old_amount"] = float(old_amount)
             except (ValueError, TypeError):
-                cleaned['old_amount'] = None
+                cleaned["old_amount"] = None
         else:
-            cleaned['old_amount'] = None
+            cleaned["old_amount"] = None
 
         # Extract new amount
-        new_amount = data.get('new_amount')
+        new_amount = data.get("new_amount")
         if new_amount is not None:
             try:
-                cleaned['new_amount'] = float(new_amount)
+                cleaned["new_amount"] = float(new_amount)
             except (ValueError, TypeError):
-                cleaned['new_amount'] = None
+                cleaned["new_amount"] = None
         else:
-            cleaned['new_amount'] = None
+            cleaned["new_amount"] = None
     else:
-        cleaned['old_amount'] = None
-        cleaned['new_amount'] = None
+        cleaned["old_amount"] = None
+        cleaned["new_amount"] = None
 
     return cleaned
 
@@ -359,7 +386,7 @@ async def extract_subscription_data_with_retry(
     email: EmailMessage,
     db: Optional[Session] = None,
     max_retries: int = 3,
-    base_delay: float = 2.0
+    base_delay: float = 2.0,
 ) -> Optional[Dict[str, Any]]:
     """
     Extract subscription data with exponential backoff retry on failures.
@@ -386,7 +413,7 @@ async def extract_subscription_data_with_retry(
             last_exception = e
             if attempt < max_retries - 1:
                 # Exponential backoff: 2s, 4s, 8s
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 logger.warning(
                     f"Rate limit hit extracting '{email.subject}'. "
                     f"Retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
@@ -401,7 +428,7 @@ async def extract_subscription_data_with_retry(
             # Other API errors (500, 503, etc.)
             last_exception = e
             if attempt < max_retries - 1:
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 logger.warning(
                     f"API error extracting '{email.subject}': {e}. "
                     f"Retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
@@ -419,7 +446,9 @@ async def extract_subscription_data_with_retry(
             break
 
     # If all retries failed, return None
-    logger.error(f"Extraction failed for '{email.subject}' after {max_retries} retries: {str(last_exception)}")
+    logger.error(
+        f"Extraction failed for '{email.subject}' after {max_retries} retries: {str(last_exception)}"
+    )
     return None
 
 
@@ -427,7 +456,7 @@ async def extract_subscriptions_batch(
     emails: List[EmailMessage],
     db: Optional[Session] = None,
     initial_batch_size: int = 10,
-    min_batch_size: int = 2
+    min_batch_size: int = 2,
 ) -> List[Optional[Dict[str, Any]]]:
     """
     Extract subscription data from multiple emails with adaptive batch sizing.
@@ -451,7 +480,7 @@ async def extract_subscriptions_batch(
     i = 0
     while i < len(emails):
         # Get current batch
-        batch = emails[i:i + current_batch_size]
+        batch = emails[i : i + current_batch_size]
 
         logger.info(
             f"Extracting batch: {len(batch)} emails "
@@ -459,10 +488,7 @@ async def extract_subscriptions_batch(
         )
 
         # Process batch in parallel with retry logic
-        tasks = [
-            extract_subscription_data_with_retry(email, db)
-            for email in batch
-        ]
+        tasks = [extract_subscription_data_with_retry(email, db) for email in batch]
 
         try:
             # Execute all tasks concurrently
@@ -470,8 +496,7 @@ async def extract_subscriptions_batch(
 
             # Check for rate limit errors in results
             rate_limit_count = sum(
-                1 for r in batch_results
-                if isinstance(r, Exception) or r is None
+                1 for r in batch_results if isinstance(r, Exception) or r is None
             )
 
             # Process results
@@ -501,7 +526,9 @@ async def extract_subscriptions_batch(
 
                 if current_batch_size < initial_batch_size:
                     current_batch_size = min(initial_batch_size, current_batch_size + 2)
-                    logger.info(f"Increasing extraction batch size to {current_batch_size}")
+                    logger.info(
+                        f"Increasing extraction batch size to {current_batch_size}"
+                    )
 
                 # Normal sleep between batches
                 await asyncio.sleep(1.0)
@@ -521,5 +548,7 @@ async def extract_subscriptions_batch(
             i += len(batch)
 
     successful_extractions = sum(1 for r in all_results if r is not None)
-    logger.info(f"Extracted {successful_extractions}/{len(all_results)} emails successfully")
+    logger.info(
+        f"Extracted {successful_extractions}/{len(all_results)} emails successfully"
+    )
     return all_results

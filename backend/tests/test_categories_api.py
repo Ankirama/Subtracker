@@ -9,7 +9,7 @@ Tests cover:
 - Default category protection
 - Duplicate detection
 """
-import pytest
+
 from uuid import uuid4
 
 from app.models.category import Category, DEFAULT_CATEGORIES
@@ -25,22 +25,24 @@ class TestGetCategories:
         assert response.status_code == 200
         data = response.json()
 
-        assert 'categories' in data
-        assert 'total' in data
-        assert data['total'] == len(DEFAULT_CATEGORIES)
+        assert "categories" in data
+        assert "total" in data
+        assert data["total"] == len(DEFAULT_CATEGORIES)
 
         # Check that all default categories are present
-        category_names = [cat['name'] for cat in data['categories']]
+        category_names = [cat["name"] for cat in data["categories"]]
         for default_cat in DEFAULT_CATEGORIES.keys():
             assert default_cat in category_names
 
         # All should be marked as default
-        for cat in data['categories']:
-            assert cat['is_default'] is True
-            assert cat['id'] is None
-            assert cat['user_id'] is None
+        for cat in data["categories"]:
+            assert cat["is_default"] is True
+            assert cat["id"] is None
+            assert cat["user_id"] is None
 
-    def test_get_categories_with_custom(self, client, auth_headers, db_session, test_user):
+    def test_get_categories_with_custom(
+        self, client, auth_headers, db_session, test_user
+    ):
         """List categories includes custom categories along with defaults."""
         # Create custom category
         custom_cat = Category(
@@ -48,7 +50,7 @@ class TestGetCategories:
             name="custom_test",
             display_name="Custom Test",
             color="purple",
-            is_default=False
+            is_default=False,
         )
         db_session.add(custom_cat)
         db_session.commit()
@@ -59,16 +61,16 @@ class TestGetCategories:
         data = response.json()
 
         # Should have defaults + 1 custom
-        assert data['total'] == len(DEFAULT_CATEGORIES) + 1
+        assert data["total"] == len(DEFAULT_CATEGORIES) + 1
 
         # Find the custom category
-        custom_cats = [cat for cat in data['categories'] if not cat['is_default']]
+        custom_cats = [cat for cat in data["categories"] if not cat["is_default"]]
         assert len(custom_cats) == 1
-        assert custom_cats[0]['name'] == 'custom_test'
-        assert custom_cats[0]['display_name'] == 'Custom Test'
-        assert custom_cats[0]['color'] == 'purple'
-        assert custom_cats[0]['id'] is not None
-        assert custom_cats[0]['user_id'] is not None
+        assert custom_cats[0]["name"] == "custom_test"
+        assert custom_cats[0]["display_name"] == "Custom Test"
+        assert custom_cats[0]["color"] == "purple"
+        assert custom_cats[0]["id"] is not None
+        assert custom_cats[0]["user_id"] is not None
 
     def test_get_categories_structure(self, client, auth_headers):
         """Verify category response structure."""
@@ -78,13 +80,13 @@ class TestGetCategories:
         data = response.json()
 
         # Check first category has all required fields
-        cat = data['categories'][0]
-        assert 'id' in cat
-        assert 'name' in cat
-        assert 'display_name' in cat
-        assert 'color' in cat
-        assert 'is_default' in cat
-        assert 'user_id' in cat
+        cat = data["categories"][0]
+        assert "id" in cat
+        assert "name" in cat
+        assert "display_name" in cat
+        assert "color" in cat
+        assert "is_default" in cat
+        assert "user_id" in cat
 
     def test_get_categories_no_auth(self, client):
         """Cannot list categories without authentication."""
@@ -101,94 +103,85 @@ class TestCreateCategory:
         category_data = {
             "name": "MyCustomCategory",
             "display_name": "My Custom Category",
-            "color": "orange"
+            "color": "orange",
         }
 
         response = client.post(
-            "/api/categories",
-            headers=auth_headers,
-            json=category_data
+            "/api/categories", headers=auth_headers, json=category_data
         )
 
         assert response.status_code == 201
         data = response.json()
 
         # Name should be normalized (lowercase, underscores)
-        assert data['name'] == 'mycustomcategory'
-        assert data['display_name'] == 'My Custom Category'
-        assert data['color'] == 'orange'
-        assert data['is_default'] is False
-        assert data['id'] is not None
-        assert data['user_id'] is not None
-        assert 'created_at' in data
-        assert 'updated_at' in data
+        assert data["name"] == "mycustomcategory"
+        assert data["display_name"] == "My Custom Category"
+        assert data["color"] == "orange"
+        assert data["is_default"] is False
+        assert data["id"] is not None
+        assert data["user_id"] is not None
+        assert "created_at" in data
+        assert "updated_at" in data
 
     def test_create_category_with_spaces(self, client, auth_headers):
         """Category name with spaces gets normalized to underscores."""
         category_data = {
             "name": "My Test Category",
             "display_name": "My Test Category",
-            "color": "blue"
+            "color": "blue",
         }
 
         response = client.post(
-            "/api/categories",
-            headers=auth_headers,
-            json=category_data
+            "/api/categories", headers=auth_headers, json=category_data
         )
 
         assert response.status_code == 201
         data = response.json()
 
         # Spaces should be replaced with underscores and lowercased
-        assert data['name'] == 'my_test_category'
+        assert data["name"] == "my_test_category"
 
     def test_create_category_uppercase_normalized(self, client, auth_headers):
         """Uppercase category names are normalized to lowercase."""
         category_data = {
             "name": "UPPERCASE",
             "display_name": "Uppercase Display",
-            "color": "green"
+            "color": "green",
         }
 
         response = client.post(
-            "/api/categories",
-            headers=auth_headers,
-            json=category_data
+            "/api/categories", headers=auth_headers, json=category_data
         )
 
         assert response.status_code == 201
         data = response.json()
 
-        assert data['name'] == 'uppercase'
+        assert data["name"] == "uppercase"
 
     def test_create_category_default_color(self, client, auth_headers):
         """Category created with default color when not specified."""
-        category_data = {
-            "name": "NoColor",
-            "display_name": "No Color Category"
-        }
+        category_data = {"name": "NoColor", "display_name": "No Color Category"}
 
         response = client.post(
-            "/api/categories",
-            headers=auth_headers,
-            json=category_data
+            "/api/categories", headers=auth_headers, json=category_data
         )
 
         assert response.status_code == 201
         data = response.json()
 
         # Should have default color 'gray'
-        assert data['color'] == 'gray'
+        assert data["color"] == "gray"
 
-    def test_create_category_duplicate(self, client, auth_headers, db_session, test_user):
+    def test_create_category_duplicate(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Cannot create duplicate custom category."""
         # Create first category
         existing = Category(
             user_id=test_user.id,
             name="duplicate_test",
             display_name="Duplicate Test",
-            color="blue"
+            color="blue",
         )
         db_session.add(existing)
         db_session.commit()
@@ -197,17 +190,15 @@ class TestCreateCategory:
         category_data = {
             "name": "duplicate_test",
             "display_name": "Another Duplicate",
-            "color": "red"
+            "color": "red",
         }
 
         response = client.post(
-            "/api/categories",
-            headers=auth_headers,
-            json=category_data
+            "/api/categories", headers=auth_headers, json=category_data
         )
 
         assert response.status_code == 400
-        assert 'already exists' in response.json()['detail'].lower()
+        assert "already exists" in response.json()["detail"].lower()
 
     def test_create_category_conflicts_with_default(self, client, auth_headers):
         """Cannot create custom category with same name as default category."""
@@ -215,41 +206,29 @@ class TestCreateCategory:
         category_data = {
             "name": "streaming",  # Default category
             "display_name": "Custom Streaming",
-            "color": "purple"
+            "color": "purple",
         }
 
         response = client.post(
-            "/api/categories",
-            headers=auth_headers,
-            json=category_data
+            "/api/categories", headers=auth_headers, json=category_data
         )
 
         assert response.status_code == 400
-        assert 'default category' in response.json()['detail'].lower()
+        assert "default category" in response.json()["detail"].lower()
 
     def test_create_category_empty_name(self, client, auth_headers):
         """Cannot create category with empty name."""
-        category_data = {
-            "name": "",
-            "display_name": "Empty Name",
-            "color": "blue"
-        }
+        category_data = {"name": "", "display_name": "Empty Name", "color": "blue"}
 
         response = client.post(
-            "/api/categories",
-            headers=auth_headers,
-            json=category_data
+            "/api/categories", headers=auth_headers, json=category_data
         )
 
         assert response.status_code == 422  # Validation error
 
     def test_create_category_no_auth(self, client):
         """Cannot create category without authentication."""
-        category_data = {
-            "name": "test",
-            "display_name": "Test",
-            "color": "blue"
-        }
+        category_data = {"name": "test", "display_name": "Test", "color": "blue"}
 
         response = client.post("/api/categories", json=category_data)
 
@@ -266,7 +245,7 @@ class TestDeleteCategory:
             user_id=test_user.id,
             name="delete_me",
             display_name="Delete Me",
-            color="red"
+            color="red",
         )
         db_session.add(custom_cat)
         db_session.commit()
@@ -274,10 +253,7 @@ class TestDeleteCategory:
 
         category_id = custom_cat.id
 
-        response = client.delete(
-            f"/api/categories/{category_id}",
-            headers=auth_headers
-        )
+        response = client.delete(f"/api/categories/{category_id}", headers=auth_headers)
 
         assert response.status_code == 204
 
@@ -289,13 +265,10 @@ class TestDeleteCategory:
         """Cannot delete non-existent category."""
         fake_id = uuid4()
 
-        response = client.delete(
-            f"/api/categories/{fake_id}",
-            headers=auth_headers
-        )
+        response = client.delete(f"/api/categories/{fake_id}", headers=auth_headers)
 
         assert response.status_code == 404
-        assert 'not found' in response.json()['detail'].lower()
+        assert "not found" in response.json()["detail"].lower()
 
     def test_delete_category_other_user(self, client, auth_headers, db_session):
         """Cannot delete another user's category."""
@@ -308,7 +281,7 @@ class TestDeleteCategory:
             email="other@example.com",
             password_hash=password_hash,
             salt=salt,
-            is_active=True
+            is_active=True,
         )
         db_session.add(other_user)
         db_session.commit()
@@ -318,7 +291,7 @@ class TestDeleteCategory:
             user_id=other_user.id,
             name="other_category",
             display_name="Other Category",
-            color="blue"
+            color="blue",
         )
         db_session.add(other_cat)
         db_session.commit()
@@ -326,8 +299,7 @@ class TestDeleteCategory:
 
         # Try to delete with current user's auth
         response = client.delete(
-            f"/api/categories/{other_cat.id}",
-            headers=auth_headers
+            f"/api/categories/{other_cat.id}", headers=auth_headers
         )
 
         assert response.status_code == 404  # Not found (doesn't belong to user)
@@ -336,10 +308,7 @@ class TestDeleteCategory:
         """Cannot delete category without authentication."""
         # Create category
         custom_cat = Category(
-            user_id=test_user.id,
-            name="test",
-            display_name="Test",
-            color="blue"
+            user_id=test_user.id, name="test", display_name="Test", color="blue"
         )
         db_session.add(custom_cat)
         db_session.commit()
@@ -358,36 +327,32 @@ class TestCategoryEdgeCases:
         category_data = {
             "name": "  spaced  ",
             "display_name": "  Spaced Display  ",
-            "color": "blue"
+            "color": "blue",
         }
 
         response = client.post(
-            "/api/categories",
-            headers=auth_headers,
-            json=category_data
+            "/api/categories", headers=auth_headers, json=category_data
         )
 
         assert response.status_code == 201
         data = response.json()
 
         # Name should be trimmed and normalized
-        assert data['name'] == 'spaced'
+        assert data["name"] == "spaced"
         # Display name should be trimmed
-        assert data['display_name'] == 'Spaced Display'
+        assert data["display_name"] == "Spaced Display"
 
     def test_create_multiple_custom_categories(self, client, auth_headers):
         """Can create multiple custom categories."""
         categories = [
             {"name": "cat1", "display_name": "Category 1", "color": "red"},
             {"name": "cat2", "display_name": "Category 2", "color": "blue"},
-            {"name": "cat3", "display_name": "Category 3", "color": "green"}
+            {"name": "cat3", "display_name": "Category 3", "color": "green"},
         ]
 
         for cat_data in categories:
             response = client.post(
-                "/api/categories",
-                headers=auth_headers,
-                json=cat_data
+                "/api/categories", headers=auth_headers, json=cat_data
             )
             assert response.status_code == 201
 
@@ -396,9 +361,9 @@ class TestCategoryEdgeCases:
         data = response.json()
 
         # Should have defaults + 3 custom
-        assert data['total'] == len(DEFAULT_CATEGORIES) + 3
+        assert data["total"] == len(DEFAULT_CATEGORIES) + 3
 
-        custom_cats = [cat for cat in data['categories'] if not cat['is_default']]
+        custom_cats = [cat for cat in data["categories"] if not cat["is_default"]]
         assert len(custom_cats) == 3
 
     def test_default_categories_count(self, client, auth_headers):
@@ -408,7 +373,7 @@ class TestCategoryEdgeCases:
         assert response.status_code == 200
         data = response.json()
 
-        default_cats = [cat for cat in data['categories'] if cat['is_default']]
+        default_cats = [cat for cat in data["categories"] if cat["is_default"]]
         assert len(default_cats) == 14  # Current count of DEFAULT_CATEGORIES
 
     def test_default_categories_have_expected_fields(self, client, auth_headers):
@@ -419,11 +384,13 @@ class TestCategoryEdgeCases:
         data = response.json()
 
         # Check a specific default category
-        streaming = next(cat for cat in data['categories'] if cat['name'] == 'streaming')
-        assert streaming['display_name'] == 'Streaming'
-        assert streaming['color'] == 'red'
-        assert streaming['is_default'] is True
-        assert streaming['id'] is None
-        assert streaming['user_id'] is None
-        assert streaming['created_at'] is None
-        assert streaming['updated_at'] is None
+        streaming = next(
+            cat for cat in data["categories"] if cat["name"] == "streaming"
+        )
+        assert streaming["display_name"] == "Streaming"
+        assert streaming["color"] == "red"
+        assert streaming["is_default"] is True
+        assert streaming["id"] is None
+        assert streaming["user_id"] is None
+        assert streaming["created_at"] is None
+        assert streaming["updated_at"] is None

@@ -46,11 +46,13 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str
 
     # Registration Control
-    REQUIRE_INVITE_TOKEN: bool = True  # Require invite token for registration in production
+    REQUIRE_INVITE_TOKEN: bool = (
+        True  # Require invite token for registration in production
+    )
 
     # Resend (Email Service)
-    RESEND_API_KEY: str
-    RESEND_FROM_EMAIL: str
+    RESEND_API_KEY: str = "test_key"  # Default for testing
+    RESEND_FROM_EMAIL: str = "test@example.com"  # Default for testing
     RESEND_FROM_NAME: str = "Subscription Tracker"
 
     # Push Notifications (VAPID)

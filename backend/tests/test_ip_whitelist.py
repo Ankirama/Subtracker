@@ -9,8 +9,6 @@ Tests cover:
 - Deleting from whitelist
 - Brute force protection bypass for whitelisted IPs
 """
-import pytest
-from datetime import datetime
 
 from app.models.ip_whitelist import IPWhitelist
 from app.security.email_verification import VerificationRateLimiter
@@ -32,13 +30,13 @@ class TestIPWhitelistAPI:
         """Add an IP address to the whitelist."""
         whitelist_data = {
             "ip_address": "192.168.1.1",
-            "description": "Test admin office IP"
+            "description": "Test admin office IP",
         }
 
         response = client.post(
             "/api/admin/security/ip-whitelist",
             json=whitelist_data,
-            headers=admin_headers
+            headers=admin_headers,
         )
 
         assert response.status_code == 201
@@ -51,14 +49,11 @@ class TestIPWhitelistAPI:
     def test_add_duplicate_ip_fails(self, client, admin_headers, db_session):
         """Cannot add the same IP twice."""
         # Add first IP
-        whitelist_data = {
-            "ip_address": "192.168.1.2",
-            "description": "First entry"
-        }
+        whitelist_data = {"ip_address": "192.168.1.2", "description": "First entry"}
         response1 = client.post(
             "/api/admin/security/ip-whitelist",
             json=whitelist_data,
-            headers=admin_headers
+            headers=admin_headers,
         )
         assert response1.status_code == 201
 
@@ -67,7 +62,7 @@ class TestIPWhitelistAPI:
         response2 = client.post(
             "/api/admin/security/ip-whitelist",
             json=whitelist_data,
-            headers=admin_headers
+            headers=admin_headers,
         )
 
         assert response2.status_code == 400
@@ -81,9 +76,9 @@ class TestIPWhitelistAPI:
                 "/api/admin/security/ip-whitelist",
                 json={
                     "ip_address": f"192.168.1.{i+10}",
-                    "description": f"Test IP {i+1}"
+                    "description": f"Test IP {i+1}",
                 },
-                headers=admin_headers
+                headers=admin_headers,
             )
 
         # List all
@@ -99,17 +94,13 @@ class TestIPWhitelistAPI:
         # Add IP
         client.post(
             "/api/admin/security/ip-whitelist",
-            json={
-                "ip_address": "10.0.0.1",
-                "description": "VPN gateway"
-            },
-            headers=admin_headers
+            json={"ip_address": "10.0.0.1", "description": "VPN gateway"},
+            headers=admin_headers,
         )
 
         # Get specific IP
         response = client.get(
-            "/api/admin/security/ip-whitelist/10.0.0.1",
-            headers=admin_headers
+            "/api/admin/security/ip-whitelist/10.0.0.1", headers=admin_headers
         )
 
         assert response.status_code == 200
@@ -120,8 +111,7 @@ class TestIPWhitelistAPI:
     def test_get_nonexistent_ip_fails(self, client, admin_headers):
         """Getting non-existent IP returns 404."""
         response = client.get(
-            "/api/admin/security/ip-whitelist/1.2.3.4",
-            headers=admin_headers
+            "/api/admin/security/ip-whitelist/1.2.3.4", headers=admin_headers
         )
 
         assert response.status_code == 404
@@ -132,18 +122,15 @@ class TestIPWhitelistAPI:
         # Add IP
         client.post(
             "/api/admin/security/ip-whitelist",
-            json={
-                "ip_address": "172.16.0.1",
-                "description": "Original description"
-            },
-            headers=admin_headers
+            json={"ip_address": "172.16.0.1", "description": "Original description"},
+            headers=admin_headers,
         )
 
         # Update description
         response = client.patch(
             "/api/admin/security/ip-whitelist/172.16.0.1",
             json={"description": "Updated description"},
-            headers=admin_headers
+            headers=admin_headers,
         )
 
         assert response.status_code == 200
@@ -155,17 +142,13 @@ class TestIPWhitelistAPI:
         # Add IP
         client.post(
             "/api/admin/security/ip-whitelist",
-            json={
-                "ip_address": "203.0.113.1",
-                "description": "To be deleted"
-            },
-            headers=admin_headers
+            json={"ip_address": "203.0.113.1", "description": "To be deleted"},
+            headers=admin_headers,
         )
 
         # Delete it
         response = client.delete(
-            "/api/admin/security/ip-whitelist/203.0.113.1",
-            headers=admin_headers
+            "/api/admin/security/ip-whitelist/203.0.113.1", headers=admin_headers
         )
 
         assert response.status_code == 200
@@ -173,8 +156,7 @@ class TestIPWhitelistAPI:
 
         # Verify it's gone
         get_response = client.get(
-            "/api/admin/security/ip-whitelist/203.0.113.1",
-            headers=admin_headers
+            "/api/admin/security/ip-whitelist/203.0.113.1", headers=admin_headers
         )
         assert get_response.status_code == 404
 
@@ -186,15 +168,15 @@ class TestIPWhitelistAPI:
                 "/api/admin/security/ip-whitelist",
                 json={
                     "ip_address": f"192.168.2.{i+1}",
-                    "description": f"Test IP {i+1}"
+                    "description": f"Test IP {i+1}",
                 },
-                headers=admin_headers
+                headers=admin_headers,
             )
 
         # Get first page (20 items)
         response1 = client.get(
             "/api/admin/security/ip-whitelist?page=1&page_size=20",
-            headers=admin_headers
+            headers=admin_headers,
         )
         data1 = response1.json()
         assert len(data1["items"]) == 20
@@ -204,7 +186,7 @@ class TestIPWhitelistAPI:
         # Get second page (5 items)
         response2 = client.get(
             "/api/admin/security/ip-whitelist?page=2&page_size=20",
-            headers=admin_headers
+            headers=admin_headers,
         )
         data2 = response2.json()
         assert len(data2["items"]) == 5
@@ -220,13 +202,15 @@ class TestIPWhitelistBruteForceProtection:
             ip_address="192.168.100.1",
             description="Test admin IP",
             added_by_user_id=str(admin_user.id),
-            access_count=0
+            access_count=0,
         )
         db_session.add(whitelist_entry)
         db_session.commit()
 
         # Check if IP is blocked (should not be)
-        is_blocked, reason = VerificationRateLimiter.is_ip_blocked(db_session, "192.168.100.1")
+        is_blocked, reason = VerificationRateLimiter.is_ip_blocked(
+            db_session, "192.168.100.1"
+        )
 
         assert is_blocked is False
         assert reason is None
@@ -238,7 +222,7 @@ class TestIPWhitelistBruteForceProtection:
             ip_address="192.168.100.2",
             description="Test stats tracking",
             added_by_user_id=str(admin_user.id),
-            access_count=0
+            access_count=0,
         )
         db_session.add(whitelist_entry)
         db_session.commit()
@@ -261,26 +245,32 @@ class TestIPWhitelistBruteForceProtection:
             ip_address="192.168.100.3",
             description="Test no tracking",
             added_by_user_id=str(admin_user.id),
-            access_count=0
+            access_count=0,
         )
         db_session.add(whitelist_entry)
         db_session.commit()
 
         # Try to track verification attempts (should return None for whitelisted IP)
-        error_msg = VerificationRateLimiter.track_verification_attempt(db_session, "192.168.100.3")
+        error_msg = VerificationRateLimiter.track_verification_attempt(
+            db_session, "192.168.100.3"
+        )
 
         assert error_msg is None  # No error, IP is whitelisted
 
     def test_non_whitelisted_ip_can_be_blocked(self, db_session):
         """Non-whitelisted IP can still be blocked normally."""
         # Don't add to whitelist, just check if it can be tracked
-        error_msg = VerificationRateLimiter.track_verification_attempt(db_session, "192.168.100.99")
+        error_msg = VerificationRateLimiter.track_verification_attempt(
+            db_session, "192.168.100.99"
+        )
 
         # Should not be blocked on first attempt
         assert error_msg is None
 
         # But IP should be trackable (would be blocked after threshold)
-        is_blocked, reason = VerificationRateLimiter.is_ip_blocked(db_session, "192.168.100.99")
+        is_blocked, reason = VerificationRateLimiter.is_ip_blocked(
+            db_session, "192.168.100.99"
+        )
         assert is_blocked is False  # Not blocked yet, but is being tracked
 
 
@@ -289,10 +279,7 @@ class TestIPWhitelistPermissions:
 
     def test_non_admin_cannot_list(self, client, auth_headers):
         """Non-admin users cannot list whitelist."""
-        response = client.get(
-            "/api/admin/security/ip-whitelist",
-            headers=auth_headers
-        )
+        response = client.get("/api/admin/security/ip-whitelist", headers=auth_headers)
 
         assert response.status_code == 403
 
@@ -300,11 +287,8 @@ class TestIPWhitelistPermissions:
         """Non-admin users cannot add to whitelist."""
         response = client.post(
             "/api/admin/security/ip-whitelist",
-            json={
-                "ip_address": "1.2.3.4",
-                "description": "Test"
-            },
-            headers=auth_headers
+            json={"ip_address": "1.2.3.4", "description": "Test"},
+            headers=auth_headers,
         )
 
         assert response.status_code == 403
@@ -314,7 +298,7 @@ class TestIPWhitelistPermissions:
         response = client.patch(
             "/api/admin/security/ip-whitelist/1.2.3.4",
             json={"description": "Updated"},
-            headers=auth_headers
+            headers=auth_headers,
         )
 
         assert response.status_code == 403
@@ -322,8 +306,7 @@ class TestIPWhitelistPermissions:
     def test_non_admin_cannot_delete(self, client, auth_headers):
         """Non-admin users cannot delete from whitelist."""
         response = client.delete(
-            "/api/admin/security/ip-whitelist/1.2.3.4",
-            headers=auth_headers
+            "/api/admin/security/ip-whitelist/1.2.3.4", headers=auth_headers
         )
 
         assert response.status_code == 403

@@ -2,6 +2,7 @@
 AI-powered email classification service.
 Uses OpenAI GPT to determine if an email is subscription-related.
 """
+
 from openai import AsyncOpenAI, RateLimitError, APIError
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
@@ -26,7 +27,7 @@ def get_openai_client(db: Optional[Session] = None) -> AsyncOpenAI:
     Returns:
         Configured AsyncOpenAI client
     """
-    api_key = get_config_value('openai.api_key', settings.OPENAI_API_KEY, db)
+    api_key = get_config_value("openai.api_key", settings.OPENAI_API_KEY, db)
     return AsyncOpenAI(api_key=api_key)
 
 
@@ -139,7 +140,9 @@ Respond ONLY with a JSON object in this exact format:
 }}"""
 
 
-async def classify_email(email: EmailMessage, db: Optional[Session] = None) -> Dict[str, Any]:
+async def classify_email(
+    email: EmailMessage, db: Optional[Session] = None
+) -> Dict[str, Any]:
     """
     Classify an email to determine if it's subscription-related.
 
@@ -164,7 +167,7 @@ async def classify_email(email: EmailMessage, db: Optional[Session] = None) -> D
         body = get_optimized_email_body(
             body_text=email.body_text,
             body_html=email.body_html,
-            mode="classification"  # Uses 1000 char limit with key info extraction
+            mode="classification",  # Uses 1000 char limit with key info extraction
         )
 
         prompt = CLASSIFICATION_PROMPT.format(
@@ -172,7 +175,7 @@ async def classify_email(email: EmailMessage, db: Optional[Session] = None) -> D
             sender=email.sender,
             sender_name=email.sender_name or "Unknown",
             date=email.date.isoformat(),
-            body=body
+            body=body,
         )
 
         logger.info(f"Classifying email: {email.subject}")
@@ -181,16 +184,19 @@ async def classify_email(email: EmailMessage, db: Optional[Session] = None) -> D
         response = await client.chat.completions.create(
             model="gpt-4o-mini",  # Using mini for cost efficiency
             messages=[
-                {"role": "system", "content": "You are a precise email classification assistant. Always respond with valid JSON."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are a precise email classification assistant. Always respond with valid JSON.",
+                },
+                {"role": "user", "content": prompt},
             ],
             temperature=0.3,  # Lower temperature for more consistent results
-            max_tokens=300
+            max_tokens=300,
         )
-        
+
         # Parse response
         result_text = response.choices[0].message.content.strip()
-        
+
         # Try to extract JSON from response
         try:
             # Remove markdown code blocks if present
@@ -198,22 +204,22 @@ async def classify_email(email: EmailMessage, db: Optional[Session] = None) -> D
                 result_text = result_text.split("```json")[1].split("```")[0].strip()
             elif "```" in result_text:
                 result_text = result_text.split("```")[1].split("```")[0].strip()
-            
+
             result = json.loads(result_text)
-            
+
             logger.info(f"Classification result: {result}")
             return result
-            
-        except json.JSONDecodeError as e:
+
+        except json.JSONDecodeError:
             logger.error(f"Failed to parse OpenAI response as JSON: {result_text}")
             # Return conservative default
             return {
                 "is_subscription": False,
                 "confidence": 0.0,
                 "reasoning": "Failed to parse classification response",
-                "category": "not_subscription"
+                "category": "not_subscription",
             }
-            
+
     except Exception as e:
         logger.error(f"Error classifying email: {str(e)}")
         # Return conservative default on error
@@ -221,7 +227,7 @@ async def classify_email(email: EmailMessage, db: Optional[Session] = None) -> D
             "is_subscription": False,
             "confidence": 0.0,
             "reasoning": f"Classification error: {str(e)}",
-            "category": "not_subscription"
+            "category": "not_subscription",
         }
 
 
@@ -229,7 +235,7 @@ async def classify_email_with_retry(
     email: EmailMessage,
     db: Optional[Session] = None,
     max_retries: int = 3,
-    base_delay: float = 2.0
+    base_delay: float = 2.0,
 ) -> Dict[str, Any]:
     """
     Classify email with exponential backoff retry on failures.
@@ -256,7 +262,7 @@ async def classify_email_with_retry(
             last_exception = e
             if attempt < max_retries - 1:
                 # Exponential backoff: 2s, 4s, 8s
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 logger.warning(
                     f"Rate limit hit for email '{email.subject}'. "
                     f"Retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
@@ -271,7 +277,7 @@ async def classify_email_with_retry(
             # Other API errors (500, 503, etc.)
             last_exception = e
             if attempt < max_retries - 1:
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 logger.warning(
                     f"API error for email '{email.subject}': {e}. "
                     f"Retrying in {delay}s (attempt {attempt + 1}/{max_retries})"
@@ -293,7 +299,7 @@ async def classify_email_with_retry(
         "is_subscription": False,
         "confidence": 0.0,
         "reasoning": f"Classification failed after {max_retries} retries: {str(last_exception)}",
-        "category": "not_subscription"
+        "category": "not_subscription",
     }
 
 
@@ -301,7 +307,7 @@ async def classify_emails_batch(
     emails: List[EmailMessage],
     db: Optional[Session] = None,
     initial_batch_size: int = 10,
-    min_batch_size: int = 2
+    min_batch_size: int = 2,
 ) -> List[Dict[str, Any]]:
     """
     Classify emails with adaptive batch sizing based on rate limit detection.
@@ -325,7 +331,7 @@ async def classify_emails_batch(
     i = 0
     while i < len(emails):
         # Get current batch
-        batch = emails[i:i + current_batch_size]
+        batch = emails[i : i + current_batch_size]
 
         logger.info(
             f"Classifying batch: {len(batch)} emails "
@@ -333,10 +339,7 @@ async def classify_emails_batch(
         )
 
         # Process batch in parallel with retry logic
-        tasks = [
-            classify_email_with_retry(email, db)
-            for email in batch
-        ]
+        tasks = [classify_email_with_retry(email, db) for email in batch]
 
         try:
             # Execute all tasks concurrently
@@ -344,21 +347,24 @@ async def classify_emails_batch(
 
             # Check for rate limit errors in results
             rate_limit_count = sum(
-                1 for r in batch_results
-                if isinstance(r, Exception) or
-                (isinstance(r, dict) and "Rate limit" in r.get("reasoning", ""))
+                1
+                for r in batch_results
+                if isinstance(r, Exception)
+                or (isinstance(r, dict) and "Rate limit" in r.get("reasoning", ""))
             )
 
             # Process results
             for email, result in zip(batch, batch_results):
                 if isinstance(result, Exception):
                     logger.error(f"Failed to classify '{email.subject}': {result}")
-                    all_results.append({
-                        "is_subscription": False,
-                        "confidence": 0.0,
-                        "reasoning": f"Error: {str(result)}",
-                        "category": "not_subscription"
-                    })
+                    all_results.append(
+                        {
+                            "is_subscription": False,
+                            "confidence": 0.0,
+                            "reasoning": f"Error: {str(result)}",
+                            "category": "not_subscription",
+                        }
+                    )
                 else:
                     all_results.append(result)
 

@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 from typing import Dict, Optional
-from datetime import datetime
 
 
 class PushSubscriptionKeys(BaseModel):
@@ -33,8 +32,12 @@ class PushSubscriptionResponse(BaseModel):
 class PushNotificationPayload(BaseModel):
     """Schema for push notification payload."""
 
-    title: str = Field(..., min_length=1, max_length=100, description="Notification title")
-    body: str = Field(..., min_length=1, max_length=200, description="Notification body")
+    title: str = Field(
+        ..., min_length=1, max_length=100, description="Notification title"
+    )
+    body: str = Field(
+        ..., min_length=1, max_length=200, description="Notification body"
+    )
     icon: str = Field(default="/icon-192.svg", description="Icon URL")
     badge: str = Field(default="/icon-192.svg", description="Badge icon URL")
     tag: str = Field(default="subscription-tracker", description="Notification tag")
@@ -45,4 +48,6 @@ class PushNotificationPayload(BaseModel):
 class VAPIDPublicKeyResponse(BaseModel):
     """Schema for VAPID public key response."""
 
-    publicKey: str = Field(..., description="VAPID public key in URL-safe base64 format")
+    publicKey: str = Field(
+        ..., description="VAPID public key in URL-safe base64 format"
+    )

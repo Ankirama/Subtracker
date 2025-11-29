@@ -10,10 +10,13 @@ Tests cover:
 - Upcoming renewals
 - Summary preview
 """
-import pytest
+
 from datetime import datetime, timezone, timedelta, date
 
-from app.models.notification import Notification, NotificationPreference, NotificationType
+from app.models.notification import (
+    Notification,
+    NotificationType,
+)
 
 
 class TestListNotifications:
@@ -26,12 +29,14 @@ class TestListNotifications:
         assert response.status_code == 200
         data = response.json()
 
-        assert data['total'] == 0
-        assert data['unread_count'] == 0
-        assert len(data['notifications']) == 0
-        assert data['has_more'] is False
+        assert data["total"] == 0
+        assert data["unread_count"] == 0
+        assert len(data["notifications"]) == 0
+        assert data["has_more"] is False
 
-    def test_list_notifications_with_data(self, client, auth_headers, db_session, test_user):
+    def test_list_notifications_with_data(
+        self, client, auth_headers, db_session, test_user
+    ):
         """List notifications returns user's notifications."""
         # Create test notifications
         notif1 = Notification(
@@ -39,14 +44,14 @@ class TestListNotifications:
             type=NotificationType.RENEWAL_REMINDER,
             title="Renewal Upcoming",
             message="Your Netflix subscription renews tomorrow",
-            is_read=False
+            is_read=False,
         )
         notif2 = Notification(
             user_id=test_user.id,
             type=NotificationType.PRICE_CHANGE,
             title="Price Increase",
             message="Spotify price increased",
-            is_read=True
+            is_read=True,
         )
         db_session.add_all([notif1, notif2])
         db_session.commit()
@@ -56,11 +61,13 @@ class TestListNotifications:
         assert response.status_code == 200
         data = response.json()
 
-        assert data['total'] == 2
-        assert data['unread_count'] == 1
-        assert len(data['notifications']) == 2
+        assert data["total"] == 2
+        assert data["unread_count"] == 1
+        assert len(data["notifications"]) == 2
 
-    def test_list_notifications_unread_only(self, client, auth_headers, db_session, test_user):
+    def test_list_notifications_unread_only(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Filter notifications to show only unread."""
         # Create mix of read and unread
         unread = Notification(
@@ -68,46 +75,46 @@ class TestListNotifications:
             type=NotificationType.RENEWAL_REMINDER,
             title="Unread",
             message="Unread message",
-            is_read=False
+            is_read=False,
         )
         read = Notification(
             user_id=test_user.id,
             type=NotificationType.PRICE_CHANGE,
             title="Read",
             message="Read message",
-            is_read=True
+            is_read=True,
         )
         db_session.add_all([unread, read])
         db_session.commit()
 
         response = client.get(
-            "/api/notifications/",
-            headers=auth_headers,
-            params={"unread_only": True}
+            "/api/notifications/", headers=auth_headers, params={"unread_only": True}
         )
 
         assert response.status_code == 200
         data = response.json()
 
-        assert data['total'] == 1
-        assert len(data['notifications']) == 1
-        assert data['notifications'][0]['is_read'] is False
+        assert data["total"] == 1
+        assert len(data["notifications"]) == 1
+        assert data["notifications"][0]["is_read"] is False
 
-    def test_list_notifications_filter_by_type(self, client, auth_headers, db_session, test_user):
+    def test_list_notifications_filter_by_type(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Filter notifications by type."""
         renewal = Notification(
             user_id=test_user.id,
             type=NotificationType.RENEWAL_REMINDER,
             title="Renewal",
             message="Renewal reminder",
-            is_read=False
+            is_read=False,
         )
         price = Notification(
             user_id=test_user.id,
             type=NotificationType.PRICE_CHANGE,
             title="Price",
             message="Price change",
-            is_read=False
+            is_read=False,
         )
         db_session.add_all([renewal, price])
         db_session.commit()
@@ -115,16 +122,18 @@ class TestListNotifications:
         response = client.get(
             "/api/notifications/",
             headers=auth_headers,
-            params={"notification_type": "renewal_reminder"}
+            params={"notification_type": "renewal_reminder"},
         )
 
         assert response.status_code == 200
         data = response.json()
 
-        assert data['total'] == 1
-        assert data['notifications'][0]['type'] == 'renewal_reminder'
+        assert data["total"] == 1
+        assert data["notifications"][0]["type"] == "renewal_reminder"
 
-    def test_list_notifications_pagination(self, client, auth_headers, db_session, test_user):
+    def test_list_notifications_pagination(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Pagination works correctly."""
         # Create 25 notifications
         for i in range(25):
@@ -133,7 +142,7 @@ class TestListNotifications:
                 type=NotificationType.RENEWAL_REMINDER,
                 title=f"Notification {i}",
                 message=f"Message {i}",
-                is_read=False
+                is_read=False,
             )
             db_session.add(notif)
         db_session.commit()
@@ -142,28 +151,28 @@ class TestListNotifications:
         response = client.get(
             "/api/notifications/",
             headers=auth_headers,
-            params={"page": 1, "page_size": 20}
+            params={"page": 1, "page_size": 20},
         )
 
         assert response.status_code == 200
         data = response.json()
 
-        assert data['total'] == 25
-        assert len(data['notifications']) == 20
-        assert data['has_more'] is True
-        assert data['page'] == 1
-        assert data['page_size'] == 20
+        assert data["total"] == 25
+        assert len(data["notifications"]) == 20
+        assert data["has_more"] is True
+        assert data["page"] == 1
+        assert data["page_size"] == 20
 
         # Get second page
         response2 = client.get(
             "/api/notifications/",
             headers=auth_headers,
-            params={"page": 2, "page_size": 20}
+            params={"page": 2, "page_size": 20},
         )
 
         data2 = response2.json()
-        assert len(data2['notifications']) == 5
-        assert data2['has_more'] is False
+        assert len(data2["notifications"]) == 5
+        assert data2["has_more"] is False
 
 
 class TestUnreadCount:
@@ -174,53 +183,61 @@ class TestUnreadCount:
         response = client.get("/api/notifications/unread-count", headers=auth_headers)
 
         assert response.status_code == 200
-        assert response.json()['unread_count'] == 0
+        assert response.json()["unread_count"] == 0
 
-    def test_unread_count_with_notifications(self, client, auth_headers, db_session, test_user):
+    def test_unread_count_with_notifications(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Unread count returns correct number."""
         # Create 3 unread, 2 read
         for i in range(3):
-            db_session.add(Notification(
-                user_id=test_user.id,
-                type=NotificationType.RENEWAL_REMINDER,
-                title="Unread",
-                message=f"Unread {i}",
-                is_read=False
-            ))
+            db_session.add(
+                Notification(
+                    user_id=test_user.id,
+                    type=NotificationType.RENEWAL_REMINDER,
+                    title="Unread",
+                    message=f"Unread {i}",
+                    is_read=False,
+                )
+            )
         for i in range(2):
-            db_session.add(Notification(
-                user_id=test_user.id,
-                type=NotificationType.PRICE_CHANGE,
-                title="Read",
-                message=f"Read {i}",
-                is_read=True
-            ))
+            db_session.add(
+                Notification(
+                    user_id=test_user.id,
+                    type=NotificationType.PRICE_CHANGE,
+                    title="Read",
+                    message=f"Read {i}",
+                    is_read=True,
+                )
+            )
         db_session.commit()
 
         response = client.get("/api/notifications/unread-count", headers=auth_headers)
 
         assert response.status_code == 200
-        assert response.json()['unread_count'] == 3
+        assert response.json()["unread_count"] == 3
 
 
 class TestMarkNotificationsRead:
     """Test POST /api/notifications/mark-read - mark notifications as read."""
 
-    def test_mark_notifications_read_success(self, client, auth_headers, db_session, test_user):
+    def test_mark_notifications_read_success(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Successfully mark specific notifications as read."""
         notif1 = Notification(
             user_id=test_user.id,
             type=NotificationType.RENEWAL_REMINDER,
             title="Test 1",
             message="Message 1",
-            is_read=False
+            is_read=False,
         )
         notif2 = Notification(
             user_id=test_user.id,
             type=NotificationType.RENEWAL_REMINDER,
             title="Test 2",
             message="Message 2",
-            is_read=False
+            is_read=False,
         )
         db_session.add_all([notif1, notif2])
         db_session.commit()
@@ -230,13 +247,13 @@ class TestMarkNotificationsRead:
         response = client.post(
             "/api/notifications/mark-read",
             headers=auth_headers,
-            json={"notification_ids": [str(notif1.id)]}
+            json={"notification_ids": [str(notif1.id)]},
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data['success'] is True
-        assert data['marked_read'] == 1
+        assert data["success"] is True
+        assert data["marked_read"] == 1
 
         # Verify in database
         db_session.refresh(notif1)
@@ -248,48 +265,52 @@ class TestMarkNotificationsRead:
 class TestMarkAllNotificationsRead:
     """Test POST /api/notifications/mark-all-read - mark all as read."""
 
-    def test_mark_all_notifications_read(self, client, auth_headers, db_session, test_user):
+    def test_mark_all_notifications_read(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Successfully mark all unread notifications as read."""
         # Create 3 unread notifications
         for i in range(3):
-            db_session.add(Notification(
-                user_id=test_user.id,
-                type=NotificationType.RENEWAL_REMINDER,
-                title=f"Test {i}",
-                message=f"Message {i}",
-                is_read=False
-            ))
+            db_session.add(
+                Notification(
+                    user_id=test_user.id,
+                    type=NotificationType.RENEWAL_REMINDER,
+                    title=f"Test {i}",
+                    message=f"Message {i}",
+                    is_read=False,
+                )
+            )
         db_session.commit()
 
-        response = client.post(
-            "/api/notifications/mark-all-read",
-            headers=auth_headers
-        )
+        response = client.post("/api/notifications/mark-all-read", headers=auth_headers)
 
         assert response.status_code == 200
         data = response.json()
-        assert data['success'] is True
-        assert data['marked_read'] == 3
+        assert data["success"] is True
+        assert data["marked_read"] == 3
 
         # Verify all are now read
-        unread_count = db_session.query(Notification).filter(
-            Notification.user_id == test_user.id,
-            Notification.is_read == False
-        ).count()
+        unread_count = (
+            db_session.query(Notification)
+            .filter(Notification.user_id == test_user.id, not Notification.is_read)
+            .count()
+        )
         assert unread_count == 0
 
 
 class TestDeleteNotification:
     """Test DELETE /api/notifications/{id} - delete notification."""
 
-    def test_delete_notification_success(self, client, auth_headers, db_session, test_user):
+    def test_delete_notification_success(
+        self, client, auth_headers, db_session, test_user
+    ):
         """Successfully delete a notification."""
         notif = Notification(
             user_id=test_user.id,
             type=NotificationType.RENEWAL_REMINDER,
             title="Delete Me",
             message="This should be deleted",
-            is_read=False
+            is_read=False,
         )
         db_session.add(notif)
         db_session.commit()
@@ -297,26 +318,23 @@ class TestDeleteNotification:
 
         notif_id = notif.id
 
-        response = client.delete(
-            f"/api/notifications/{notif_id}",
-            headers=auth_headers
-        )
+        response = client.delete(f"/api/notifications/{notif_id}", headers=auth_headers)
 
         assert response.status_code == 204
 
         # Verify deleted
-        deleted = db_session.query(Notification).filter(Notification.id == notif_id).first()
+        deleted = (
+            db_session.query(Notification).filter(Notification.id == notif_id).first()
+        )
         assert deleted is None
 
     def test_delete_notification_not_found(self, client, auth_headers):
         """Cannot delete non-existent notification."""
         from uuid import uuid4
+
         fake_id = uuid4()
 
-        response = client.delete(
-            f"/api/notifications/{fake_id}",
-            headers=auth_headers
-        )
+        response = client.delete(f"/api/notifications/{fake_id}", headers=auth_headers)
 
         assert response.status_code == 404
 
@@ -331,29 +349,26 @@ class TestNotificationPreferences:
         assert response.status_code == 200
         data = response.json()
 
-        assert 'preferences' in data
+        assert "preferences" in data
         # Should have preferences for all notification types
-        assert len(data['preferences']) > 0
+        assert len(data["preferences"]) > 0
 
     def test_update_notification_preference(self, client, auth_headers):
         """Update notification preference for a specific type."""
-        update_data = {
-            "enabled": False,
-            "email_enabled": False
-        }
+        update_data = {"enabled": False, "email_enabled": False}
 
         response = client.put(
             "/api/notifications/preferences/renewal_reminder",
             headers=auth_headers,
-            json=update_data
+            json=update_data,
         )
 
         assert response.status_code == 200
         data = response.json()
 
-        assert data['notification_type'] == 'renewal_reminder'
-        assert data['enabled'] is False
-        assert data['email_enabled'] is False
+        assert data["notification_type"] == "renewal_reminder"
+        assert data["enabled"] is False
+        assert data["email_enabled"] is False
 
 
 class TestUpcomingRenewals:
@@ -361,12 +376,16 @@ class TestUpcomingRenewals:
 
     def test_upcoming_renewals_empty(self, client, auth_headers):
         """No upcoming renewals when user has no active subscriptions."""
-        response = client.get("/api/notifications/upcoming-renewals", headers=auth_headers)
+        response = client.get(
+            "/api/notifications/upcoming-renewals", headers=auth_headers
+        )
 
         assert response.status_code == 200
         assert response.json() == []
 
-    def test_upcoming_renewals_with_subscriptions(self, client, auth_headers, db_session, test_mailbox):
+    def test_upcoming_renewals_with_subscriptions(
+        self, client, auth_headers, db_session, test_mailbox
+    ):
         """Returns upcoming renewals within specified days."""
         from app.models.subscription import Subscription
 
@@ -386,7 +405,7 @@ class TestUpcomingRenewals:
             is_confirmed=True,
             next_billing_date=future_renewal,
             first_detected_at=datetime.now(timezone.utc),
-            last_confirmed_at=datetime.now(timezone.utc)
+            last_confirmed_at=datetime.now(timezone.utc),
         )
         db_session.add(sub)
         db_session.commit()
@@ -394,15 +413,15 @@ class TestUpcomingRenewals:
         response = client.get(
             "/api/notifications/upcoming-renewals",
             headers=auth_headers,
-            params={"days_ahead": 30}
+            params={"days_ahead": 30},
         )
 
         assert response.status_code == 200
         data = response.json()
 
         assert len(data) == 1
-        assert data[0]['provider'] == 'TestService'
-        assert data[0]['days_until_renewal'] == 15
+        assert data[0]["provider"] == "TestService"
+        assert data[0]["days_until_renewal"] == 15
 
 
 class TestSummaryPreview:
@@ -413,7 +432,7 @@ class TestSummaryPreview:
         response = client.get(
             "/api/notifications/summary/preview",
             headers=auth_headers,
-            params={"period_type": "weekly"}
+            params={"period_type": "weekly"},
         )
 
         assert response.status_code == 200
@@ -426,7 +445,7 @@ class TestSummaryPreview:
         response = client.get(
             "/api/notifications/summary/preview",
             headers=auth_headers,
-            params={"period_type": "monthly"}
+            params={"period_type": "monthly"},
         )
 
         assert response.status_code == 200

@@ -1,6 +1,7 @@
 """
 Celery application configuration for async task processing.
 """
+
 from celery import Celery
 from app.config import settings
 import logging
@@ -21,8 +22,8 @@ celery_app = Celery(
         "app.tasks.price_change_monitor",  # Price change monitoring
         "app.tasks.system_announcements",  # System announcements
         "app.tasks.email_verification",  # Email verification cleanup tasks
-        "app.tasks.budget_alerts"  # Budget alert monitoring
-    ]
+        "app.tasks.budget_alerts",  # Budget alert monitoring
+    ],
 )
 
 # Celery configuration

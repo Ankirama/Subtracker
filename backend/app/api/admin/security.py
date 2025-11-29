@@ -1,9 +1,10 @@
 """
 Admin API endpoints for security events management.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, desc
+from sqlalchemy import func, desc
 from typing import Optional
 import uuid
 from datetime import datetime, timedelta
@@ -26,14 +27,18 @@ from app.security.dependencies import get_current_admin_user
 router = APIRouter(prefix="/admin/security", tags=["admin-security"])
 
 
-@router.get("", response_model=SecurityEventListResponse, dependencies=[Depends(get_current_admin_user)])
+@router.get(
+    "",
+    response_model=SecurityEventListResponse,
+    dependencies=[Depends(get_current_admin_user)],
+)
 async def list_security_events(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     event_type: Optional[str] = Query(None),
     severity: Optional[str] = Query(None),
     is_resolved: Optional[bool] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     List security events with pagination and filtering.
@@ -61,7 +66,12 @@ async def list_security_events(
 
     # Apply pagination and ordering (most recent first)
     offset = (page - 1) * page_size
-    events = query.order_by(desc(SecurityEvent.created_at)).offset(offset).limit(page_size).all()
+    events = (
+        query.order_by(desc(SecurityEvent.created_at))
+        .offset(offset)
+        .limit(page_size)
+        .all()
+    )
 
     # Calculate total pages
     total_pages = (total + page_size - 1) // page_size
@@ -85,7 +95,7 @@ async def list_security_events(
         "total": total,
         "page": page,
         "page_size": page_size,
-        "total_pages": total_pages
+        "total_pages": total_pages,
     }
 
 
@@ -95,29 +105,35 @@ async def get_security_stats(db: Session = Depends(get_db)):
     Get security event statistics.
     """
     total_events = db.query(func.count(SecurityEvent.id)).scalar()
-    unresolved_events = db.query(func.count(SecurityEvent.id)).filter(
-        SecurityEvent.is_resolved == False
-    ).scalar()
+    unresolved_events = (
+        db.query(func.count(SecurityEvent.id))
+        .filter(not SecurityEvent.is_resolved)
+        .scalar()
+    )
 
     # Events in last 24 hours
     last_24h = datetime.utcnow() - timedelta(hours=24)
-    events_24h = db.query(func.count(SecurityEvent.id)).filter(
-        SecurityEvent.created_at >= last_24h
-    ).scalar()
+    events_24h = (
+        db.query(func.count(SecurityEvent.id))
+        .filter(SecurityEvent.created_at >= last_24h)
+        .scalar()
+    )
 
     # Critical unresolved events
-    critical_unresolved = db.query(func.count(SecurityEvent.id)).filter(
-        SecurityEvent.severity == 'critical',
-        SecurityEvent.is_resolved == False
-    ).scalar()
+    critical_unresolved = (
+        db.query(func.count(SecurityEvent.id))
+        .filter(SecurityEvent.severity == "critical", not SecurityEvent.is_resolved)
+        .scalar()
+    )
 
     # Events by severity (unresolved only)
     severity_counts = {}
-    for severity in ['low', 'medium', 'high', 'critical']:
-        count = db.query(func.count(SecurityEvent.id)).filter(
-            SecurityEvent.severity == severity,
-            SecurityEvent.is_resolved == False
-        ).scalar()
+    for severity in ["low", "medium", "high", "critical"]:
+        count = (
+            db.query(func.count(SecurityEvent.id))
+            .filter(SecurityEvent.severity == severity, not SecurityEvent.is_resolved)
+            .scalar()
+        )
         severity_counts[severity] = count
 
     return {
@@ -125,7 +141,7 @@ async def get_security_stats(db: Session = Depends(get_db)):
         "unresolved_events": unresolved_events,
         "events_24h": events_24h,
         "critical_unresolved": critical_unresolved,
-        "by_severity": severity_counts
+        "by_severity": severity_counts,
     }
 
 
@@ -137,17 +153,19 @@ async def get_event_types(db: Session = Depends(get_db)):
     # Get distinct event types from database
     event_types = db.query(SecurityEvent.event_type).distinct().all()
 
-    return {
-        "event_types": [et[0] for et in event_types if et[0]]
-    }
+    return {"event_types": [et[0] for et in event_types if et[0]]}
 
 
 # IP Whitelist Endpoints (must come before /{event_id} to avoid route conflicts)
-@router.get("/ip-whitelist", response_model=IPWhitelistListResponse, dependencies=[Depends(get_current_admin_user)])
+@router.get(
+    "/ip-whitelist",
+    response_model=IPWhitelistListResponse,
+    dependencies=[Depends(get_current_admin_user)],
+)
 async def list_ip_whitelist(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     List all whitelisted IP addresses with pagination.
@@ -162,7 +180,9 @@ async def list_ip_whitelist(
 
     # Apply pagination and ordering (most recently added first)
     offset = (page - 1) * page_size
-    entries = query.order_by(desc(IPWhitelist.added_at)).offset(offset).limit(page_size).all()
+    entries = (
+        query.order_by(desc(IPWhitelist.added_at)).offset(offset).limit(page_size).all()
+    )
 
     # Calculate total pages
     total_pages = (total + page_size - 1) // page_size
@@ -182,15 +202,16 @@ async def list_ip_whitelist(
         "total": total,
         "page": page,
         "page_size": page_size,
-        "total_pages": total_pages
+        "total_pages": total_pages,
     }
 
 
-@router.get("/ip-whitelist/{ip_address}", response_model=IPWhitelistResponse, dependencies=[Depends(get_current_admin_user)])
-async def get_whitelist_entry(
-    ip_address: str,
-    db: Session = Depends(get_db)
-):
+@router.get(
+    "/ip-whitelist/{ip_address}",
+    response_model=IPWhitelistResponse,
+    dependencies=[Depends(get_current_admin_user)],
+)
+async def get_whitelist_entry(ip_address: str, db: Session = Depends(get_db)):
     """
     Get detailed information about a specific whitelisted IP.
     """
@@ -213,7 +234,7 @@ async def get_whitelist_entry(
 async def add_to_whitelist(
     whitelist_data: IPWhitelistCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_admin_user),
 ):
     """
     Add an IP address to the whitelist.
@@ -222,7 +243,11 @@ async def add_to_whitelist(
     - **description**: Optional description (e.g., "Admin office IP", "VPN gateway")
     """
     # Check if IP already exists in whitelist
-    existing = db.query(IPWhitelist).filter(IPWhitelist.ip_address == whitelist_data.ip_address).first()
+    existing = (
+        db.query(IPWhitelist)
+        .filter(IPWhitelist.ip_address == whitelist_data.ip_address)
+        .first()
+    )
     if existing:
         raise HTTPException(status_code=400, detail="IP address already in whitelist")
 
@@ -231,7 +256,7 @@ async def add_to_whitelist(
         ip_address=whitelist_data.ip_address,
         description=whitelist_data.description,
         added_by_user_id=str(current_user.id),
-        access_count=0
+        access_count=0,
     )
 
     db.add(new_entry)
@@ -253,7 +278,7 @@ async def update_whitelist_entry(
     ip_address: str,
     update_data: IPWhitelistUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_admin_user),
 ):
     """
     Update a whitelist entry (typically to update description).
@@ -286,7 +311,7 @@ async def update_whitelist_entry(
 async def remove_from_whitelist(
     ip_address: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user)
+    current_user: User = Depends(get_current_admin_user),
 ):
     """
     Remove an IP address from the whitelist.
@@ -301,15 +326,19 @@ async def remove_from_whitelist(
     db.delete(entry)
     db.commit()
 
-    return {"success": True, "message": f"IP address {ip_address} removed from whitelist"}
+    return {
+        "success": True,
+        "message": f"IP address {ip_address} removed from whitelist",
+    }
 
 
 # Security Event Detail Endpoints (parameterized routes come after specific routes)
-@router.get("/{event_id}", response_model=SecurityEventResponse, dependencies=[Depends(get_current_admin_user)])
-async def get_security_event(
-    event_id: str,
-    db: Session = Depends(get_db)
-):
+@router.get(
+    "/{event_id}",
+    response_model=SecurityEventResponse,
+    dependencies=[Depends(get_current_admin_user)],
+)
+async def get_security_event(event_id: str, db: Session = Depends(get_db)):
     """
     Get detailed information about a specific security event.
     """
@@ -337,11 +366,13 @@ async def get_security_event(
     )
 
 
-@router.patch("/{event_id}", response_model=SecurityEventResponse, dependencies=[Depends(get_current_admin_user)])
+@router.patch(
+    "/{event_id}",
+    response_model=SecurityEventResponse,
+    dependencies=[Depends(get_current_admin_user)],
+)
 async def update_security_event(
-    event_id: str,
-    update_data: SecurityEventUpdate,
-    db: Session = Depends(get_db)
+    event_id: str, update_data: SecurityEventUpdate, db: Session = Depends(get_db)
 ):
     """
     Update a security event (typically to mark as resolved).
@@ -387,10 +418,7 @@ async def update_security_event(
 
 
 @router.delete("/{event_id}", dependencies=[Depends(get_current_admin_user)])
-async def delete_security_event(
-    event_id: str,
-    db: Session = Depends(get_db)
-):
+async def delete_security_event(event_id: str, db: Session = Depends(get_db)):
     """
     Delete a security event (permanent deletion).
 

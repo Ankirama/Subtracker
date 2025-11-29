@@ -7,29 +7,32 @@ Provides comprehensive security protection including:
 - Security headers (CSP, HSTS, X-Frame-Options, etc.)
 - Request/response logging for audit trails
 """
-from fastapi import Request, Response
+
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
-from typing import Dict, Optional
+from typing import Dict
 import time
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 import re
 
 logger = logging.getLogger(__name__)
 
 # Rate limiting storage (in-memory - for production use Redis)
-_rate_limit_storage: Dict[str, Dict] = defaultdict(lambda: {'count': 0, 'reset_time': 0})
+_rate_limit_storage: Dict[str, Dict] = defaultdict(
+    lambda: {"count": 0, "reset_time": 0}
+)
 
 # Suspicious pattern tracking
 _suspicious_patterns = [
-    r'%_%_%_%',  # Wildcard injection
-    r'UNION\s+SELECT',  # SQL injection
-    r'<script',  # XSS attempt
-    r'\.\./\.\.',  # Path traversal
-    r'exec\(',  # Code injection
-    r'eval\(',  # Code injection
+    r"%_%_%_%",  # Wildcard injection
+    r"UNION\s+SELECT",  # SQL injection
+    r"<script",  # XSS attempt
+    r"\.\./\.\.",  # Path traversal
+    r"exec\(",  # Code injection
+    r"eval\(",  # Code injection
 ]
 
 
@@ -43,7 +46,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     - Special limits for search endpoints (30/min)
     """
 
-    def __init__(self, app, requests_per_minute: int = 100, requests_per_hour: int = 1000):
+    def __init__(
+        self, app, requests_per_minute: int = 100, requests_per_hour: int = 1000
+    ):
         super().__init__(app)
         self.requests_per_minute = requests_per_minute
         self.requests_per_hour = requests_per_hour
@@ -54,7 +59,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Check if this is a search endpoint (stricter limits)
         # Match actual search endpoints like /search/ but not /research
-        is_search = '/search' in request.url.path or 'uncertain-emails' in request.url.path
+        is_search = (
+            "/search" in request.url.path or "uncertain-emails" in request.url.path
+        )
         limit = 30 if is_search else self.requests_per_minute
 
         # Rate limit key
@@ -65,37 +72,37 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         current_time = time.time()
 
         # Reset if time window passed
-        if current_time >= current['reset_time']:
-            current['count'] = 0
-            current['reset_time'] = current_time + 60
+        if current_time >= current["reset_time"]:
+            current["count"] = 0
+            current["reset_time"] = current_time + 60
 
         # Increment counter
-        current['count'] += 1
+        current["count"] += 1
 
         # Check if limit exceeded
-        if current['count'] > limit:
+        if current["count"] > limit:
             logger.warning(
                 f"Rate limit exceeded for IP {client_ip} on {request.url.path}",
                 extra={
-                    'ip': client_ip,
-                    'path': request.url.path,
-                    'count': current['count'],
-                    'limit': limit
-                }
+                    "ip": client_ip,
+                    "path": request.url.path,
+                    "count": current["count"],
+                    "limit": limit,
+                },
             )
             return JSONResponse(
                 status_code=429,
                 content={
                     "detail": "Too many requests. Please try again later.",
-                    "retry_after": int(current['reset_time'] - current_time)
-                }
+                    "retry_after": int(current["reset_time"] - current_time),
+                },
             )
 
         # Add rate limit headers
         response = await call_next(request)
-        response.headers['X-RateLimit-Limit'] = str(limit)
-        response.headers['X-RateLimit-Remaining'] = str(limit - current['count'])
-        response.headers['X-RateLimit-Reset'] = str(int(current['reset_time']))
+        response.headers["X-RateLimit-Limit"] = str(limit)
+        response.headers["X-RateLimit-Remaining"] = str(limit - current["count"])
+        response.headers["X-RateLimit-Reset"] = str(int(current["reset_time"]))
 
         return response
 
@@ -123,29 +130,29 @@ class QueryLoggingMiddleware(BaseHTTPMiddleware):
                         logger.warning(
                             f"Suspicious query pattern detected from IP {client_ip}",
                             extra={
-                                'ip': client_ip,
-                                'path': request.url.path,
-                                'parameter': key,
-                                'value': value[:100],  # Limit logged value
-                                'pattern': pattern,
-                                'timestamp': datetime.utcnow().isoformat()
-                            }
+                                "ip": client_ip,
+                                "path": request.url.path,
+                                "parameter": key,
+                                "value": value[:100],  # Limit logged value
+                                "pattern": pattern,
+                                "timestamp": datetime.utcnow().isoformat(),
+                            },
                         )
 
                         # Could implement auto-blocking here
                         # For now, just log and continue
 
         # Log all search queries for audit
-        if 'search' in request.url.path:
-            search_param = request.query_params.get('search', '')
+        if "search" in request.url.path:
+            search_param = request.query_params.get("search", "")
             logger.info(
                 f"Search query from {client_ip}: {search_param[:100]}",
                 extra={
-                    'ip': client_ip,
-                    'path': request.url.path,
-                    'search_term': search_param[:100],
-                    'timestamp': datetime.utcnow().isoformat()
-                }
+                    "ip": client_ip,
+                    "path": request.url.path,
+                    "search_term": search_param[:100],
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
             )
 
         response = await call_next(request)
@@ -182,23 +189,25 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "base-uri 'self'; "
             "form-action 'self'"
         )
-        response.headers['Content-Security-Policy'] = csp
+        response.headers["Content-Security-Policy"] = csp
 
         # HSTS - Enforce HTTPS (only in production with HTTPS)
         if request.url.scheme == "https":
-            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
 
         # Prevent MIME type sniffing
-        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers["X-Content-Type-Options"] = "nosniff"
 
         # Prevent clickjacking
-        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers["X-Frame-Options"] = "DENY"
 
         # XSS Protection (legacy but still useful)
-        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers["X-XSS-Protection"] = "1; mode=block"
 
         # Referrer Policy
-        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
         # Permissions Policy (formerly Feature Policy)
         permissions = (
@@ -211,7 +220,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "gyroscope=(), "
             "accelerometer=()"
         )
-        response.headers['Permissions-Policy'] = permissions
+        response.headers["Permissions-Policy"] = permissions
 
         return response
 
@@ -235,11 +244,11 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         logger.info(
             f"Request started: {request.method} {request.url.path}",
             extra={
-                'method': request.method,
-                'path': request.url.path,
-                'ip': client_ip,
-                'user_agent': request.headers.get('user-agent', 'unknown')
-            }
+                "method": request.method,
+                "path": request.url.path,
+                "ip": client_ip,
+                "user_agent": request.headers.get("user-agent", "unknown"),
+            },
         )
 
         try:
@@ -250,12 +259,12 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             logger.info(
                 f"Request completed: {request.method} {request.url.path} - {response.status_code} ({duration:.3f}s)",
                 extra={
-                    'method': request.method,
-                    'path': request.url.path,
-                    'status_code': response.status_code,
-                    'duration': duration,
-                    'ip': client_ip
-                }
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                    "duration": duration,
+                    "ip": client_ip,
+                },
             )
 
             return response
@@ -265,12 +274,12 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             logger.error(
                 f"Request failed: {request.method} {request.url.path} - {str(e)} ({duration:.3f}s)",
                 extra={
-                    'method': request.method,
-                    'path': request.url.path,
-                    'error': str(e),
-                    'duration': duration,
-                    'ip': client_ip
+                    "method": request.method,
+                    "path": request.url.path,
+                    "error": str(e),
+                    "duration": duration,
+                    "ip": client_ip,
                 },
-                exc_info=True
+                exc_info=True,
             )
             raise

@@ -1,9 +1,10 @@
 """Tests for prompt_validation service"""
+
 import pytest
 from app.services.prompt_validation import (
     ValidationWarning,
     ResearchValidator,
-    validate_research
+    validate_research,
 )
 
 
@@ -13,9 +14,7 @@ class TestValidationWarning:
     def test_creates_warning_with_all_fields(self):
         """Should create warning with severity, message, and field"""
         warning = ValidationWarning(
-            severity="high",
-            message="Test warning",
-            field="test_field"
+            severity="high", message="Test warning", field="test_field"
         )
 
         assert warning.severity == "high"
@@ -38,7 +37,7 @@ class TestValidationWarning:
         assert result == {
             "severity": "medium",
             "message": "Test message",
-            "field": "field_name"
+            "field": "field_name",
         }
 
 
@@ -61,7 +60,7 @@ class TestResearchValidator:
                 "Click on your profile icon",
                 "Select 'Account Settings'",
                 "Navigate to 'Membership & Billing'",
-                "Click 'Cancel Membership'"
+                "Click 'Cancel Membership'",
             ],
             "estimated_minutes": 3,
             "requires_phone": False,
@@ -73,8 +72,8 @@ class TestResearchValidator:
             "sources": {
                 "primary_source_type": "official_documentation",
                 "primary_source": "Netflix Help Center, accessed 2024-11-15",
-                "verification": "Tested on 2024-11-15"
-            }
+                "verification": "Tested on 2024-11-15",
+            },
         }
 
         result = validator.validate(research)
@@ -90,7 +89,7 @@ class TestResearchValidator:
             "provider_name": "Test",
             "confidence": 0.9,
             "difficulty": "easy",
-            "instructions": ["Step 1", "Step 2"]
+            "instructions": ["Step 1", "Step 2"],
         }
 
         result = validator.validate(research)
@@ -109,26 +108,17 @@ class TestResearchValidator:
             "difficulty": "easy",
             "instructions": ["Step 1"],
             "cancellation_url": "https://example.com/cancel",
-            "sources": {
-                "primary_source": "Old documentation from 2022"
-            }
+            "sources": {"primary_source": "Old documentation from 2022"},
         }
 
         result = validator.validate(research)
 
         warnings = result["warnings"]
-        assert any(
-            "2024-2025" in w["message"]
-            for w in warnings
-        )
+        assert any("2024-2025" in w["message"] for w in warnings)
 
     def test_detects_missing_instructions(self, validator):
         """Should error when no instructions provided"""
-        research = {
-            "provider_name": "Test",
-            "confidence": 0.5,
-            "difficulty": "medium"
-        }
+        research = {"provider_name": "Test", "confidence": 0.5, "difficulty": "medium"}
 
         result = validator.validate(research)
 
@@ -150,18 +140,15 @@ class TestResearchValidator:
                 "Find account profile",  # 3 words, 2 vague (account, profile) = 67%
                 "Open dashboard page",  # 3 words, 2 vague (dashboard, page) = 67%
                 "Check options preferences",  # 3 words, 2 vague (options, preferences) = 67%
-                "Manage account settings"  # 3 words, 3 vague (manage, account, settings) = 100%
-            ]
+                "Manage account settings",  # 3 words, 3 vague (manage, account, settings) = 100%
+            ],
         }
 
         result = validator.validate(research)
 
         warnings = result["warnings"]
         # Should detect vague instructions (4 out of 5 are >50% vague = 80% ratio)
-        assert any(
-            "generic" in w["message"].lower()
-            for w in warnings
-        )
+        assert any("generic" in w["message"].lower() for w in warnings)
 
     def test_detects_brief_instructions(self, validator):
         """Should warn when instructions are too brief"""
@@ -169,16 +156,13 @@ class TestResearchValidator:
             "provider_name": "Test",
             "confidence": 0.5,
             "difficulty": "medium",
-            "instructions": ["Go", "Click", "Done"]
+            "instructions": ["Go", "Click", "Done"],
         }
 
         result = validator.validate(research)
 
         warnings = result["warnings"]
-        assert any(
-            "very brief" in w["message"]
-            for w in warnings
-        )
+        assert any("very brief" in w["message"] for w in warnings)
 
     def test_detects_invalid_url_format(self, validator):
         """Should error on invalid URL format"""
@@ -187,7 +171,7 @@ class TestResearchValidator:
             "confidence": 0.5,
             "difficulty": "medium",
             "instructions": ["Step 1"],
-            "cancellation_url": "not-a-valid-url"
+            "cancellation_url": "not-a-valid-url",
         }
 
         result = validator.validate(research)
@@ -206,7 +190,7 @@ class TestResearchValidator:
             "confidence": 0.5,
             "difficulty": "medium",
             "instructions": ["Step 1"],
-            "cancellation_url": "https://example.com/path with spaces"
+            "cancellation_url": "https://example.com/path with spaces",
         }
 
         result = validator.validate(research)
@@ -225,16 +209,13 @@ class TestResearchValidator:
             "confidence": 0.5,
             "difficulty": "easy",
             "requires_phone": True,
-            "instructions": ["Call support"]
+            "instructions": ["Call support"],
         }
 
         result = validator.validate(research)
 
         warnings = result["warnings"]
-        assert any(
-            "'easy' but requires phone" in w["message"]
-            for w in warnings
-        )
+        assert any("'easy' but requires phone" in w["message"] for w in warnings)
 
     def test_detects_time_estimation_misalignment(self, validator):
         """Should warn when difficulty doesn't match time estimate"""
@@ -243,7 +224,7 @@ class TestResearchValidator:
             "confidence": 0.5,
             "difficulty": "easy",
             "estimated_minutes": 20,  # Too long for "easy"
-            "instructions": ["Step 1", "Step 2"]
+            "instructions": ["Step 1", "Step 2"],
         }
 
         result = validator.validate(research)
@@ -262,7 +243,7 @@ class TestResearchValidator:
             "difficulty": "medium",
             "instructions": ["Step 1"],
             "allows_pause": False,
-            "pause_instructions": "Click pause button"
+            "pause_instructions": "Click pause button",
         }
 
         result = validator.validate(research)
@@ -279,16 +260,13 @@ class TestResearchValidator:
             "provider_name": "Test",
             "confidence": 0.7,
             "difficulty": "medium",
-            "instructions": ["Step 1"]
+            "instructions": ["Step 1"],
         }
 
         result = validator.validate(research)
 
         warnings = result["warnings"]
-        assert any(
-            "confidence but no sources" in w["message"]
-            for w in warnings
-        )
+        assert any("confidence but no sources" in w["message"] for w in warnings)
 
     def test_detects_speculation_with_high_confidence(self, validator):
         """Should warn when speculation/mixed sources have high confidence"""
@@ -300,8 +278,8 @@ class TestResearchValidator:
             "cancellation_url": "https://example.com/cancel",
             "sources": {
                 "primary_source_type": "speculation",
-                "primary_source": "Based on user reports from 2024"
-            }
+                "primary_source": "Based on user reports from 2024",
+            },
         }
 
         result = validator.validate(research)
@@ -317,7 +295,7 @@ class TestResearchValidator:
         research = {
             "provider_name": "Test",
             "confidence": 0.5,
-            "instructions": ["Step 1"]
+            "instructions": ["Step 1"],
         }
 
         result = validator.validate(research)
@@ -325,7 +303,8 @@ class TestResearchValidator:
         assert result["is_valid"] is False
         warnings = result["warnings"]
         assert any(
-            w["severity"] == "high" and "Missing required field: difficulty" in w["message"]
+            w["severity"] == "high"
+            and "Missing required field: difficulty" in w["message"]
             for w in warnings
         )
 
@@ -344,8 +323,8 @@ class TestResearchValidator:
             "pause_instructions": "Select pause option",
             "sources": {
                 "primary_source_type": "official_documentation",
-                "primary_source": "Official docs 2024"
-            }
+                "primary_source": "Official docs 2024",
+            },
         }
 
         result = validator.validate(good_research)
@@ -354,7 +333,7 @@ class TestResearchValidator:
         # Low quality research
         poor_research = {
             "confidence": 0.3,
-            "instructions": ["Go to settings", "Click menu", "Find option"]
+            "instructions": ["Go to settings", "Click menu", "Find option"],
             # Missing: provider_name, difficulty (HIGH), cancellation_url, sources
             # Has: brief instructions (LOW)
             # Score: 1.0 - 0.20 (HIGH) - 0.05 (LOW) = 0.75
@@ -367,7 +346,7 @@ class TestResearchValidator:
         """Should recommend regenerate when high severity warnings exist"""
         research = {
             "confidence": 0.5,
-            "cancellation_url": "not-a-url"  # Will trigger high severity warning
+            "cancellation_url": "not-a-url",  # Will trigger high severity warning
         }
 
         result = validator.validate(research)
@@ -380,7 +359,7 @@ class TestResearchValidator:
             "confidence": 0.9,  # High confidence triggers checks
             "difficulty": "easy",
             "requires_phone": True,  # Inconsistent with easy - medium warning
-            "instructions": ["Step 1"]
+            "instructions": ["Step 1"],
             # Missing URL - another medium warning
             # Missing recent sources - another warning
         }
@@ -399,7 +378,7 @@ class TestResearchValidator:
                 "Navigate to account settings",
                 "Select membership and billing",
                 "Click cancel membership",
-                "Confirm cancellation"
+                "Confirm cancellation",
             ],
             "estimated_minutes": 3,
             "requires_phone": False,
@@ -408,8 +387,8 @@ class TestResearchValidator:
             "sources": {
                 "primary_source_type": "official_documentation",
                 "primary_source": "Netflix Help Center 2024",
-                "verification": "Tested 2024-11-15"
-            }
+                "verification": "Tested 2024-11-15",
+            },
         }
 
         result = validator.validate(research)
@@ -424,7 +403,7 @@ def test_validate_research_convenience_function():
         "confidence": 0.6,
         "difficulty": "medium",
         "instructions": ["Navigate to settings", "Click cancel account"],
-        "cancellation_url": "https://example.com/cancel"
+        "cancellation_url": "https://example.com/cancel",
     }
 
     result = validate_research(research)

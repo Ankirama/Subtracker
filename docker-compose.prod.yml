@@ -37,9 +37,7 @@ services:
 
   # Backend API
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-backend:${IMAGE_TAG:-latest}
     container_name: subtracker_backend
     env_file:
       - .env.production
@@ -98,9 +96,7 @@ services:
 
   # Celery Worker
   celery_worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-backend:${IMAGE_TAG:-latest}
     container_name: subtracker_celery
     command: celery -A app.celery_app worker --loglevel=warning --concurrency=2
     env_file:
@@ -128,9 +124,7 @@ services:
 
   # Celery Beat (Scheduler)
   celery_beat:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-backend:${IMAGE_TAG:-latest}
     container_name: subtracker_celery_beat
     command: celery -A app.celery_app beat --loglevel=warning
     env_file:
@@ -156,11 +150,7 @@ services:
 
   # Frontend (React app served by nginx)
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_URL: https://${DOMAIN_NAME}/api
+    image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-frontend:${IMAGE_TAG:-latest}
     container_name: subtracker_frontend
     networks:
       - proxy

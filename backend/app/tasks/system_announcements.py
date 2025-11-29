@@ -3,17 +3,22 @@ Celery task for broadcasting system announcements.
 
 Sends system-wide announcements to all users or specific user groups.
 """
+
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from decimal import Decimal
 import logging
 import uuid
 import markdown
 
 from app.celery_app import celery_app
 from app.database import SessionLocal
-from app.models.notification import Notification, NotificationPreference, NotificationType, NotificationPriority
+from app.models.notification import (
+    Notification,
+    NotificationPreference,
+    NotificationType,
+    NotificationPriority,
+)
 from app.models.user import User
 from app.services.email_service import EmailService
 
@@ -21,11 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def create_announcement_notification(
-    user_id: uuid.UUID,
-    title: str,
-    message: str,
-    priority: str,
-    db: Session
+    user_id: uuid.UUID, title: str, message: str, priority: str, db: Session
 ) -> Notification:
     """
     Create a system announcement notification for a user.
@@ -44,7 +45,7 @@ def create_announcement_notification(
     priority_map = {
         "low": NotificationPriority.LOW,
         "medium": NotificationPriority.MEDIUM,
-        "high": NotificationPriority.HIGH
+        "high": NotificationPriority.HIGH,
     }
 
     notification = Notification(
@@ -55,8 +56,8 @@ def create_announcement_notification(
         message=message,
         notification_metadata={
             "announcement_priority": priority,
-            "broadcast_time": datetime.now().isoformat()
-        }
+            "broadcast_time": datetime.now().isoformat(),
+        },
     )
 
     db.add(notification)
@@ -68,9 +69,7 @@ def create_announcement_notification(
 
 
 async def send_announcement_email(
-    notification: Notification,
-    user: User,
-    db: Session
+    notification: Notification, user: User, db: Session
 ) -> tuple[bool, Optional[str]]:
     """
     Send system announcement email.
@@ -84,15 +83,15 @@ async def send_announcement_email(
         (success, error_message)
     """
     metadata = notification.notification_metadata
-    priority = metadata.get('announcement_priority', 'medium')
+    priority = metadata.get("announcement_priority", "medium")
 
     # Styling based on priority
-    if priority == 'high':
+    if priority == "high":
         banner_color = "#e53e3e"
         banner_bg = "#fed7d7"
         banner_border = "#fc8181"
         priority_badge = "🔴 HIGH PRIORITY"
-    elif priority == 'low':
+    elif priority == "low":
         banner_color = "#3182ce"
         banner_bg = "#bee3f8"
         banner_border = "#90cdf4"
@@ -107,7 +106,7 @@ async def send_announcement_email(
     title = notification.title.replace("📢 ", "")
 
     # Convert markdown to HTML
-    md = markdown.Markdown(extensions=['extra', 'nl2br', 'sane_lists'])
+    md = markdown.Markdown(extensions=["extra", "nl2br", "sane_lists"])
     message_html = md.convert(notification.message)
 
     # Build email content
@@ -180,7 +179,7 @@ Subscription Tracker - System Announcements
         to_email=user.email,
         subject=subject,
         html_content=html_content,
-        plain_content=plain_content
+        plain_content=plain_content,
     )
 
     # Update notification status
@@ -192,7 +191,9 @@ Subscription Tracker - System Announcements
     if success:
         logger.info(f"Sent system announcement email to {user.email}")
     else:
-        logger.error(f"Failed to send system announcement email to {user.email}: {error}")
+        logger.error(
+            f"Failed to send system announcement email to {user.email}: {error}"
+        )
 
     return success, error
 
@@ -204,7 +205,7 @@ def broadcast_system_announcement(
     message: str,
     priority: str = "medium",
     target_all_users: bool = True,
-    target_user_ids: Optional[List[str]] = None
+    target_user_ids: Optional[List[str]] = None,
 ):
     """
     Broadcast a system announcement to users.
@@ -228,26 +229,22 @@ def broadcast_system_announcement(
     """
     db = SessionLocal()
     try:
-        logger.info(f"Broadcasting system announcement '{title}' (ID: {announcement_id})")
+        logger.info(
+            f"Broadcasting system announcement '{title}' (ID: {announcement_id})"
+        )
 
         # Determine target users
         if target_all_users:
-            users = db.query(User).filter(User.is_active == True).all()
+            users = db.query(User).filter(User.is_active).all()
             logger.info(f"Broadcasting to all {len(users)} active users")
         else:
             if not target_user_ids:
                 logger.warning("No target users specified and target_all_users=False")
-                return {
-                    "status": "error",
-                    "error": "No target users specified"
-                }
+                return {"status": "error", "error": "No target users specified"}
 
             # Convert string UUIDs to UUID objects
             user_uuids = [uuid.UUID(uid) for uid in target_user_ids]
-            users = db.query(User).filter(
-                User.id.in_(user_uuids),
-                User.is_active == True
-            ).all()
+            users = db.query(User).filter(User.id.in_(user_uuids), User.is_active).all()
             logger.info(f"Broadcasting to {len(users)} specified users")
 
         total_notifications = 0
@@ -255,11 +252,16 @@ def broadcast_system_announcement(
 
         for user in users:
             # Check user preferences
-            pref = db.query(NotificationPreference).filter(
-                NotificationPreference.user_id == user.id,
-                NotificationPreference.notification_type == NotificationType.SYSTEM_ANNOUNCEMENT,
-                NotificationPreference.enabled == True
-            ).first()
+            pref = (
+                db.query(NotificationPreference)
+                .filter(
+                    NotificationPreference.user_id == user.id,
+                    NotificationPreference.notification_type
+                    == NotificationType.SYSTEM_ANNOUNCEMENT,
+                    NotificationPreference.enabled,
+                )
+                .first()
+            )
 
             # Default to enabled if no preference exists
             if pref is None or pref.enabled:
@@ -269,7 +271,7 @@ def broadcast_system_announcement(
                     title=title,
                     message=message,
                     priority=priority,
-                    db=db
+                    db=db,
                 )
                 total_notifications += 1
 
@@ -278,6 +280,7 @@ def broadcast_system_announcement(
                 if email_enabled:
                     # Run async function synchronously in Celery task
                     import asyncio
+
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     success, _ = loop.run_until_complete(
@@ -288,19 +291,18 @@ def broadcast_system_announcement(
                     if success:
                         total_emails += 1
 
-        logger.info(f"Announcement broadcast complete: {total_notifications} notifications created, {total_emails} emails sent")
+        logger.info(
+            f"Announcement broadcast complete: {total_notifications} notifications created, {total_emails} emails sent"
+        )
         return {
             "status": "success",
             "announcement_id": announcement_id,
             "notifications_created": total_notifications,
-            "emails_sent": total_emails
+            "emails_sent": total_emails,
         }
 
     except Exception as e:
         logger.error(f"Error broadcasting system announcement: {e}", exc_info=True)
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+        return {"status": "error", "error": str(e)}
     finally:
         db.close()

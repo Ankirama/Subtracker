@@ -10,13 +10,23 @@ Tests cover:
 - Token validation and dependencies
 - Admin user checks
 """
+
 import pytest
 from datetime import datetime, timezone, timedelta
 from fastapi import HTTPException
 from jose import jwt
 
-from app.security.encryption import encrypt_credentials, decrypt_credentials, generate_encryption_key
-from app.security.jwt import create_access_token, create_refresh_token, verify_token, get_user_id_from_token
+from app.security.encryption import (
+    encrypt_credentials,
+    decrypt_credentials,
+    generate_encryption_key,
+)
+from app.security.jwt import (
+    create_access_token,
+    create_refresh_token,
+    verify_token,
+    get_user_id_from_token,
+)
 from app.security.dependencies import get_current_user, get_current_admin_user
 from app.config import settings
 
@@ -29,12 +39,14 @@ class TestUserRegistration:
         from unittest.mock import patch
 
         # Mock email service to prevent actual email sending
-        with patch('app.services.email_service.EmailService.send_email_verification') as mock_email:
+        with patch(
+            "app.services.email_service.EmailService.send_email_verification"
+        ) as mock_email:
             mock_email.return_value = (True, None)
 
             user_data = {
                 "email": "newuser@example.com",
-                "password": "securepassword123"
+                "password": "securepassword123",
             }
 
             response = client.post("/api/auth/register", json=user_data)
@@ -56,7 +68,7 @@ class TestUserRegistration:
         """Cannot register with existing email."""
         user_data = {
             "email": test_user.email,  # Existing email
-            "password": "somepassword123"
+            "password": "somepassword123",
         }
 
         response = client.post("/api/auth/register", json=user_data)
@@ -68,7 +80,7 @@ class TestUserRegistration:
         """Cannot register with invalid email format."""
         user_data = {
             "email": "notanemail",  # Invalid email
-            "password": "securepassword123"
+            "password": "securepassword123",
         }
 
         response = client.post("/api/auth/register", json=user_data)
@@ -77,10 +89,7 @@ class TestUserRegistration:
 
     def test_register_weak_password(self, client):
         """Cannot register with weak password."""
-        user_data = {
-            "email": "newuser@example.com",
-            "password": "123"  # Too short
-        }
+        user_data = {"email": "newuser@example.com", "password": "123"}  # Too short
 
         response = client.post("/api/auth/register", json=user_data)
 
@@ -94,7 +103,7 @@ class TestUserLogin:
         """Successfully login with correct credentials."""
         login_data = {
             "email": test_user.email,
-            "password": "testpassword123"  # From conftest.py fixture
+            "password": "testpassword123",  # From conftest.py fixture
         }
 
         response = client.post("/api/auth/login", json=login_data)
@@ -108,10 +117,7 @@ class TestUserLogin:
 
     def test_login_wrong_password(self, client, test_user):
         """Cannot login with wrong password."""
-        login_data = {
-            "email": test_user.email,
-            "password": "wrongpassword"
-        }
+        login_data = {"email": test_user.email, "password": "wrongpassword"}
 
         response = client.post("/api/auth/login", json=login_data)
 
@@ -120,10 +126,7 @@ class TestUserLogin:
 
     def test_login_nonexistent_email(self, client):
         """Cannot login with non-existent email."""
-        login_data = {
-            "email": "nonexistent@example.com",
-            "password": "somepassword"
-        }
+        login_data = {"email": "nonexistent@example.com", "password": "somepassword"}
 
         response = client.post("/api/auth/login", json=login_data)
 
@@ -136,10 +139,7 @@ class TestUserLogin:
         test_user.is_active = False
         db_session.commit()
 
-        login_data = {
-            "email": test_user.email,
-            "password": "testpassword123"
-        }
+        login_data = {"email": test_user.email, "password": "testpassword123"}
 
         response = client.post("/api/auth/login", json=login_data)
 
@@ -155,14 +155,13 @@ class TestTokenRefresh:
         # Login to get refresh token
         login_response = client.post(
             "/api/auth/login",
-            json={"email": test_user.email, "password": "testpassword123"}
+            json={"email": test_user.email, "password": "testpassword123"},
         )
         refresh_token = login_response.json()["refresh_token"]
 
         # Use refresh token to get new access token
         response = client.post(
-            "/api/auth/refresh",
-            json={"refresh_token": refresh_token}
+            "/api/auth/refresh", json={"refresh_token": refresh_token}
         )
 
         assert response.status_code == 200
@@ -176,14 +175,13 @@ class TestTokenRefresh:
         # Login to get access token
         login_response = client.post(
             "/api/auth/login",
-            json={"email": test_user.email, "password": "testpassword123"}
+            json={"email": test_user.email, "password": "testpassword123"},
         )
         access_token = login_response.json()["access_token"]
 
         # Try to use access token for refresh (should fail)
         response = client.post(
-            "/api/auth/refresh",
-            json={"refresh_token": access_token}
+            "/api/auth/refresh", json={"refresh_token": access_token}
         )
 
         assert response.status_code == 401
@@ -192,8 +190,7 @@ class TestTokenRefresh:
     def test_refresh_with_invalid_token(self, client):
         """Cannot refresh with invalid token."""
         response = client.post(
-            "/api/auth/refresh",
-            json={"refresh_token": "invalid.token.here"}
+            "/api/auth/refresh", json={"refresh_token": "invalid.token.here"}
         )
 
         assert response.status_code == 401
@@ -206,15 +203,14 @@ class TestTokenRefresh:
             {
                 "user_id": str(test_user.id),
                 "type": "refresh",
-                "exp": datetime.now(timezone.utc) - timedelta(hours=1)  # Expired
+                "exp": datetime.now(timezone.utc) - timedelta(hours=1),  # Expired
             },
             settings.JWT_SECRET_KEY,
-            algorithm=settings.JWT_ALGORITHM
+            algorithm=settings.JWT_ALGORITHM,
         )
 
         response = client.post(
-            "/api/auth/refresh",
-            json={"refresh_token": expired_token}
+            "/api/auth/refresh", json={"refresh_token": expired_token}
         )
 
         assert response.status_code == 401
@@ -224,7 +220,7 @@ class TestTokenRefresh:
         # Get refresh token while active
         login_response = client.post(
             "/api/auth/login",
-            json={"email": test_user.email, "password": "testpassword123"}
+            json={"email": test_user.email, "password": "testpassword123"},
         )
         refresh_token = login_response.json()["refresh_token"]
 
@@ -234,8 +230,7 @@ class TestTokenRefresh:
 
         # Try to refresh (should fail)
         response = client.post(
-            "/api/auth/refresh",
-            json={"refresh_token": refresh_token}
+            "/api/auth/refresh", json={"refresh_token": refresh_token}
         )
 
         assert response.status_code == 401
@@ -264,8 +259,7 @@ class TestCurrentUserEndpoints:
     def test_get_current_user_invalid_token(self, client):
         """Cannot get current user with invalid token."""
         response = client.get(
-            "/api/auth/me",
-            headers={"Authorization": "Bearer invalid.token.here"}
+            "/api/auth/me", headers={"Authorization": "Bearer invalid.token.here"}
         )
 
         assert response.status_code == 401
@@ -293,10 +287,7 @@ class TestEncryption:
             "username": "testuser",
             "password": "testpass123",
             "api_key": "secret-key-123",
-            "tokens": {
-                "access": "access-token",
-                "refresh": "refresh-token"
-            }
+            "tokens": {"access": "access-token", "refresh": "refresh-token"},
         }
 
         # Encrypt
@@ -325,14 +316,11 @@ class TestEncryption:
                 "tokens": {
                     "access_token": "xyz123",
                     "refresh_token": "abc456",
-                    "expires_at": 1234567890
+                    "expires_at": 1234567890,
                 },
-                "scopes": ["email", "profile"]
+                "scopes": ["email", "profile"],
             },
-            "metadata": {
-                "created_at": "2024-01-01",
-                "updated_at": "2024-01-15"
-            }
+            "metadata": {"created_at": "2024-01-01", "updated_at": "2024-01-15"},
         }
 
         encrypted = encrypt_credentials(complex_creds)
@@ -409,10 +397,10 @@ class TestJWTTokens:
             {
                 "user_id": str(test_user.id),
                 "type": "access",
-                "exp": datetime.now(timezone.utc) - timedelta(hours=1)
+                "exp": datetime.now(timezone.utc) - timedelta(hours=1),
             },
             settings.JWT_SECRET_KEY,
-            algorithm=settings.JWT_ALGORITHM
+            algorithm=settings.JWT_ALGORITHM,
         )
 
         with pytest.raises(JWTError):
@@ -440,7 +428,9 @@ class TestAuthenticationDependencies:
         """get_current_user raises HTTPException with invalid token."""
         from fastapi.security import HTTPAuthorizationCredentials
 
-        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="invalid.token")
+        credentials = HTTPAuthorizationCredentials(
+            scheme="Bearer", credentials="invalid.token"
+        )
 
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(credentials, db_session)

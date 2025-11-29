@@ -3,8 +3,8 @@ Test script for trial reminder functionality.
 
 Creates a test subscription with trial ending soon and triggers the reminder task.
 """
+
 import sys
-import os
 from datetime import date, timedelta, datetime, timezone
 from pathlib import Path
 
@@ -33,7 +33,7 @@ def create_test_data():
                 email="bother@ankirama.com",
                 password_hash=password_hash,
                 salt=salt,
-                is_active=True
+                is_active=True,
             )
             db.add(test_user)
             db.commit()
@@ -54,11 +54,15 @@ def create_test_data():
             trial_end_date = date.today() + timedelta(days=days_until_end)
 
             # Check if subscription already exists
-            existing = db.query(Subscription).filter(
-                Subscription.user_id == test_user.id,
-                Subscription.provider == provider,
-                Subscription.trial_end_date == trial_end_date
-            ).first()
+            existing = (
+                db.query(Subscription)
+                .filter(
+                    Subscription.user_id == test_user.id,
+                    Subscription.provider == provider,
+                    Subscription.trial_end_date == trial_end_date,
+                )
+                .first()
+            )
 
             if not existing:
                 subscription = Subscription(
@@ -71,16 +75,20 @@ def create_test_data():
                     is_active=True,
                     trial_status="trial",
                     trial_end_date=trial_end_date,
-                    first_detected_at=datetime.now(timezone.utc)
+                    first_detected_at=datetime.now(timezone.utc),
                 )
                 db.add(subscription)
                 db.commit()
                 db.refresh(subscription)
                 created_subs.append((subscription, days_until_end))
-                print(f"✅ Created {provider} trial ending in {days_until_end} days (ID: {subscription.id})")
+                print(
+                    f"✅ Created {provider} trial ending in {days_until_end} days (ID: {subscription.id})"
+                )
             else:
                 created_subs.append((existing, days_until_end))
-                print(f"✅ Using existing {provider} trial ending in {days_until_end} days (ID: {existing.id})")
+                print(
+                    f"✅ Using existing {provider} trial ending in {days_until_end} days (ID: {existing.id})"
+                )
 
         return test_user, created_subs
 
@@ -90,23 +98,29 @@ def create_test_data():
 
 def run_test():
     """Run the trial reminder test."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TRIAL REMINDER SYSTEM TEST")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     # Step 1: Create test data
     print("📝 Step 1: Creating test data...")
     test_user, test_subscriptions = create_test_data()
     test_user_id = test_user.id  # Store the ID before session closes
-    print(f"\n✅ Test data ready: {len(test_subscriptions)} subscriptions with trials ending soon\n")
+    print(
+        f"\n✅ Test data ready: {len(test_subscriptions)} subscriptions with trials ending soon\n"
+    )
 
     # Step 2: Check current notifications
     db = SessionLocal()
     try:
-        existing_notifications = db.query(Notification).filter(
-            Notification.user_id == test_user_id,
-            Notification.type == NotificationType.TRIAL_ENDING
-        ).count()
+        existing_notifications = (
+            db.query(Notification)
+            .filter(
+                Notification.user_id == test_user_id,
+                Notification.type == NotificationType.TRIAL_ENDING,
+            )
+            .count()
+        )
         print(f"📊 Current trial notifications for user: {existing_notifications}")
     finally:
         db.close()
@@ -123,27 +137,37 @@ def run_test():
     print(f"   Notifications Created: {result.get('notifications_created', 0)}")
     print(f"   Emails Sent: {result.get('emails_sent', 0)}")
 
-    if result.get('status') == 'error':
+    if result.get("status") == "error":
         print(f"   ❌ Error: {result.get('error', 'Unknown error')}")
 
     # Step 4: Check created notifications
     print("\n📝 Step 3: Checking created notifications...")
     db = SessionLocal()
     try:
-        notifications = db.query(Notification).filter(
-            Notification.user_id == test_user_id,
-            Notification.type == NotificationType.TRIAL_ENDING
-        ).order_by(Notification.created_at.desc()).limit(10).all()
+        notifications = (
+            db.query(Notification)
+            .filter(
+                Notification.user_id == test_user_id,
+                Notification.type == NotificationType.TRIAL_ENDING,
+            )
+            .order_by(Notification.created_at.desc())
+            .limit(10)
+            .all()
+        )
 
         print(f"\n✅ Found {len(notifications)} trial ending notifications:")
         for notif in notifications:
-            related_sub = db.query(Subscription).filter(
-                Subscription.id == notif.related_subscription_id
-            ).first()
+            related_sub = (
+                db.query(Subscription)
+                .filter(Subscription.id == notif.related_subscription_id)
+                .first()
+            )
 
-            days_data = notif.notification_metadata.get('days_before', 'unknown')
+            days_data = notif.notification_metadata.get("days_before", "unknown")
             print(f"\n   📧 Notification ID: {notif.id}")
-            print(f"      Provider: {related_sub.provider if related_sub else 'Unknown'}")
+            print(
+                f"      Provider: {related_sub.provider if related_sub else 'Unknown'}"
+            )
             print(f"      Priority: {notif.priority}")
             print(f"      Days Before: {days_data}")
             print(f"      Email Sent: {'✅ Yes' if notif.email_sent else '❌ No'}")
@@ -154,29 +178,34 @@ def run_test():
         # Check SendGrid configuration
         print("\n⚙️  SendGrid Configuration:")
         from app.config import settings
-        api_key = settings.SENDGRID_API_KEY
+
+        api_key = settings.RESEND_API_KEY
         if api_key == "your_sendgrid_api_key_here":
             print("   ⚠️  WARNING: SendGrid API key is not configured!")
             print("   📝 Emails will fail until you set a valid API key")
-            print("   💡 Set SENDGRID_API_KEY environment variable or use admin API")
+            print("   💡 Set RESEND_API_KEY environment variable or use admin API")
         else:
-            masked_key = api_key[:7] + "..." + api_key[-4:] if len(api_key) > 15 else "***"
+            masked_key = (
+                api_key[:7] + "..." + api_key[-4:] if len(api_key) > 15 else "***"
+            )
             print(f"   ✅ API Key: {masked_key}")
 
-        print(f"   📧 From Email: {settings.SENDGRID_FROM_EMAIL}")
-        print(f"   📝 From Name: {settings.SENDGRID_FROM_NAME}")
+        print(f"   📧 From Email: {settings.RESEND_FROM_EMAIL}")
+        print(f"   📝 From Name: {settings.RESEND_FROM_NAME}")
 
     finally:
         db.close()
 
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST COMPLETE")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     # Cleanup instructions
     print("🧹 Cleanup (optional):")
-    print(f"   To delete test user and subscriptions, run:")
-    print(f'   python -c "from app.database import SessionLocal; from app.models.user import User; db = SessionLocal(); user = db.query(User).filter(User.email==\\"bother@ankirama.com\\").first(); db.delete(user) if user else None; db.commit(); print(\\"Cleaned up\\")"')
+    print("   To delete test user and subscriptions, run:")
+    print(
+        '   python -c "from app.database import SessionLocal; from app.models.user import User; db = SessionLocal(); user = db.query(User).filter(User.email==\\"bother@ankirama.com\\").first(); db.delete(user) if user else None; db.commit(); print(\\"Cleaned up\\")"'
+    )
     print()
 
 
@@ -189,5 +218,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\n❌ Test failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

@@ -3,8 +3,16 @@ SQLAlchemy models for notifications system.
 
 Supports both in-app notifications and email notifications with user preferences.
 """
+
 from sqlalchemy import (
-    Column, String, Boolean, DateTime, Text, ForeignKey, Enum as SQLEnum, Integer
+    Column,
+    String,
+    Boolean,
+    DateTime,
+    Text,
+    ForeignKey,
+    Enum as SQLEnum,
+    Integer,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
@@ -17,6 +25,7 @@ from app.database import Base
 
 class NotificationType(str, enum.Enum):
     """Types of notifications."""
+
     RENEWAL_REMINDER = "RENEWAL_REMINDER"
     TRIAL_ENDING = "TRIAL_ENDING"
     WEEKLY_SUMMARY = "WEEKLY_SUMMARY"
@@ -29,6 +38,7 @@ class NotificationType(str, enum.Enum):
 
 class NotificationPriority(str, enum.Enum):
     """Priority levels for notifications."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -40,21 +50,37 @@ class Notification(Base):
 
     Stores notification history and tracks delivery status.
     """
+
     __tablename__ = "notifications"
 
     # Primary key and foreign keys
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     # Notification details
     type = Column(SQLEnum(NotificationType), nullable=False, index=True)
-    priority = Column(SQLEnum(NotificationPriority), nullable=False, default=NotificationPriority.MEDIUM)
+    priority = Column(
+        SQLEnum(NotificationPriority),
+        nullable=False,
+        default=NotificationPriority.MEDIUM,
+    )
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
 
     # Optional link to related entity
-    related_subscription_id = Column(UUID(as_uuid=True), ForeignKey("subscriptions.id", ondelete="CASCADE"), nullable=True)
-    related_budget_id = Column(UUID(as_uuid=True), ForeignKey("budgets.id", ondelete="CASCADE"), nullable=True)
+    related_subscription_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("subscriptions.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    related_budget_id = Column(
+        UUID(as_uuid=True), ForeignKey("budgets.id", ondelete="CASCADE"), nullable=True
+    )
 
     # Additional data (e.g., spending amounts, subscription details)
     notification_metadata = Column(JSONB, nullable=True)
@@ -69,8 +95,12 @@ class Notification(Base):
     email_error = Column(Text, nullable=True)  # Store SendGrid errors if any
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
-    expires_at = Column(DateTime(timezone=True), nullable=True)  # Optional expiration for old notifications
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    expires_at = Column(
+        DateTime(timezone=True), nullable=True
+    )  # Optional expiration for old notifications
 
     # Relationships
     user = relationship("User", backref="notifications")
@@ -86,11 +116,17 @@ class NotificationPreference(Base):
 
     Controls which notifications to receive and via which channels (in-app, email).
     """
+
     __tablename__ = "notification_preferences"
 
     # Primary key and foreign keys
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     # Notification type
     notification_type = Column(SQLEnum(NotificationType), nullable=False)
@@ -109,8 +145,15 @@ class NotificationPreference(Base):
     summary_day_of_month = Column(Integer, nullable=True, default=1)  # 1st for monthly
 
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
 
     # Relationships
     user = relationship("User", backref="notification_preferences")

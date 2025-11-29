@@ -2,6 +2,7 @@
 Credential encryption using Fernet (symmetric encryption).
 Used for encrypting mailbox credentials (OAuth tokens, etc.).
 """
+
 from cryptography.fernet import Fernet
 import json
 from app.config import settings

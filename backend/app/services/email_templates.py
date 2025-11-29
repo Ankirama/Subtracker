@@ -3,6 +3,7 @@ HTML email templates for subscription summaries.
 
 Beautiful, responsive templates that work across email clients.
 """
+
 from typing import Dict, Any
 
 
@@ -10,7 +11,9 @@ class EmailTemplates:
     """Email template generator for summaries."""
 
     @staticmethod
-    def generate_summary_email(summary_data: Dict[str, Any], frontend_url: str = "http://localhost:5173") -> str:
+    def generate_summary_email(
+        summary_data: Dict[str, Any], frontend_url: str = "http://localhost:5173"
+    ) -> str:
         """
         Generate HTML email for subscription summary.
 
@@ -21,8 +24,8 @@ class EmailTemplates:
         Returns:
             HTML string for email
         """
-        period = summary_data['period_type'].title()
-        user_name = summary_data['user_name']
+        period = summary_data["period_type"].title()
+        user_name = summary_data["user_name"]
 
         html = f"""
 <!DOCTYPE html>
@@ -271,14 +274,14 @@ class EmailTemplates:
         html = '<div class="section"><div class="section-title">💡 Key Insights</div>'
         for insight in insights:
             html += f'<div class="insight-box"><p>{insight}</p></div>'
-        html += '</div>'
+        html += "</div>"
         return html
 
     @staticmethod
     def _render_changes(summary_data: Dict[str, Any]) -> str:
         """Render new and cancelled subscriptions."""
-        new_subs = summary_data['new_subscriptions']
-        cancelled_subs = summary_data['cancelled_subscriptions']
+        new_subs = summary_data["new_subscriptions"]
+        cancelled_subs = summary_data["cancelled_subscriptions"]
 
         if not new_subs and not cancelled_subs:
             return ""
@@ -289,39 +292,39 @@ class EmailTemplates:
             html += '<p style="font-weight: 600; color: #2d3748; margin-bottom: 10px;">✅ New Subscriptions</p>'
             html += '<ul class="subscription-list">'
             for sub in new_subs:
-                html += f'''
+                html += f"""
                     <li class="subscription-item">
                         <span class="subscription-name">{sub['provider']}</span>
                         <span class="subscription-cost">€{sub['amount']}/{sub['billing_cycle']}</span>
                     </li>
-                '''
-            html += '</ul>'
+                """
+            html += "</ul>"
 
         if cancelled_subs:
             html += '<p style="font-weight: 600; color: #2d3748; margin: 20px 0 10px 0;">❌ Cancelled Subscriptions</p>'
             html += '<ul class="subscription-list">'
             for sub in cancelled_subs:
-                html += f'''
+                html += f"""
                     <li class="subscription-item">
                         <span class="subscription-name">{sub['provider']}</span>
                         <span class="subscription-cost">€{sub['amount']}/{sub['billing_cycle']}</span>
                     </li>
-                '''
-            html += '</ul>'
+                """
+            html += "</ul>"
 
-        if summary_data['net_change'] != 0:
-            change_type = "increased" if summary_data['net_change'] > 0 else "decreased"
-            change_color = "#dc3545" if summary_data['net_change'] > 0 else "#28a745"
-            html += f'''
+        if summary_data["net_change"] != 0:
+            change_type = "increased" if summary_data["net_change"] > 0 else "decreased"
+            change_color = "#dc3545" if summary_data["net_change"] > 0 else "#28a745"
+            html += f"""
                 <p style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; text-align: center;">
                     Your monthly spending {change_type} by
                     <span style="font-weight: 700; color: {change_color};">
                         €{abs(summary_data['net_change']):.2f}
                     </span>
                 </p>
-            '''
+            """
 
-        html += '</div>'
+        html += "</div>"
         return html
 
     @staticmethod
@@ -332,8 +335,8 @@ class EmailTemplates:
 
         html = '<div class="section"><div class="section-title">📊 Top Spending Categories</div>'
         for cat in top_categories:
-            category_name = cat['category'].replace('_', ' ').title()
-            html += f'''
+            category_name = cat["category"].replace("_", " ").title()
+            html += f"""
                 <div class="category-item">
                     <div>
                         <span style="font-weight: 600; color: #2d3748;">{category_name}</span>
@@ -343,8 +346,8 @@ class EmailTemplates:
                     </div>
                     <span style="font-weight: 600; color: #667eea;">€{cat['cost']:.2f}/mo</span>
                 </div>
-            '''
-        html += '</div>'
+            """
+        html += "</div>"
         return html
 
     @staticmethod
@@ -356,13 +359,13 @@ class EmailTemplates:
         html = '<div class="section"><div class="section-title">💰 Most Expensive Subscriptions</div>'
         html += '<ul class="subscription-list">'
         for sub in top_subscriptions:
-            html += f'''
+            html += f"""
                 <li class="subscription-item">
                     <span class="subscription-name">{sub['provider']}</span>
                     <span class="subscription-cost">€{sub['monthly_cost']:.2f}/mo</span>
                 </li>
-            '''
-        html += '</ul></div>'
+            """
+        html += "</ul></div>"
         return html
 
     @staticmethod
@@ -374,54 +377,52 @@ class EmailTemplates:
         html = '<div class="section"><div class="section-title">🤖 AI Optimization Insights</div>'
         for insight in ai_insights:
             html += f'<div class="insight-box" style="background: #fff4e6; border-left-color: #ff9800;"><p>{insight}</p></div>'
-        html += '</div>'
+        html += "</div>"
         return html
 
     @staticmethod
-    def _render_ai_recommendations(recommendations: list, potential_savings: float) -> str:
+    def _render_ai_recommendations(
+        recommendations: list, potential_savings: float
+    ) -> str:
         """Render AI-powered recommendations section."""
         if not recommendations:
             return ""
 
         # Priority badge colors
-        priority_colors = {
-            'high': '#dc3545',
-            'medium': '#ff9800',
-            'low': '#28a745'
-        }
+        priority_colors = {"high": "#dc3545", "medium": "#ff9800", "low": "#28a745"}
 
         html = '<div class="section">'
         html += '<div class="section-title">💡 AI-Powered Recommendations</div>'
 
         if potential_savings > 0:
-            html += f'''
+            html += f"""
                 <p style="margin-bottom: 15px; padding: 12px; background: #e8f5e9; border-left: 4px solid #28a745; border-radius: 4px;">
                     <strong>💰 Potential Savings:</strong> €{potential_savings:.2f}/month (€{potential_savings * 12:.2f}/year)
                 </p>
-            '''
+            """
 
         html += '<ul class="subscription-list">'
         for rec in recommendations[:5]:  # Show top 5 recommendations
-            priority = rec.get('priority', 'medium')
-            priority_color = priority_colors.get(priority, '#ff9800')
+            priority = rec.get("priority", "medium")
+            priority_color = priority_colors.get(priority, "#ff9800")
 
             # Icon based on recommendation type
             icons = {
-                'duplicate_consolidation': '🔄',
-                'duplicate_review': '📋',
-                'unused_subscription': '⏸️',
-                'family_plan_upgrade': '👨‍👩‍👧‍👦',
-                'annual_billing_savings': '📅',
-                'alternative_provider': '🔄',
-                'cost_reduction': '💰'
+                "duplicate_consolidation": "🔄",
+                "duplicate_review": "📋",
+                "unused_subscription": "⏸️",
+                "family_plan_upgrade": "👨‍👩‍👧‍👦",
+                "annual_billing_savings": "📅",
+                "alternative_provider": "🔄",
+                "cost_reduction": "💰",
             }
-            icon = icons.get(rec.get('type', ''), '💡')
+            icon = icons.get(rec.get("type", ""), "💡")
 
-            savings_text = ''
-            if rec.get('potential_savings', 0) > 0:
+            savings_text = ""
+            if rec.get("potential_savings", 0) > 0:
                 savings_text = f' <span style="color: #28a745; font-weight: 700;">Save €{rec["potential_savings"]:.2f}/mo</span>'
 
-            html += f'''
+            html += f"""
                 <li class="subscription-item">
                     <div>
                         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
@@ -436,18 +437,18 @@ class EmailTemplates:
                         </p>
                     </div>
                 </li>
-            '''
+            """
 
-        html += '</ul>'
+        html += "</ul>"
 
         if len(recommendations) > 5:
-            html += f'''
+            html += f"""
                 <p style="text-align: center; margin-top: 15px; color: #6c757d; font-size: 14px;">
                     + {len(recommendations) - 5} more recommendations in your dashboard
                 </p>
-            '''
+            """
 
-        html += '</div>'
+        html += "</div>"
         return html
 
     @staticmethod
@@ -460,8 +461,11 @@ class EmailTemplates:
         html += '<ul class="subscription-list">'
         for renewal in upcoming_renewals:
             from datetime import datetime
-            renewal_date = datetime.fromisoformat(renewal['renewal_date']).strftime('%b %d, %Y')
-            html += f'''
+
+            renewal_date = datetime.fromisoformat(renewal["renewal_date"]).strftime(
+                "%b %d, %Y"
+            )
+            html += f"""
                 <li class="subscription-item">
                     <div>
                         <span class="subscription-name">{renewal['provider']}</span>
@@ -469,12 +473,14 @@ class EmailTemplates:
                     </div>
                     <span class="subscription-cost">€{renewal['amount']}</span>
                 </li>
-            '''
-        html += '</ul></div>'
+            """
+        html += "</ul></div>"
         return html
 
     @staticmethod
-    def generate_2fa_otp_email(user_name: str, otp_code: str, expires_in_minutes: int = 10) -> str:
+    def generate_2fa_otp_email(
+        user_name: str, otp_code: str, expires_in_minutes: int = 10
+    ) -> str:
         """
         Generate HTML email for 2FA OTP code.
 

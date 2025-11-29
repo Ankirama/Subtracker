@@ -3,7 +3,6 @@
 Test script for ReviewSuggestionsService.
 Creates test subscriptions and validates suggestion algorithm.
 """
-import asyncio
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta, date
@@ -25,8 +24,7 @@ import logging
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -47,7 +45,7 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         trial_status="trial",
         trial_end_date=date.today(),
         is_active=True,
-        cancellation_status="active"
+        cancellation_status="active",
     )
     db.add(sub1)
 
@@ -62,7 +60,7 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         trial_status="trial",
         trial_end_date=date.today() + timedelta(days=2),
         is_active=True,
-        cancellation_status="active"
+        cancellation_status="active",
     )
     db.add(sub2)
 
@@ -75,7 +73,7 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         currency="USD",
         billing_cycle="monthly",
         is_active=True,
-        cancellation_status="active"
+        cancellation_status="active",
     )
     db.add(sub3)
     db.flush()
@@ -88,16 +86,14 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         sender="noreply@adobe.com",
         recipient="test@example.com",
         date=datetime.utcnow() - timedelta(days=45),
-        body_text="Your Adobe subscription has been renewed"
+        body_text="Your Adobe subscription has been renewed",
     )
     db.add(old_email)
     db.flush()
 
     # Link email to subscription
     link = subscription_emails.insert().values(
-        subscription_id=sub3.id,
-        email_id=old_email.id,
-        extraction_role="renewal"
+        subscription_id=sub3.id, email_id=old_email.id, extraction_role="renewal"
     )
     db.execute(link)
 
@@ -110,7 +106,7 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         currency="USD",
         billing_cycle="monthly",
         is_active=True,
-        cancellation_status="active"
+        cancellation_status="active",
     )
     db.add(sub4)
 
@@ -123,7 +119,7 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         currency="USD",
         billing_cycle="monthly",
         is_active=True,
-        cancellation_status="active"
+        cancellation_status="active",
     )
     db.add(sub5)
 
@@ -136,7 +132,7 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         currency="USD",
         billing_cycle="monthly",
         is_active=True,
-        cancellation_status="active"
+        cancellation_status="active",
     )
     db.add(sub6)
     db.flush()
@@ -149,15 +145,13 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         sender="noreply@linkedin.com",
         recipient="test@example.com",
         date=datetime.utcnow() - timedelta(days=35),
-        body_text="Your LinkedIn Premium subscription"
+        body_text="Your LinkedIn Premium subscription",
     )
     db.add(old_email2)
     db.flush()
 
     link2 = subscription_emails.insert().values(
-        subscription_id=sub6.id,
-        email_id=old_email2.id,
-        extraction_role="renewal"
+        subscription_id=sub6.id, email_id=old_email2.id, extraction_role="renewal"
     )
     db.execute(link2)
 
@@ -170,7 +164,7 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         currency="USD",
         billing_cycle="monthly",
         is_active=True,
-        cancellation_status="active"
+        cancellation_status="active",
     )
     db.add(sub7)
     db.flush()
@@ -183,15 +177,13 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         sender="noreply@github.com",
         recipient="test@example.com",
         date=datetime.utcnow() - timedelta(days=2),
-        body_text="Your GitHub subscription"
+        body_text="Your GitHub subscription",
     )
     db.add(recent_email)
     db.flush()
 
     link3 = subscription_emails.insert().values(
-        subscription_id=sub7.id,
-        email_id=recent_email.id,
-        extraction_role="renewal"
+        subscription_id=sub7.id, email_id=recent_email.id, extraction_role="renewal"
     )
     db.execute(link3)
 
@@ -205,7 +197,7 @@ def create_test_subscriptions(db: Session, user_id, mailbox_id):
         "duplicate1": sub4.id,
         "duplicate2": sub5.id,
         "unused": sub6.id,
-        "active": sub7.id
+        "active": sub7.id,
     }
 
 
@@ -253,20 +245,20 @@ def main():
         cleanup_test_subscriptions(db, user.id)
 
         # Create test subscriptions
-        test_subs = create_test_subscriptions(db, user.id, mailbox.id)
+        create_test_subscriptions(db, user.id, mailbox.id)
 
         # Test the service
-        logger.info("\n" + "="*80)
+        logger.info("\n" + "=" * 80)
         logger.info("Testing ReviewSuggestionsService.get_review_suggestions()")
-        logger.info("="*80 + "\n")
+        logger.info("=" * 80 + "\n")
 
         service = ReviewSuggestionsService(db)
         result = service.get_review_suggestions(user.id)
 
         # Display results
-        print("\n" + "="*80)
-        print(f"📊 REVIEW SUGGESTIONS RESULTS")
-        print("="*80)
+        print("\n" + "=" * 80)
+        print("📊 REVIEW SUGGESTIONS RESULTS")
+        print("=" * 80)
         print(f"Total suggestions: {result.total_count}")
         print(f"Critical: {result.critical_count}")
         print(f"High priority: {result.high_priority_count}")
@@ -275,23 +267,27 @@ def main():
         if result.suggestions:
             for i, suggestion in enumerate(result.suggestions, 1):
                 priority_emoji = {
-                    'critical': '🚨',
-                    'high': '⚠️',
-                    'medium': '💡',
-                    'low': 'ℹ️'
+                    "critical": "🚨",
+                    "high": "⚠️",
+                    "medium": "💡",
+                    "low": "ℹ️",
                 }
 
-                print(f"{i}. {priority_emoji.get(suggestion.priority, '•')} [{suggestion.priority.upper()}] {suggestion.provider}")
+                print(
+                    f"{i}. {priority_emoji.get(suggestion.priority, '•')} [{suggestion.priority.upper()}] {suggestion.provider}"
+                )
                 print(f"   Reason: {suggestion.reason.value}")
                 print(f"   Message: {suggestion.message}")
                 if suggestion.action_by_date:
-                    print(f"   Action by: {suggestion.action_by_date.strftime('%Y-%m-%d')}")
+                    print(
+                        f"   Action by: {suggestion.action_by_date.strftime('%Y-%m-%d')}"
+                    )
                 print()
 
         # Validation
-        print("="*80)
+        print("=" * 80)
         print("📋 VALIDATION")
-        print("="*80)
+        print("=" * 80)
 
         expected_count = 6  # 7 subscriptions - 1 active with recent email
         if result.total_count == expected_count:
@@ -300,28 +296,36 @@ def main():
             print(f"❌ Expected {expected_count} suggestions, got {result.total_count}")
 
         if result.critical_count >= 1:
-            print(f"✅ Found {result.critical_count} critical suggestion(s) (trial ending today)")
+            print(
+                f"✅ Found {result.critical_count} critical suggestion(s) (trial ending today)"
+            )
         else:
-            print(f"❌ Expected at least 1 critical suggestion")
+            print("❌ Expected at least 1 critical suggestion")
 
         if result.high_priority_count >= 2:
             print(f"✅ Found {result.high_priority_count} high priority suggestion(s)")
         else:
-            print(f"❌ Expected at least 2 high priority suggestions")
+            print("❌ Expected at least 2 high priority suggestions")
 
         # Check specific suggestions
         providers_found = {s.provider for s in result.suggestions}
-        expected_providers = {"Netflix", "Spotify", "Adobe Creative Cloud", "Dropbox", "LinkedIn Premium"}
+        expected_providers = {
+            "Netflix",
+            "Spotify",
+            "Adobe Creative Cloud",
+            "Dropbox",
+            "LinkedIn Premium",
+        }
 
         if expected_providers.issubset(providers_found):
-            print(f"✅ Found all expected providers in suggestions")
+            print("✅ Found all expected providers in suggestions")
         else:
             missing = expected_providers - providers_found
             print(f"❌ Missing providers: {missing}")
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("🎉 ALL TESTS COMPLETED!")
-        print("="*80)
+        print("=" * 80)
 
         # Clean up
         cleanup_test_subscriptions(db, user.id)

@@ -2,9 +2,9 @@
 Review suggestions API endpoints.
 Provides intelligent suggestions for which subscriptions to review or cancel.
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from uuid import UUID
 
 from app.database import get_db
 from app.security.dependencies import get_current_user
@@ -21,7 +21,7 @@ router = APIRouter()
 async def get_review_suggestions(
     include_dismissed: bool = False,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Get intelligent review suggestions for user's subscriptions.
@@ -81,8 +81,7 @@ async def get_review_suggestions(
     try:
         service = ReviewSuggestionsService(db)
         suggestions = service.get_review_suggestions(
-            user_id=current_user.id,
-            include_dismissed=include_dismissed
+            user_id=current_user.id, include_dismissed=include_dismissed
         )
 
         logger.info(
@@ -93,8 +92,11 @@ async def get_review_suggestions(
         return suggestions
 
     except Exception as e:
-        logger.error(f"Failed to generate suggestions for user {current_user.id}: {e}", exc_info=True)
+        logger.error(
+            f"Failed to generate suggestions for user {current_user.id}: {e}",
+            exc_info=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate review suggestions. Please try again later."
+            detail="Failed to generate review suggestions. Please try again later.",
         )

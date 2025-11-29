@@ -4,8 +4,8 @@ Configuration helper that prioritizes admin settings over environment variables.
 This allows runtime configuration changes through the admin panel without
 requiring application restarts.
 """
-from typing import Optional, Any
-from functools import lru_cache
+
+from typing import Any
 import logging
 
 from app.config import settings
@@ -41,9 +41,9 @@ class ConfigHelper:
         # Try admin settings first (if db session available)
         if self.db:
             try:
-                admin_setting = self.db.query(AdminSetting).filter(
-                    AdminSetting.key == key
-                ).first()
+                admin_setting = (
+                    self.db.query(AdminSetting).filter(AdminSetting.key == key).first()
+                )
 
                 if admin_setting:
                     value = admin_setting.value
@@ -66,24 +66,21 @@ class ConfigHelper:
         # Admin-configurable settings (can be overridden in database)
         env_mapping = {
             # Resend configuration
-            'resend.api_key': settings.RESEND_API_KEY,
-            'resend.from_email': settings.RESEND_FROM_EMAIL,
-            'resend.from_name': settings.RESEND_FROM_NAME,
-
+            "resend.api_key": settings.RESEND_API_KEY,
+            "resend.from_email": settings.RESEND_FROM_EMAIL,
+            "resend.from_name": settings.RESEND_FROM_NAME,
             # OpenAI configuration
-            'openai.api_key': settings.OPENAI_API_KEY,
-            'openai.assistant_id': settings.OPENAI_ASSISTANT_ID,
-            'openai.request_delay_seconds': settings.OPENAI_REQUEST_DELAY_SECONDS,
-            'openai.max_requests_per_minute': settings.OPENAI_MAX_REQUESTS_PER_MINUTE,
-
+            "openai.api_key": settings.OPENAI_API_KEY,
+            "openai.assistant_id": settings.OPENAI_ASSISTANT_ID,
+            "openai.request_delay_seconds": settings.OPENAI_REQUEST_DELAY_SECONDS,
+            "openai.max_requests_per_minute": settings.OPENAI_MAX_REQUESTS_PER_MINUTE,
             # Email processing configuration
-            'email.default_batch_size': settings.DEFAULT_BATCH_SIZE,
-            'email.confidence_auto_accept': settings.DEFAULT_CONFIDENCE_AUTO_ACCEPT,
-            'email.confidence_review_min': settings.DEFAULT_CONFIDENCE_REVIEW_MIN,
-            'email.default_sync_period_days': settings.DEFAULT_SYNC_PERIOD_DAYS,
-
+            "email.default_batch_size": settings.DEFAULT_BATCH_SIZE,
+            "email.confidence_auto_accept": settings.DEFAULT_CONFIDENCE_AUTO_ACCEPT,
+            "email.confidence_review_min": settings.DEFAULT_CONFIDENCE_REVIEW_MIN,
+            "email.default_sync_period_days": settings.DEFAULT_SYNC_PERIOD_DAYS,
             # Frontend configuration
-            'frontend.url': settings.FRONTEND_URL,
+            "frontend.url": settings.FRONTEND_URL,
         }
 
         env_value = env_mapping.get(key)

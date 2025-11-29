@@ -1,6 +1,7 @@
 """
 Admin configuration API endpoints
 """
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import Optional
@@ -28,7 +29,7 @@ async def list_settings(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=100, description="Items per page"),
     current_user: User = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     List all admin settings with optional filtering and pagination
@@ -52,7 +53,7 @@ async def list_settings(
         search=search,
         page=page,
         page_size=page_size,
-        decrypt=False  # Don't decrypt for list view
+        decrypt=False,  # Don't decrypt for list view
     )
 
     total_pages = math.ceil(total / page_size)
@@ -62,7 +63,7 @@ async def list_settings(
         total=total,
         page=page,
         page_size=page_size,
-        total_pages=total_pages
+        total_pages=total_pages,
     )
 
 
@@ -71,7 +72,7 @@ async def get_setting(
     key: str,
     decrypt: bool = Query(True, description="Decrypt secret values"),
     current_user: User = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Get a specific admin setting by key
@@ -90,18 +91,19 @@ async def get_setting(
 
     if not setting:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{key}' not found"
         )
 
     return AdminSettingResponse.model_validate(setting)
 
 
-@router.post("/config", response_model=AdminSettingResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/config", response_model=AdminSettingResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_setting(
     setting_data: AdminSettingCreate,
     current_user: User = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Create a new admin setting
@@ -124,13 +126,12 @@ async def create_setting(
     if existing:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Setting '{setting_data.key}' already exists"
+            detail=f"Setting '{setting_data.key}' already exists",
         )
 
     # Create setting
     setting = config_service.create_setting(
-        setting_data=setting_data,
-        admin_user_id=current_user.id
+        setting_data=setting_data, admin_user_id=current_user.id
     )
 
     return AdminSettingResponse.model_validate(setting)
@@ -141,7 +142,7 @@ async def update_setting(
     key: str,
     setting_data: AdminSettingUpdate,
     current_user: User = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Update an existing admin setting
@@ -161,15 +162,12 @@ async def update_setting(
     config_service = ConfigService(db)
 
     setting = config_service.update_setting(
-        key=key,
-        setting_data=setting_data,
-        admin_user_id=current_user.id
+        key=key, setting_data=setting_data, admin_user_id=current_user.id
     )
 
     if not setting:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{key}' not found"
         )
 
     return AdminSettingResponse.model_validate(setting)
@@ -179,7 +177,7 @@ async def update_setting(
 async def delete_setting(
     key: str,
     current_user: User = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Delete an admin setting
@@ -198,8 +196,7 @@ async def delete_setting(
 
     if not deleted:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Setting '{key}' not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Setting '{key}' not found"
         )
 
     return None
@@ -207,8 +204,7 @@ async def delete_setting(
 
 @router.get("/config/status", response_model=ConfigStatusResponse)
 async def get_config_status(
-    current_user: User = Depends(get_current_admin_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_admin_user), db: Session = Depends(get_db)
 ):
     """
     Get configuration status showing missing, incomplete, and valid settings.
@@ -224,22 +220,81 @@ async def get_config_status(
         Configuration status with lists of missing, incomplete, and valid settings
     """
     from app.models.admin import AdminSetting
-    from app.config import settings as app_settings
 
     # Define expected settings (matches config_helper mappings)
     EXPECTED_SETTINGS = {
-        'sendgrid.api_key': {'category': 'email', 'value_type': 'string', 'is_secret': True, 'required': True},
-        'sendgrid.from_email': {'category': 'email', 'value_type': 'string', 'is_secret': False, 'required': True},
-        'sendgrid.from_name': {'category': 'email', 'value_type': 'string', 'is_secret': False, 'required': True},
-        'openai.api_key': {'category': 'ai', 'value_type': 'string', 'is_secret': True, 'required': True},
-        'openai.assistant_id': {'category': 'ai', 'value_type': 'string', 'is_secret': False, 'required': False},
-        'openai.request_delay_seconds': {'category': 'ai', 'value_type': 'number', 'is_secret': False, 'required': True},
-        'openai.max_requests_per_minute': {'category': 'ai', 'value_type': 'number', 'is_secret': False, 'required': True},
-        'email.default_batch_size': {'category': 'processing', 'value_type': 'number', 'is_secret': False, 'required': True},
-        'email.confidence_auto_accept': {'category': 'processing', 'value_type': 'number', 'is_secret': False, 'required': True},
-        'email.confidence_review_min': {'category': 'processing', 'value_type': 'number', 'is_secret': False, 'required': True},
-        'email.default_sync_period_days': {'category': 'processing', 'value_type': 'number', 'is_secret': False, 'required': True},
-        'frontend.url': {'category': 'application', 'value_type': 'string', 'is_secret': False, 'required': True},
+        "sendgrid.api_key": {
+            "category": "email",
+            "value_type": "string",
+            "is_secret": True,
+            "required": True,
+        },
+        "sendgrid.from_email": {
+            "category": "email",
+            "value_type": "string",
+            "is_secret": False,
+            "required": True,
+        },
+        "sendgrid.from_name": {
+            "category": "email",
+            "value_type": "string",
+            "is_secret": False,
+            "required": True,
+        },
+        "openai.api_key": {
+            "category": "ai",
+            "value_type": "string",
+            "is_secret": True,
+            "required": True,
+        },
+        "openai.assistant_id": {
+            "category": "ai",
+            "value_type": "string",
+            "is_secret": False,
+            "required": False,
+        },
+        "openai.request_delay_seconds": {
+            "category": "ai",
+            "value_type": "number",
+            "is_secret": False,
+            "required": True,
+        },
+        "openai.max_requests_per_minute": {
+            "category": "ai",
+            "value_type": "number",
+            "is_secret": False,
+            "required": True,
+        },
+        "email.default_batch_size": {
+            "category": "processing",
+            "value_type": "number",
+            "is_secret": False,
+            "required": True,
+        },
+        "email.confidence_auto_accept": {
+            "category": "processing",
+            "value_type": "number",
+            "is_secret": False,
+            "required": True,
+        },
+        "email.confidence_review_min": {
+            "category": "processing",
+            "value_type": "number",
+            "is_secret": False,
+            "required": True,
+        },
+        "email.default_sync_period_days": {
+            "category": "processing",
+            "value_type": "number",
+            "is_secret": False,
+            "required": True,
+        },
+        "frontend.url": {
+            "category": "application",
+            "value_type": "string",
+            "is_secret": False,
+            "required": True,
+        },
     }
 
     # Get all existing admin settings
@@ -253,48 +308,54 @@ async def get_config_status(
     # Check expected settings
     for key, expected in EXPECTED_SETTINGS.items():
         if key not in existing_settings:
-            missing.append({
-                'key': key,
-                'category': expected['category'],
-                'required': expected['required'],
-                'description': f"Setting {key} is missing from database"
-            })
+            missing.append(
+                {
+                    "key": key,
+                    "category": expected["category"],
+                    "required": expected["required"],
+                    "description": f"Setting {key} is missing from database",
+                }
+            )
         else:
             setting = existing_settings[key]
             issues = []
 
             # Check if value is missing for required settings
-            if expected['required'] and not setting.value:
-                issues.append('missing_value')
+            if expected["required"] and not setting.value:
+                issues.append("missing_value")
 
             # Check type mismatch
-            if setting.value_type != expected['value_type']:
-                issues.append(f"type_mismatch")
+            if setting.value_type != expected["value_type"]:
+                issues.append("type_mismatch")
 
             if issues:
-                incomplete.append({
-                    'key': key,
-                    'category': expected['category'],
-                    'issues': issues
-                })
+                incomplete.append(
+                    {"key": key, "category": expected["category"], "issues": issues}
+                )
             else:
-                valid.append({'key': key, 'category': expected['category']})
+                valid.append({"key": key, "category": expected["category"]})
 
     # Check for extra settings
     for key in existing_settings:
         if key not in EXPECTED_SETTINGS:
-            extra.append({
-                'key': key,
-                'category': existing_settings[key].category,
-                'value_type': existing_settings[key].value_type
-            })
+            extra.append(
+                {
+                    "key": key,
+                    "category": existing_settings[key].category,
+                    "value_type": existing_settings[key].value_type,
+                }
+            )
 
     # Generate recommendations
     recommendations = []
     if missing:
-        recommendations.append("Run seed script to create missing settings: python -m scripts.seed_admin_settings")
+        recommendations.append(
+            "Run seed script to create missing settings: python -m scripts.seed_admin_settings"
+        )
     if incomplete:
-        recommendations.append("Update incomplete settings via Admin Panel or re-run seed with --overwrite")
+        recommendations.append(
+            "Update incomplete settings via Admin Panel or re-run seed with --overwrite"
+        )
 
     is_healthy = len(missing) == 0 and len(incomplete) == 0
 
@@ -310,5 +371,5 @@ async def get_config_status(
         valid=valid,
         extra=extra,
         is_healthy=is_healthy,
-        recommendations=recommendations
+        recommendations=recommendations,
     )

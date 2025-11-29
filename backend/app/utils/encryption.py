@@ -2,6 +2,7 @@
 Encryption utility for securing sensitive data like API keys
 Uses Fernet symmetric encryption from the cryptography library
 """
+
 from cryptography.fernet import Fernet
 from app.config import settings
 import base64
@@ -18,7 +19,9 @@ class EncryptionService:
             self.cipher = Fernet(settings.ENCRYPTION_KEY.encode())
         except Exception:
             # If not, try to encode it as base64
-            key = base64.urlsafe_b64encode(settings.ENCRYPTION_KEY.encode().ljust(32)[:32])
+            key = base64.urlsafe_b64encode(
+                settings.ENCRYPTION_KEY.encode().ljust(32)[:32]
+            )
             self.cipher = Fernet(key)
 
     def encrypt(self, value: str) -> str:

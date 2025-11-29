@@ -16,9 +16,21 @@ from app.models.push_subscription import PushSubscription
 from app.models.two_factor import EmailOTP
 
 __all__ = [
-    "User", "Mailbox", "Subscription", "EmailMessage", "subscription_emails",
-    "SubscriptionFeedback", "CancellationFeedback", "SyncHistory",
-    "ProviderCancellationInfo", "IPBlock", "IPWhitelist", "Budget",
-    "Notification", "NotificationPreference", "InviteToken",
-    "PushSubscription", "EmailOTP"
+    "User",
+    "Mailbox",
+    "Subscription",
+    "EmailMessage",
+    "subscription_emails",
+    "SubscriptionFeedback",
+    "CancellationFeedback",
+    "SyncHistory",
+    "ProviderCancellationInfo",
+    "IPBlock",
+    "IPWhitelist",
+    "Budget",
+    "Notification",
+    "NotificationPreference",
+    "InviteToken",
+    "PushSubscription",
+    "EmailOTP",
 ]

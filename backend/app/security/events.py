@@ -1,6 +1,7 @@
 """
 Security event logging utility.
 """
+
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
 from datetime import datetime
@@ -42,7 +43,7 @@ class SecurityEventLogger:
         user_id: Optional[str] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
     ) -> Optional[SecurityEvent]:
         """
         Log a security event to the database.
@@ -69,7 +70,7 @@ class SecurityEventLogger:
                 details=details or {},
                 severity=severity,
                 is_resolved=False,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
 
             db.add(event)
@@ -94,7 +95,7 @@ class SecurityEventLogger:
         email: str,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
-        reason: str = "invalid_credentials"
+        reason: str = "invalid_credentials",
     ):
         """Log a failed login attempt."""
         return SecurityEventLogger.log_event(
@@ -103,10 +104,7 @@ class SecurityEventLogger:
             severity=SecurityEventLogger.MEDIUM,
             ip_address=ip_address,
             user_agent=user_agent,
-            details={
-                "email": email,
-                "reason": reason
-            }
+            details={"email": email, "reason": reason},
         )
 
     @staticmethod
@@ -115,7 +113,7 @@ class SecurityEventLogger:
         user_id: str,
         email: str,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ):
         """Log a successful login."""
         return SecurityEventLogger.log_event(
@@ -125,9 +123,7 @@ class SecurityEventLogger:
             user_id=user_id,
             ip_address=ip_address,
             user_agent=user_agent,
-            details={
-                "email": email
-            }
+            details={"email": email},
         )
 
     @staticmethod
@@ -135,7 +131,7 @@ class SecurityEventLogger:
         db: Session,
         email: str,
         ip_address: Optional[str] = None,
-        attempt_count: int = 0
+        attempt_count: int = 0,
     ):
         """Log a brute force attack attempt."""
         return SecurityEventLogger.log_event(
@@ -143,10 +139,7 @@ class SecurityEventLogger:
             event_type=SecurityEventLogger.BRUTE_FORCE_ATTEMPT,
             severity=SecurityEventLogger.HIGH,
             ip_address=ip_address,
-            details={
-                "email": email,
-                "attempt_count": attempt_count
-            }
+            details={"email": email, "attempt_count": attempt_count},
         )
 
     @staticmethod
@@ -156,7 +149,7 @@ class SecurityEventLogger:
         email: Optional[str] = None,
         resource: Optional[str] = None,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ):
         """Log an unauthorized access attempt."""
         return SecurityEventLogger.log_event(
@@ -166,10 +159,7 @@ class SecurityEventLogger:
             user_id=user_id,
             ip_address=ip_address,
             user_agent=user_agent,
-            details={
-                "email": email,
-                "resource": resource
-            }
+            details={"email": email, "resource": resource},
         )
 
     @staticmethod
@@ -177,7 +167,7 @@ class SecurityEventLogger:
         db: Session,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ):
         """Log an invalid token attempt."""
         return SecurityEventLogger.log_event(
@@ -186,9 +176,7 @@ class SecurityEventLogger:
             severity=SecurityEventLogger.MEDIUM,
             ip_address=ip_address,
             user_agent=user_agent,
-            details={
-                "error": error
-            }
+            details={"error": error},
         )
 
     @staticmethod
@@ -198,7 +186,7 @@ class SecurityEventLogger:
         email: str,
         resource: str,
         ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_agent: Optional[str] = None,
     ):
         """Log admin access to sensitive resources."""
         return SecurityEventLogger.log_event(
@@ -208,10 +196,7 @@ class SecurityEventLogger:
             user_id=user_id,
             ip_address=ip_address,
             user_agent=user_agent,
-            details={
-                "email": email,
-                "resource": resource
-            }
+            details={"email": email, "resource": resource},
         )
 
     @staticmethod
@@ -222,7 +207,7 @@ class SecurityEventLogger:
         resource: str = "",
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
-        reason: str = "insufficient_privileges"
+        reason: str = "insufficient_privileges",
     ):
         """Log denied admin access attempt."""
         return SecurityEventLogger.log_event(
@@ -232,17 +217,14 @@ class SecurityEventLogger:
             user_id=user_id,
             ip_address=ip_address,
             user_agent=user_agent,
-            details={
-                "email": email,
-                "resource": resource,
-                "reason": reason
-            }
+            details={"email": email, "resource": resource, "reason": reason},
         )
 
 
 # In-memory store for tracking failed login attempts
 # In production, use Redis or similar
 _failed_login_attempts: Dict[str, list] = {}
+
 
 def track_failed_login(email: str, ip_address: str) -> int:
     """
@@ -263,8 +245,7 @@ def track_failed_login(email: str, ip_address: str) -> int:
     # Remove attempts older than 15 minutes
     cutoff_time = current_time.timestamp() - 900  # 15 minutes
     _failed_login_attempts[key] = [
-        t for t in _failed_login_attempts[key]
-        if t.timestamp() > cutoff_time
+        t for t in _failed_login_attempts[key] if t.timestamp() > cutoff_time
     ]
 
     return len(_failed_login_attempts[key])

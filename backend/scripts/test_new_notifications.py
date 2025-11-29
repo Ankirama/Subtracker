@@ -5,12 +5,11 @@ Tests:
 1. Price change detection and notification
 2. System announcement broadcast
 """
+
 import sys
-import os
 from pathlib import Path
 from decimal import Decimal
 import requests
-import json
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -38,7 +37,7 @@ def get_admin_token():
                 password_hash=password_hash,
                 salt=salt,
                 is_active=True,
-                is_admin=True
+                is_admin=True,
             )
             db.add(admin)
             db.commit()
@@ -50,17 +49,13 @@ def get_admin_token():
             db.commit()
             print(f"✅ Updated {admin.email} to admin")
 
-        admin_id = admin.id
     finally:
         db.close()
 
     # Login to get token
     response = requests.post(
         "http://localhost:8000/api/auth/login",
-        json={
-            "email": "bother@ankirama.com",
-            "password": "testpassword123"
-        }
+        json={"email": "bother@ankirama.com", "password": "testpassword123"},
     )
 
     if response.status_code == 200:
@@ -75,9 +70,9 @@ def get_admin_token():
 
 def test_price_change_notifications():
     """Test price change detection and notifications."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST 1: PRICE CHANGE NOTIFICATIONS")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     db = SessionLocal()
     try:
@@ -102,7 +97,7 @@ def test_price_change_notifications():
             is_active=True,
             next_billing_date=date.today() + timedelta(days=15),
             first_detected_at=datetime.now(timezone.utc),
-            extraction_metadata={}  # Empty metadata
+            extraction_metadata={},  # Empty metadata
         )
         db.add(test_sub)
         db.commit()
@@ -135,10 +130,16 @@ def test_price_change_notifications():
 
         # Check notifications
         print("\n📝 Step 5: Checking created notifications...")
-        price_notifications = db.query(Notification).filter(
-            Notification.user_id == test_user.id,
-            Notification.type == NotificationType.PRICE_CHANGE
-        ).order_by(Notification.created_at.desc()).limit(5).all()
+        price_notifications = (
+            db.query(Notification)
+            .filter(
+                Notification.user_id == test_user.id,
+                Notification.type == NotificationType.PRICE_CHANGE,
+            )
+            .order_by(Notification.created_at.desc())
+            .limit(5)
+            .all()
+        )
 
         print(f"✅ Found {len(price_notifications)} price change notification(s):")
         for notif in price_notifications:
@@ -148,7 +149,9 @@ def test_price_change_notifications():
             print(f"      Priority: {notif.priority}")
             print(f"      Old Price: ${metadata.get('old_price')}")
             print(f"      New Price: ${metadata.get('new_price')}")
-            print(f"      Change: ${metadata.get('price_difference')} ({metadata.get('change_percent'):.1f}%)")
+            print(
+                f"      Change: ${metadata.get('price_difference')} ({metadata.get('change_percent'):.1f}%)"
+            )
             print(f"      Is Increase: {metadata.get('is_increase')}")
             print(f"      Email Sent: {'✅ Yes' if notif.email_sent else '❌ No'}")
             if notif.email_error:
@@ -160,11 +163,15 @@ def test_price_change_notifications():
         db.commit()
         print("✅ Cleanup complete")
 
-        return result.get('status') == 'success' and result.get('price_changes_detected', 0) > 0
+        return (
+            result.get("status") == "success"
+            and result.get("price_changes_detected", 0) > 0
+        )
 
     except Exception as e:
         print(f"\n❌ Test failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -173,9 +180,9 @@ def test_price_change_notifications():
 
 def test_system_announcements():
     """Test system announcement broadcast."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST 2: SYSTEM ANNOUNCEMENTS")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     # Get admin token
     token = get_admin_token()
@@ -190,21 +197,21 @@ def test_system_announcements():
         "title": "Test System Announcement",
         "message": "This is a test announcement to verify the system works correctly. All users should receive this notification.",
         "priority": "high",
-        "target_all_users": True
+        "target_all_users": True,
     }
 
     response = requests.post(
         "http://localhost:8000/api/admin/announcements/broadcast",
         headers={
             "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         },
-        json=announcement_data
+        json=announcement_data,
     )
 
     if response.status_code == 201:
         result = response.json()
-        print(f"✅ Announcement broadcast initiated:")
+        print("✅ Announcement broadcast initiated:")
         print(f"   Announcement ID: {result['announcement_id']}")
         print(f"   Message: {result['message']}")
     else:
@@ -215,19 +222,25 @@ def test_system_announcements():
     # Wait for task to complete
     print("\n⏳ Waiting 5 seconds for broadcast task to complete...")
     import time
+
     time.sleep(5)
 
     # Check notifications
     print("\n📝 Step 2: Checking created notifications...")
     db = SessionLocal()
     try:
-        announcement_notifications = db.query(Notification).filter(
-            Notification.type == NotificationType.SYSTEM_ANNOUNCEMENT
-        ).order_by(Notification.created_at.desc()).limit(10).all()
+        announcement_notifications = (
+            db.query(Notification)
+            .filter(Notification.type == NotificationType.SYSTEM_ANNOUNCEMENT)
+            .order_by(Notification.created_at.desc())
+            .limit(10)
+            .all()
+        )
 
-        print(f"✅ Found {len(announcement_notifications)} system announcement notification(s):")
+        print(
+            f"✅ Found {len(announcement_notifications)} system announcement notification(s):"
+        )
         for notif in announcement_notifications[:3]:  # Show first 3
-            metadata = notif.notification_metadata
             user = db.query(User).filter(User.id == notif.user_id).first()
             print(f"\n   📧 Notification ID: {notif.id}")
             print(f"      User: {user.email if user else 'Unknown'}")
@@ -242,6 +255,7 @@ def test_system_announcements():
     except Exception as e:
         print(f"\n❌ Error checking notifications: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -250,33 +264,37 @@ def test_system_announcements():
 
 def run_tests():
     """Run all tests."""
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("NEW NOTIFICATION TYPES TEST SUITE")
-    print("="*70 + "\n")
+    print("=" * 70 + "\n")
 
     results = {}
 
     # Test 1: Price Changes
     try:
-        results['price_change'] = test_price_change_notifications()
+        results["price_change"] = test_price_change_notifications()
     except Exception as e:
         print(f"\n❌ Price change test failed: {e}")
-        results['price_change'] = False
+        results["price_change"] = False
 
     # Test 2: System Announcements
     try:
-        results['announcements'] = test_system_announcements()
+        results["announcements"] = test_system_announcements()
     except Exception as e:
         print(f"\n❌ System announcement test failed: {e}")
-        results['announcements'] = False
+        results["announcements"] = False
 
     # Summary
-    print("\n" + "="*70)
+    print("\n" + "=" * 70)
     print("TEST SUMMARY")
-    print("="*70)
-    print(f"✅ Price Change Notifications: {'PASS' if results.get('price_change') else 'FAIL'}")
-    print(f"✅ System Announcements: {'PASS' if results.get('announcements') else 'FAIL'}")
-    print("="*70 + "\n")
+    print("=" * 70)
+    print(
+        f"✅ Price Change Notifications: {'PASS' if results.get('price_change') else 'FAIL'}"
+    )
+    print(
+        f"✅ System Announcements: {'PASS' if results.get('announcements') else 'FAIL'}"
+    )
+    print("=" * 70 + "\n")
 
     return all(results.values())
 
@@ -291,5 +309,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n\n❌ Test suite failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

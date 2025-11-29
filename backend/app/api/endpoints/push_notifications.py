@@ -27,11 +27,15 @@ async def get_vapid_public_key():
     return {"publicKey": settings.VAPID_PUBLIC_KEY}
 
 
-@router.post("/subscribe", response_model=PushSubscriptionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/subscribe",
+    response_model=PushSubscriptionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def subscribe_to_push(
     subscription: PushSubscriptionCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Subscribe to push notifications.
@@ -47,9 +51,11 @@ async def subscribe_to_push(
         PushSubscriptionResponse: Created or updated subscription
     """
     # Check if subscription already exists
-    existing = db.query(PushSubscription).filter(
-        PushSubscription.endpoint == subscription.endpoint
-    ).first()
+    existing = (
+        db.query(PushSubscription)
+        .filter(PushSubscription.endpoint == subscription.endpoint)
+        .first()
+    )
 
     if existing:
         # Update existing subscription
@@ -65,7 +71,7 @@ async def subscribe_to_push(
         user_id=str(current_user.id),
         endpoint=subscription.endpoint,
         p256dh=subscription.keys.p256dh,
-        auth=subscription.keys.auth
+        auth=subscription.keys.auth,
     )
 
     db.add(new_subscription)
@@ -79,7 +85,7 @@ async def subscribe_to_push(
 async def unsubscribe_from_push(
     endpoint: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """
     Unsubscribe from push notifications.
@@ -94,15 +100,18 @@ async def unsubscribe_from_push(
     Raises:
         HTTPException: 404 if subscription not found
     """
-    subscription = db.query(PushSubscription).filter(
-        PushSubscription.endpoint == endpoint,
-        PushSubscription.user_id == str(current_user.id)
-    ).first()
+    subscription = (
+        db.query(PushSubscription)
+        .filter(
+            PushSubscription.endpoint == endpoint,
+            PushSubscription.user_id == str(current_user.id),
+        )
+        .first()
+    )
 
     if not subscription:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Subscription not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found"
         )
 
     db.delete(subscription)
@@ -111,8 +120,7 @@ async def unsubscribe_from_push(
 
 @router.get("/subscriptions", response_model=List[PushSubscriptionResponse])
 async def get_subscriptions(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
     Get all push subscriptions for current user.
@@ -124,17 +132,18 @@ async def get_subscriptions(
     Returns:
         List[PushSubscriptionResponse]: List of user's push subscriptions
     """
-    subscriptions = db.query(PushSubscription).filter(
-        PushSubscription.user_id == str(current_user.id)
-    ).all()
+    subscriptions = (
+        db.query(PushSubscription)
+        .filter(PushSubscription.user_id == str(current_user.id))
+        .all()
+    )
 
     return [sub.to_dict() for sub in subscriptions]
 
 
 @router.post("/test", status_code=status.HTTP_200_OK)
 async def send_test_notification(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """
     Send a test push notification to all user's subscriptions.
@@ -151,7 +160,7 @@ async def send_test_notification(
         str(current_user.id),
         "Test Notification",
         "This is a test push notification from Subscription Tracker",
-        data={"type": "test"}
+        data={"type": "test"},
     )
 
     return {"message": f"Sent to {count} subscription(s)"}

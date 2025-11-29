@@ -1,8 +1,9 @@
 """
 Pydantic schemas for notification endpoints.
 """
+
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, Literal
+from typing import Optional
 from datetime import datetime
 from uuid import UUID
 
@@ -11,6 +12,7 @@ from app.models.notification import NotificationType, NotificationPriority
 
 class NotificationResponse(BaseModel):
     """Schema for notification response."""
+
     id: UUID
     user_id: UUID
     type: NotificationType
@@ -31,6 +33,7 @@ class NotificationResponse(BaseModel):
 
 class NotificationListResponse(BaseModel):
     """Schema for paginated notification list."""
+
     notifications: list[NotificationResponse]
     total: int
     unread_count: int
@@ -41,11 +44,15 @@ class NotificationListResponse(BaseModel):
 
 class NotificationMarkReadRequest(BaseModel):
     """Schema for marking notifications as read."""
-    notification_ids: list[UUID] = Field(..., min_length=1, description="List of notification IDs to mark as read")
+
+    notification_ids: list[UUID] = Field(
+        ..., min_length=1, description="List of notification IDs to mark as read"
+    )
 
 
 class NotificationPreferenceResponse(BaseModel):
     """Schema for notification preference response."""
+
     id: UUID
     user_id: UUID
     notification_type: NotificationType
@@ -63,14 +70,22 @@ class NotificationPreferenceResponse(BaseModel):
 
 class NotificationPreferenceUpdate(BaseModel):
     """Schema for updating notification preferences."""
+
     enabled: Optional[bool] = None
     in_app_enabled: Optional[bool] = None
     email_enabled: Optional[bool] = None
-    days_before_renewal: Optional[int] = Field(None, ge=0, le=30, description="Days before renewal (0-30)")
-    summary_day_of_week: Optional[int] = Field(None, ge=0, le=6, description="Day of week (0=Monday, 6=Sunday)")
-    summary_day_of_month: Optional[int] = Field(None, ge=1, le=31, description="Day of month (1-31)")
+    days_before_renewal: Optional[int] = Field(
+        None, ge=0, le=30, description="Days before renewal (0-30)"
+    )
+    summary_day_of_week: Optional[int] = Field(
+        None, ge=0, le=6, description="Day of week (0=Monday, 6=Sunday)"
+    )
+    summary_day_of_month: Optional[int] = Field(
+        None, ge=1, le=31, description="Day of month (1-31)"
+    )
 
 
 class NotificationPreferencesListResponse(BaseModel):
     """Schema for list of notification preferences."""
+
     preferences: list[NotificationPreferenceResponse]

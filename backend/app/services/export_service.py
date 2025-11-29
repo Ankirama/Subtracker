@@ -1,11 +1,11 @@
 """
 Export service for generating CSV and PDF reports of subscription data.
 """
+
 import csv
 import io
 from datetime import datetime, date
 from typing import List, Optional
-from decimal import Decimal
 
 from app.models.subscription import Subscription
 
@@ -20,12 +20,12 @@ class ExportService:
             return 0.0
 
         cycle_multipliers = {
-            'weekly': 4.33,
-            'monthly': 1.0,
-            'quarterly': 1/3,
-            'biannual': 1/6,
-            'yearly': 1/12,
-            'annual': 1/12,
+            "weekly": 4.33,
+            "monthly": 1.0,
+            "quarterly": 1 / 3,
+            "biannual": 1 / 6,
+            "yearly": 1 / 12,
+            "annual": 1 / 12,
         }
 
         multiplier = cycle_multipliers.get(billing_cycle.lower(), 1.0)
@@ -35,7 +35,7 @@ class ExportService:
     def generate_csv(
         subscriptions: List[Subscription],
         start_date: Optional[date] = None,
-        end_date: Optional[date] = None
+        end_date: Optional[date] = None,
     ) -> str:
         """
         Generate CSV export of subscriptions.
@@ -52,31 +52,31 @@ class ExportService:
         writer = csv.writer(output)
 
         # Write header with metadata
-        writer.writerow(['Subscription Export Report'])
-        writer.writerow(['Generated:', datetime.now().strftime('%Y-%m-%d %H:%M:%S')])
+        writer.writerow(["Subscription Export Report"])
+        writer.writerow(["Generated:", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
         if start_date:
-            writer.writerow(['Start Date:', start_date.strftime('%Y-%m-%d')])
+            writer.writerow(["Start Date:", start_date.strftime("%Y-%m-%d")])
         if end_date:
-            writer.writerow(['End Date:', end_date.strftime('%Y-%m-%d')])
+            writer.writerow(["End Date:", end_date.strftime("%Y-%m-%d")])
         writer.writerow([])  # Empty row
 
         # Write column headers
         headers = [
-            'Provider',
-            'Amount',
-            'Currency',
-            'Billing Cycle',
-            'Monthly Equivalent',
-            'Renewal Date',
-            'Next Renewal',
-            'Category',
-            'Status',
-            'Custom Label',
-            'Email Sender',
-            'Confidence Score',
-            'First Detected',
-            'Last Updated',
-            'Notes'
+            "Provider",
+            "Amount",
+            "Currency",
+            "Billing Cycle",
+            "Monthly Equivalent",
+            "Renewal Date",
+            "Next Renewal",
+            "Category",
+            "Status",
+            "Custom Label",
+            "Email Sender",
+            "Confidence Score",
+            "First Detected",
+            "Last Updated",
+            "Notes",
         ]
         writer.writerow(headers)
 
@@ -84,37 +84,46 @@ class ExportService:
         total_monthly = 0.0
         for sub in subscriptions:
             monthly_cost = ExportService._normalize_billing_to_monthly(
-                float(sub.amount) if sub.amount else 0.0,
-                sub.billing_cycle
+                float(sub.amount) if sub.amount else 0.0, sub.billing_cycle
             )
             total_monthly += monthly_cost
 
             row = [
                 sub.provider,
-                float(sub.amount) if sub.amount else '',
+                float(sub.amount) if sub.amount else "",
                 sub.currency,
                 sub.billing_cycle,
                 monthly_cost,
-                sub.renewal_date.strftime('%Y-%m-%d') if sub.renewal_date else '',
-                sub.next_renewal_date.strftime('%Y-%m-%d') if sub.next_renewal_date else '',
+                sub.renewal_date.strftime("%Y-%m-%d") if sub.renewal_date else "",
+                (
+                    sub.next_renewal_date.strftime("%Y-%m-%d")
+                    if sub.next_renewal_date
+                    else ""
+                ),
                 sub.category,
-                'Active' if sub.is_active else 'Inactive',
-                sub.custom_label or '',
-                sub.email_sender or '',
-                f"{float(sub.confidence_score):.2f}" if sub.confidence_score else '',
-                sub.first_detected_at.strftime('%Y-%m-%d') if sub.first_detected_at else '',
-                sub.updated_at.strftime('%Y-%m-%d') if sub.updated_at else '',
-                sub.notes or ''
+                "Active" if sub.is_active else "Inactive",
+                sub.custom_label or "",
+                sub.email_sender or "",
+                f"{float(sub.confidence_score):.2f}" if sub.confidence_score else "",
+                (
+                    sub.first_detected_at.strftime("%Y-%m-%d")
+                    if sub.first_detected_at
+                    else ""
+                ),
+                sub.updated_at.strftime("%Y-%m-%d") if sub.updated_at else "",
+                sub.notes or "",
             ]
             writer.writerow(row)
 
         # Write summary
         writer.writerow([])  # Empty row
-        writer.writerow(['Summary'])
-        writer.writerow(['Total Subscriptions:', len(subscriptions)])
-        writer.writerow(['Active Subscriptions:', sum(1 for s in subscriptions if s.is_active)])
-        writer.writerow(['Total Monthly Cost:', f"{total_monthly:.2f}"])
-        writer.writerow(['Total Yearly Cost:', f"{total_monthly * 12:.2f}"])
+        writer.writerow(["Summary"])
+        writer.writerow(["Total Subscriptions:", len(subscriptions)])
+        writer.writerow(
+            ["Active Subscriptions:", sum(1 for s in subscriptions if s.is_active)]
+        )
+        writer.writerow(["Total Monthly Cost:", f"{total_monthly:.2f}"])
+        writer.writerow(["Total Yearly Cost:", f"{total_monthly * 12:.2f}"])
 
         return output.getvalue()
 
@@ -122,7 +131,7 @@ class ExportService:
     def generate_pdf_html(
         subscriptions: List[Subscription],
         start_date: Optional[date] = None,
-        end_date: Optional[date] = None
+        end_date: Optional[date] = None,
     ) -> str:
         """
         Generate HTML for PDF export (can be converted to PDF client-side or server-side).
@@ -139,8 +148,7 @@ class ExportService:
         active_subs = [s for s in subscriptions if s.is_active]
         total_monthly = sum(
             ExportService._normalize_billing_to_monthly(
-                float(s.amount) if s.amount else 0.0,
-                s.billing_cycle
+                float(s.amount) if s.amount else 0.0, s.billing_cycle
             )
             for s in active_subs
         )
@@ -148,13 +156,12 @@ class ExportService:
         # Group by category
         by_category = {}
         for sub in active_subs:
-            cat = sub.category or 'other'
+            cat = sub.category or "other"
             if cat not in by_category:
-                by_category[cat] = {'count': 0, 'cost': 0.0}
-            by_category[cat]['count'] += 1
-            by_category[cat]['cost'] += ExportService._normalize_billing_to_monthly(
-                float(sub.amount) if sub.amount else 0.0,
-                sub.billing_cycle
+                by_category[cat] = {"count": 0, "cost": 0.0}
+            by_category[cat]["count"] += 1
+            by_category[cat]["cost"] += ExportService._normalize_billing_to_monthly(
+                float(sub.amount) if sub.amount else 0.0, sub.billing_cycle
             )
 
         html = f"""
@@ -316,11 +323,19 @@ class ExportService:
         <tbody>
 """
 
-        for sub in sorted(subscriptions, key=lambda s: (not s.is_active, s.provider.lower())):
-            status_class = 'status-active' if sub.is_active else 'status-inactive'
-            status_text = 'Active' if sub.is_active else 'Inactive'
-            amount_text = f"{float(sub.amount):.2f} {sub.currency}" if sub.amount else 'N/A'
-            renewal_text = sub.next_renewal_date.strftime('%b %d, %Y') if sub.next_renewal_date else 'N/A'
+        for sub in sorted(
+            subscriptions, key=lambda s: (not s.is_active, s.provider.lower())
+        ):
+            status_class = "status-active" if sub.is_active else "status-inactive"
+            status_text = "Active" if sub.is_active else "Inactive"
+            amount_text = (
+                f"{float(sub.amount):.2f} {sub.currency}" if sub.amount else "N/A"
+            )
+            renewal_text = (
+                sub.next_renewal_date.strftime("%b %d, %Y")
+                if sub.next_renewal_date
+                else "N/A"
+            )
 
             html += f"""
             <tr>

@@ -1,6 +1,7 @@
 """
 Invite Token model for invite-only registration.
 """
+
 import uuid
 from datetime import datetime, timedelta
 from sqlalchemy import Column, String, DateTime, Boolean, ForeignKey, Text
@@ -14,6 +15,7 @@ class InviteToken(Base):
     Model for managing invite tokens for user registration.
     Only admins can create invite tokens.
     """
+
     __tablename__ = "invite_tokens"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -21,7 +23,9 @@ class InviteToken(Base):
 
     # Who created this invite
     created_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_by = relationship("User", foreign_keys=[created_by_id], backref="created_invites")
+    created_by = relationship(
+        "User", foreign_keys=[created_by_id], backref="created_invites"
+    )
 
     # Optional: pre-fill email for the invite
     invited_email = Column(String(255), nullable=True)
@@ -50,6 +54,7 @@ class InviteToken(Base):
     def generate_token(cls) -> str:
         """Generate a secure random token."""
         import secrets
+
         return secrets.token_urlsafe(32)
 
     @classmethod
@@ -58,7 +63,7 @@ class InviteToken(Base):
         created_by_id: uuid.UUID,
         invited_email: str = None,
         note: str = None,
-        expires_in_days: int = 7
+        expires_in_days: int = 7,
     ) -> "InviteToken":
         """Create a new invite token."""
         return cls(
@@ -66,5 +71,5 @@ class InviteToken(Base):
             created_by_id=created_by_id,
             invited_email=invited_email,
             note=note,
-            expires_at=datetime.utcnow() + timedelta(days=expires_in_days)
+            expires_at=datetime.utcnow() + timedelta(days=expires_in_days),
         )

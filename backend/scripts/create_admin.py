@@ -41,8 +41,7 @@ def create_admin_user(email: str, password: str, display_name: str = None):
     try:
         # Check if user already exists
         result = session.execute(
-            text("SELECT id FROM users WHERE email = :email"),
-            {"email": email}
+            text("SELECT id FROM users WHERE email = :email"), {"email": email}
         ).fetchone()
 
         if result:
@@ -50,7 +49,7 @@ def create_admin_user(email: str, password: str, display_name: str = None):
             # Make them admin directly (non-interactive for Docker)
             session.execute(
                 text("UPDATE users SET is_admin = true WHERE email = :email"),
-                {"email": email}
+                {"email": email},
             )
             session.commit()
             print(f"User '{email}' is now an admin.")
@@ -65,10 +64,12 @@ def create_admin_user(email: str, password: str, display_name: str = None):
 
         # Insert the user with all required columns
         session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO users (id, email, password_hash, salt, display_name, is_active, is_admin, email_verified, settings, backup_codes, created_at, updated_at)
                 VALUES (:id, :email, :password_hash, :salt, :display_name, true, true, true, '{}', '[]', :created_at, :updated_at)
-            """),
+            """
+            ),
             {
                 "id": user_id,
                 "email": email,
@@ -77,15 +78,15 @@ def create_admin_user(email: str, password: str, display_name: str = None):
                 "display_name": display_name,
                 "created_at": now,
                 "updated_at": now,
-            }
+            },
         )
         session.commit()
 
-        print(f"Admin user created successfully!")
+        print("Admin user created successfully!")
         print(f"  Email: {email}")
         print(f"  Display Name: {display_name or '(not set)'}")
         print(f"  ID: {user_id}")
-        print(f"\nYou can now log in at your Subscription Tracker instance.")
+        print("\nYou can now log in at your Subscription Tracker instance.")
 
     except Exception as e:
         session.rollback()
@@ -100,19 +101,13 @@ def main():
         description="Create an admin user for Subscription Tracker"
     )
     parser.add_argument(
-        "--email", "-e",
-        required=True,
-        help="Email address for the admin user"
+        "--email", "-e", required=True, help="Email address for the admin user"
     )
     parser.add_argument(
-        "--password", "-p",
-        required=True,
-        help="Password for the admin user"
+        "--password", "-p", required=True, help="Password for the admin user"
     )
     parser.add_argument(
-        "--name", "-n",
-        default=None,
-        help="Display name for the admin user (optional)"
+        "--name", "-n", default=None, help="Display name for the admin user (optional)"
     )
 
     args = parser.parse_args()

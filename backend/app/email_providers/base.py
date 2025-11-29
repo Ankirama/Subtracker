@@ -2,6 +2,7 @@
 Base interface for email providers.
 All email providers (JMAP, Gmail, Outlook) must implement this interface.
 """
+
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any
 from datetime import datetime
@@ -13,6 +14,7 @@ class EmailMessage:
     """
     Standardized email message format across all providers.
     """
+
     id: str  # Provider-specific message ID
     subject: str
     sender: str  # Email address
@@ -31,6 +33,7 @@ class EmailFolder:
     """
     Standardized folder/mailbox information.
     """
+
     id: str
     name: str
     message_count: int
@@ -93,7 +96,7 @@ class EmailProviderInterface(ABC):
         folder: Optional[str] = None,
         since_date: Optional[datetime] = None,
         limit: int = 100,
-        search_query: Optional[str] = None
+        search_query: Optional[str] = None,
     ) -> List[EmailMessage]:
         """
         Fetch messages from the mailbox.

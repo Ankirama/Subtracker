@@ -2,20 +2,21 @@
 AI-powered cancellation research service.
 Uses OpenAI GPT to research how to cancel subscription services.
 """
+
 from openai import AsyncOpenAI, RateLimitError, APIError
 from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from datetime import datetime, timedelta
-from app.config import settings
-from app.models.provider_cancellation import ProviderCancellationInfo, DifficultyRating, InstructionsSource
-from app.utils.config_helper import get_config_value
+from app.models.provider_cancellation import (
+    ProviderCancellationInfo,
+    InstructionsSource,
+)
 from app.services.ai_classifier import get_openai_client
-from app.services.prompts import get_prompt, PromptVersion, get_prompt_metadata
+from app.services.prompts import get_prompt, PromptVersion
 from app.services.prompt_validation import validate_research
 import logging
 import json
-import asyncio
 import random
 
 logger = logging.getLogger(__name__)
@@ -102,9 +103,7 @@ class CancellationResearchService:
         return self.client
 
     async def research_provider(
-        self,
-        provider_name: str,
-        force_refresh: bool = False
+        self, provider_name: str, force_refresh: bool = False
     ) -> Dict[str, Any]:
         """
         Research cancellation instructions for a provider using AI.
@@ -139,7 +138,9 @@ class CancellationResearchService:
                 return cached
 
         # No cache or force refresh - research with AI
-        logger.info(f"Researching cancellation instructions for {provider_name} with AI")
+        logger.info(
+            f"Researching cancellation instructions for {provider_name} with AI"
+        )
 
         try:
             research_result = await self._call_openai_research(provider_name)
@@ -150,7 +151,9 @@ class CancellationResearchService:
             return research_result
 
         except RateLimitError as e:
-            logger.error(f"OpenAI rate limit exceeded while researching {provider_name}: {e}")
+            logger.error(
+                f"OpenAI rate limit exceeded while researching {provider_name}: {e}"
+            )
             raise
         except APIError as e:
             logger.error(f"OpenAI API error while researching {provider_name}: {e}")
@@ -159,7 +162,9 @@ class CancellationResearchService:
             logger.error(f"Unexpected error researching {provider_name}: {e}")
             raise
 
-    async def _get_cached_research(self, provider_name: str) -> Optional[Dict[str, Any]]:
+    async def _get_cached_research(
+        self, provider_name: str
+    ) -> Optional[Dict[str, Any]]:
         """
         Check if we have cached research results for this provider.
 
@@ -183,8 +188,12 @@ class CancellationResearchService:
             return None
 
         # Check age
-        if cached.created_at and cached.created_at < datetime.now(cached.created_at.tzinfo) - timedelta(days=90):
-            logger.info(f"Cached result for {provider_name} is >90 days old, will refresh")
+        if cached.created_at and cached.created_at < datetime.now(
+            cached.created_at.tzinfo
+        ) - timedelta(days=90):
+            logger.info(
+                f"Cached result for {provider_name} is >90 days old, will refresh"
+            )
             return None
 
         # Return cached result in API format
@@ -206,9 +215,7 @@ class CancellationResearchService:
         }
 
     async def _call_openai_research(
-        self,
-        provider_name: str,
-        prompt_version: Optional[PromptVersion] = None
+        self, provider_name: str, prompt_version: Optional[PromptVersion] = None
     ) -> Dict[str, Any]:
         """
         Call OpenAI API to research cancellation instructions.
@@ -230,7 +237,8 @@ class CancellationResearchService:
             if ENABLE_AB_TESTING:
                 # Random A/B test split
                 prompt_version = (
-                    PromptVersion.V1_BASELINE if random.random() < AB_TEST_SPLIT
+                    PromptVersion.V1_BASELINE
+                    if random.random() < AB_TEST_SPLIT
                     else PromptVersion.V2_ENHANCED
                 )
             else:
@@ -241,7 +249,9 @@ class CancellationResearchService:
         prompt_template = get_prompt(prompt_version)
         prompt = prompt_template.format(provider_name=provider_name)
 
-        logger.info(f"Researching {provider_name} with prompt version: {prompt_version.value}")
+        logger.info(
+            f"Researching {provider_name} with prompt version: {prompt_version.value}"
+        )
 
         try:
             # Call OpenAI with GPT-4o-mini (cost efficient)
@@ -250,12 +260,9 @@ class CancellationResearchService:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a helpful research assistant that provides accurate subscription cancellation information in JSON format."
+                        "content": "You are a helpful research assistant that provides accurate subscription cancellation information in JSON format.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=0.3,  # Lower temperature for more consistent, factual responses
                 response_format={"type": "json_object"},  # Ensure JSON response
@@ -267,8 +274,12 @@ class CancellationResearchService:
 
             # Validate required fields
             required_fields = [
-                "difficulty", "instructions", "requires_phone",
-                "requires_chat", "allows_pause", "confidence"
+                "difficulty",
+                "instructions",
+                "requires_phone",
+                "requires_chat",
+                "allows_pause",
+                "confidence",
             ]
             for field in required_fields:
                 if field not in research_data:
@@ -308,9 +319,7 @@ class CancellationResearchService:
             raise ValueError(f"Incomplete research data: {e}")
 
     async def _store_research_result(
-        self,
-        provider_name: str,
-        research_data: Dict[str, Any]
+        self, provider_name: str, research_data: Dict[str, Any]
     ) -> ProviderCancellationInfo:
         """
         Store research results in database.
@@ -355,9 +364,13 @@ class CancellationResearchService:
 
             # Get the actual prompt used
             if prompt_version == "v1_baseline":
-                prompt_used = get_prompt(PromptVersion.V1_BASELINE).format(provider_name=provider_name)
+                prompt_used = get_prompt(PromptVersion.V1_BASELINE).format(
+                    provider_name=provider_name
+                )
             else:
-                prompt_used = get_prompt(PromptVersion.V2_ENHANCED).format(provider_name=provider_name)
+                prompt_used = get_prompt(PromptVersion.V2_ENHANCED).format(
+                    provider_name=provider_name
+                )
 
             existing.ai_research_prompt = prompt_used
 
@@ -388,9 +401,13 @@ class CancellationResearchService:
 
             # Get the actual prompt used
             if prompt_version == "v1_baseline":
-                prompt_used = get_prompt(PromptVersion.V1_BASELINE).format(provider_name=provider_name)
+                prompt_used = get_prompt(PromptVersion.V1_BASELINE).format(
+                    provider_name=provider_name
+                )
             else:
-                prompt_used = get_prompt(PromptVersion.V2_ENHANCED).format(provider_name=provider_name)
+                prompt_used = get_prompt(PromptVersion.V2_ENHANCED).format(
+                    provider_name=provider_name
+                )
 
             # Enrich research response with metadata
             enriched_response = {
@@ -431,9 +448,7 @@ class CancellationResearchService:
 
 
 async def research_cancellation(
-    provider_name: str,
-    db: Session,
-    force_refresh: bool = False
+    provider_name: str, db: Session, force_refresh: bool = False
 ) -> Dict[str, Any]:
     """
     Convenience function to research cancellation instructions.
