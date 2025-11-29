@@ -176,13 +176,13 @@ def run_test():
                 print(f"      Email Error: {notif.email_error}")
             print(f"      Created: {notif.created_at}")
 
-        # Check SendGrid configuration
-        print("\n⚙️  SendGrid Configuration:")
+        # Check Resend configuration
+        print("\n⚙️  Resend Configuration:")
         from app.config import settings
 
         api_key = settings.RESEND_API_KEY
-        if api_key == "your_sendgrid_api_key_here":
-            print("   ⚠️  WARNING: SendGrid API key is not configured!")
+        if api_key == "test_key":
+            print("   ⚠️  WARNING: Resend API key is not configured!")
             print("   📝 Emails will fail until you set a valid API key")
             print("   💡 Set RESEND_API_KEY environment variable or use admin API")
         else:
