@@ -28,7 +28,7 @@ def is_system_email(email: EmailMessage, db: Optional[Session] = None) -> bool:
     """
     # Get configured system email addresses
     system_from_email = get_config_value(
-        "sendgrid.from_email", settings.SENDGRID_FROM_EMAIL, db
+        "resend.from_email", settings.RESEND_FROM_EMAIL, db
     )
 
     # Check if sender matches system email

@@ -179,19 +179,19 @@ def run_test():
         print("\n⚙️  SendGrid Configuration:")
         from app.config import settings
 
-        api_key = settings.SENDGRID_API_KEY
+        api_key = settings.RESEND_API_KEY
         if api_key == "your_sendgrid_api_key_here":
             print("   ⚠️  WARNING: SendGrid API key is not configured!")
             print("   📝 Emails will fail until you set a valid API key")
-            print("   💡 Set SENDGRID_API_KEY environment variable or use admin API")
+            print("   💡 Set RESEND_API_KEY environment variable or use admin API")
         else:
             masked_key = (
                 api_key[:7] + "..." + api_key[-4:] if len(api_key) > 15 else "***"
             )
             print(f"   ✅ API Key: {masked_key}")
 
-        print(f"   📧 From Email: {settings.SENDGRID_FROM_EMAIL}")
-        print(f"   📝 From Name: {settings.SENDGRID_FROM_NAME}")
+        print(f"   📧 From Email: {settings.RESEND_FROM_EMAIL}")
+        print(f"   📝 From Name: {settings.RESEND_FROM_NAME}")
 
     finally:
         db.close()

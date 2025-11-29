@@ -29,7 +29,7 @@ EXPECTED_SETTINGS = {
         "is_secret": True,
         "description": "SendGrid API key for sending transactional emails",
         "required": True,
-        "env_value": lambda: settings.SENDGRID_API_KEY,
+        "env_value": lambda: settings.RESEND_API_KEY,
     },
     "sendgrid.from_email": {
         "category": "email",
@@ -37,7 +37,7 @@ EXPECTED_SETTINGS = {
         "is_secret": False,
         "description": "From email address for outgoing emails",
         "required": True,
-        "env_value": lambda: settings.SENDGRID_FROM_EMAIL,
+        "env_value": lambda: settings.RESEND_FROM_EMAIL,
     },
     "sendgrid.from_name": {
         "category": "email",
@@ -45,7 +45,7 @@ EXPECTED_SETTINGS = {
         "is_secret": False,
         "description": "From name for outgoing emails",
         "required": True,
-        "env_value": lambda: settings.SENDGRID_FROM_NAME,
+        "env_value": lambda: settings.RESEND_FROM_NAME,
     },
     # OpenAI configuration
     "openai.api_key": {

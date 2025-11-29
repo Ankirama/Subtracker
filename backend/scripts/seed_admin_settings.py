@@ -36,7 +36,7 @@ def seed_admin_settings(db: Session, overwrite: bool = False):
         # SendGrid configuration
         {
             "key": "sendgrid.api_key",
-            "value": settings.SENDGRID_API_KEY,
+            "value": settings.RESEND_API_KEY,
             "value_type": "string",
             "is_secret": True,
             "description": "SendGrid API key for sending transactional emails",
@@ -44,7 +44,7 @@ def seed_admin_settings(db: Session, overwrite: bool = False):
         },
         {
             "key": "sendgrid.from_email",
-            "value": settings.SENDGRID_FROM_EMAIL,
+            "value": settings.RESEND_FROM_EMAIL,
             "value_type": "string",
             "is_secret": False,
             "description": "From email address for outgoing emails",
@@ -52,7 +52,7 @@ def seed_admin_settings(db: Session, overwrite: bool = False):
         },
         {
             "key": "sendgrid.from_name",
-            "value": settings.SENDGRID_FROM_NAME,
+            "value": settings.RESEND_FROM_NAME,
             "value_type": "string",
             "is_secret": False,
             "description": "From name for outgoing emails",
