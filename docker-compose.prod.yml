@@ -63,20 +63,20 @@ services:
       # API Router - handles /api/* requests
       - traefik.http.routers.subtracker-api.rule=Host(`${DOMAIN_NAME}`) && PathPrefix(`/api`)
       - traefik.http.routers.subtracker-api.tls=true
-      - traefik.http.routers.subtracker-api.entrypoints=web,websecure
+      - traefik.http.routers.subtracker-api.entrypoints=websecure
       - traefik.http.routers.subtracker-api.tls.certresolver=mytlschallenge
       - traefik.http.routers.subtracker-api.service=subtracker-api-svc
       - traefik.http.services.subtracker-api-svc.loadbalancer.server.port=8000
       # Health check endpoint
       - traefik.http.routers.subtracker-health.rule=Host(`${DOMAIN_NAME}`) && Path(`/health`)
       - traefik.http.routers.subtracker-health.tls=true
-      - traefik.http.routers.subtracker-health.entrypoints=web,websecure
+      - traefik.http.routers.subtracker-health.entrypoints=websecure
       - traefik.http.routers.subtracker-health.tls.certresolver=mytlschallenge
       - traefik.http.routers.subtracker-health.service=subtracker-api-svc
       # Docs endpoint
       - traefik.http.routers.subtracker-docs.rule=Host(`${DOMAIN_NAME}`) && (Path(`/docs`) || Path(`/redoc`) || PathPrefix(`/openapi`))
       - traefik.http.routers.subtracker-docs.tls=true
-      - traefik.http.routers.subtracker-docs.entrypoints=web,websecure
+      - traefik.http.routers.subtracker-docs.entrypoints=websecure
       - traefik.http.routers.subtracker-docs.tls.certresolver=mytlschallenge
       - traefik.http.routers.subtracker-docs.service=subtracker-api-svc
       # Security headers middleware
@@ -159,7 +159,7 @@ services:
       # Frontend Router - handles all other requests
       - traefik.http.routers.subtracker-frontend.rule=Host(`${DOMAIN_NAME}`)
       - traefik.http.routers.subtracker-frontend.tls=true
-      - traefik.http.routers.subtracker-frontend.entrypoints=web,websecure
+      - traefik.http.routers.subtracker-frontend.entrypoints=websecure
       - traefik.http.routers.subtracker-frontend.tls.certresolver=mytlschallenge
       - traefik.http.routers.subtracker-frontend.service=subtracker-frontend-svc
       - traefik.http.services.subtracker-frontend-svc.loadbalancer.server.port=80
