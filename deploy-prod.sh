@@ -19,12 +19,27 @@ IMAGE_TAG=${1:-latest}
 GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-ankirama/subtracker}
 COMPOSE_FILE="docker-compose.prod.yml"
 BACKUP_DIR="./backups/$(date +%Y%m%d_%H%M%S)"
+ENV_FILE=".env.production"
 
 echo -e "${BLUE}🚀 Starting Production Deployment${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo "Repository: $GITHUB_REPOSITORY"
 echo "Image Tag:  $IMAGE_TAG"
 echo ""
+
+# Load environment variables
+if [ -f "$ENV_FILE" ]; then
+    echo -e "${BLUE}📋 Loading environment from $ENV_FILE...${NC}"
+    set -a  # Automatically export all variables
+    source "$ENV_FILE"
+    set +a
+    echo -e "${GREEN}✓ Environment loaded${NC}"
+    echo ""
+else
+    echo -e "${RED}❌ Error: $ENV_FILE not found${NC}"
+    echo "Please create $ENV_FILE with required variables"
+    exit 1
+fi
 
 # Check if compose file exists
 if [ ! -f "$COMPOSE_FILE" ]; then
@@ -46,8 +61,21 @@ echo ""
 # Step 2: Pull latest code (optional - for config files)
 echo -e "${BLUE}📥 Pulling latest configuration...${NC}"
 if [ -d ".git" ]; then
+    # Stash deploy-prod.sh if it exists to preserve it
+    if [ -f "deploy-prod.sh" ]; then
+        cp deploy-prod.sh /tmp/deploy-prod.sh.backup
+    fi
+
     git fetch origin main
     git reset --hard origin/main
+
+    # Restore deploy-prod.sh if it was backed up and doesn't exist after pull
+    if [ -f "/tmp/deploy-prod.sh.backup" ] && [ ! -f "deploy-prod.sh" ]; then
+        cp /tmp/deploy-prod.sh.backup deploy-prod.sh
+        chmod +x deploy-prod.sh
+        echo -e "${YELLOW}⚠ Restored deploy-prod.sh (not in main branch yet)${NC}"
+    fi
+
     echo -e "${GREEN}✓ Code updated${NC}"
 else
     echo -e "${YELLOW}⚠ Not a git repository, skipping git pull${NC}"
