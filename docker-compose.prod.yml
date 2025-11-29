@@ -165,8 +165,15 @@ services:
       - traefik.http.services.subtracker-frontend-svc.loadbalancer.server.port=80
       # Lower priority than API routes (API has priority=100)
       - traefik.http.routers.subtracker-frontend.priority=1
-      # Security headers
-      - traefik.http.routers.subtracker-frontend.middlewares=subtracker-headers@docker
+      # Security headers middleware (duplicated from backend)
+      - traefik.http.middlewares.subtracker-frontend-headers.headers.SSLRedirect=true
+      - traefik.http.middlewares.subtracker-frontend-headers.headers.STSSeconds=315360000
+      - traefik.http.middlewares.subtracker-frontend-headers.headers.browserXSSFilter=true
+      - traefik.http.middlewares.subtracker-frontend-headers.headers.contentTypeNosniff=true
+      - traefik.http.middlewares.subtracker-frontend-headers.headers.forceSTSHeader=true
+      - traefik.http.middlewares.subtracker-frontend-headers.headers.STSIncludeSubdomains=true
+      - traefik.http.middlewares.subtracker-frontend-headers.headers.STSPreload=true
+      - traefik.http.routers.subtracker-frontend.middlewares=subtracker-frontend-headers@docker
       - traefik.docker.network=proxy
     # Override Dockerfile healthcheck with more lenient settings
     healthcheck:

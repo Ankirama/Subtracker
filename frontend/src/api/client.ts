@@ -7,10 +7,15 @@ const getApiBaseUrl = () => {
     return import.meta.env.VITE_API_URL
   }
 
-  // Otherwise, construct it dynamically from current hostname
-  // This allows the app to work from both localhost and IP addresses
-  const protocol = window.location.protocol
+  // In production (not localhost), use relative path for Traefik routing
+  // Otherwise use port 8000 for local development
   const hostname = window.location.hostname
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    return '/api'
+  }
+
+  // Local development: use port 8000
+  const protocol = window.location.protocol
   return `${protocol}//${hostname}:8000/api`
 }
 
