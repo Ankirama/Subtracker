@@ -13,7 +13,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.services.reference_extractor import get_reference_extractor
-from app.config.provider_patterns import extract_service_references, format_custom_label
+from app.provider_config.provider_patterns import (
+    extract_service_references,
+    format_custom_label,
+)
 
 
 def test_ovh_extraction():

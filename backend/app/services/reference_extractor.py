@@ -10,7 +10,7 @@ import logging
 from openai import OpenAI
 
 from app.config import settings
-from app.config.provider_patterns import (
+from app.provider_config.provider_patterns import (
     extract_service_references,
     format_custom_label,
 )
