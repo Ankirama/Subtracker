@@ -11,6 +11,7 @@ from app.config import settings
 from app.email_providers.base import EmailMessage
 from app.utils.config_helper import get_config_value
 from app.utils.email_cleaner import get_optimized_email_body
+from app.services.reference_extractor import get_reference_extractor
 import logging
 import json
 import asyncio
@@ -101,8 +102,12 @@ This field identifies WHICH specific subscription within a service (e.g., which 
   - Look for: "supporting [creator]", "[creator]'s Patreon", creator name mentioned
 - **YouTube Memberships**: Extract channel name
 - **OnlyFans**: Extract creator name
+- **Cloud/Hosting Providers** (OVH, AWS, Google Cloud, Azure, etc.): Extract service codes, account IDs, or domain names if clearly visible
+  - OVH: Service codes like "FR73880615" or domain names
+  - AWS: Account IDs like "123456789012" or service identifiers
+  - Look for: patterns like "Service: [code]", "Account: [id]", "Domain: [domain.com]"
 - **Other services**: Any identifying info that makes this subscription unique
-  - For services where multiple subscriptions are common (gaming platforms, content creators)
+  - For services where multiple subscriptions are common (gaming platforms, content creators, cloud services)
   - Leave null if no distinguishing information exists or service typically has only one subscription per user
 
 Extract the following information and respond ONLY with a JSON object:
@@ -218,6 +223,11 @@ async def extract_subscription_data(
             # Validate and clean extracted data
             cleaned = clean_extracted_data(extracted)
 
+            # Enhance with service reference extraction (hybrid regex + AI)
+            cleaned = enhance_with_service_references(
+                cleaned, email.subject, body, email.body_text or ""
+            )
+
             # Only return if we have minimum required fields
             if cleaned.get("provider") and cleaned.get("confidence_score", 0) > 0.5:
                 logger.info(f"Extracted subscription: {cleaned['provider']}")
@@ -235,6 +245,75 @@ async def extract_subscription_data(
     except Exception as e:
         logger.error(f"Error extracting subscription data: {str(e)}")
         return None
+
+
+def enhance_with_service_references(
+    cleaned_data: Dict[str, Any],
+    subject: str,
+    body_optimized: str,
+    body_full: str,
+) -> Dict[str, Any]:
+    """
+    Enhance extracted subscription data with service references using hybrid approach.
+
+    Args:
+        cleaned_data: Cleaned extraction data from AI
+        subject: Email subject
+        body_optimized: Optimized/truncated email body
+        body_full: Full email body text
+
+    Returns:
+        Enhanced data with service references and improved custom_label
+    """
+    provider = cleaned_data.get("provider")
+    if not provider:
+        return cleaned_data
+
+    try:
+        # Use reference extractor to get service-specific identifiers
+        extractor = get_reference_extractor()
+
+        # Try with full body first for better pattern matching
+        body_for_extraction = body_full if len(body_full) > 0 else body_optimized
+
+        result = extractor.extract(
+            email_subject=subject,
+            email_body=body_for_extraction,
+            provider=provider,
+            category=cleaned_data.get("category"),
+        )
+
+        # If we found service references, enhance the data
+        if result["references"]:
+            logger.info(
+                f"Found service references for {provider}: {result['references']}"
+            )
+
+            # Update custom_label if we have a better one from regex + AI
+            if result["custom_label"] and not cleaned_data.get("custom_label"):
+                cleaned_data["custom_label"] = result["custom_label"]
+                logger.info(f"Auto-generated custom_label: {result['custom_label']}")
+
+            # Merge extraction_metadata
+            existing_metadata = cleaned_data.get("extraction_metadata") or {}
+            new_metadata = result["extraction_metadata"]
+
+            # Combine both metadata sources
+            cleaned_data["extraction_metadata"] = {
+                **existing_metadata,
+                **new_metadata,
+            }
+
+            logger.info(
+                f"Enhanced subscription data with service references: {result['references']}"
+            )
+
+        return cleaned_data
+
+    except Exception as e:
+        logger.error(f"Error enhancing with service references: {e}", exc_info=True)
+        # Return original data if enhancement fails
+        return cleaned_data
 
 
 def clean_extracted_data(data: Dict[str, Any]) -> Dict[str, Any]:
