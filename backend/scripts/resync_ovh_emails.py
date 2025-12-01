@@ -19,7 +19,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.config import settings
-from app.models import Email, Subscription
+from app.models import EmailMessage as EmailMessageModel
 from app.services.subscription_extractor import extract_subscription_data
 from app.email_providers.base import EmailMessage
 import logging
@@ -45,9 +45,9 @@ async def resync_ovh_emails(provider_filter: str = "OVH", dry_run: bool = True):
     try:
         # Find all emails from this provider
         emails = (
-            db.query(Email)
-            .filter(Email.sender.ilike(f"%{provider_filter.lower()}%"))
-            .order_by(Email.received_at.desc())
+            db.query(EmailMessageModel)
+            .filter(EmailMessageModel.sender.ilike(f"%{provider_filter.lower()}%"))
+            .order_by(EmailMessageModel.date.desc())
             .all()
         )
 
@@ -59,8 +59,8 @@ async def resync_ovh_emails(provider_filter: str = "OVH", dry_run: bool = True):
         for email in emails:
             logger.info(f"\n{'='*70}")
             logger.info(f"Processing email: {email.subject}")
-            logger.info(f"Sent: {email.received_at}")
-            logger.info(f"Current subscription: {email.subscription_id}")
+            logger.info(f"Date: {email.date}")
+            logger.info(f"Linked subscriptions: {len(email.subscriptions)}")
 
             # Convert DB email to EmailMessage format
             email_msg = EmailMessage(
@@ -68,10 +68,13 @@ async def resync_ovh_emails(provider_filter: str = "OVH", dry_run: bool = True):
                 subject=email.subject,
                 sender=email.sender,
                 sender_name=email.sender_name,
-                received_date=email.received_at,
+                recipients=[email.recipient],
+                date=email.date,
                 body_text=email.body_text or "",
                 body_html=email.body_html or "",
-                headers=email.headers or {},
+                headers={},
+                has_attachments=bool(email.attachments),
+                folder=None,
             )
 
             # Re-extract with new hybrid approach
@@ -94,12 +97,9 @@ async def resync_ovh_emails(provider_filter: str = "OVH", dry_run: bool = True):
                         # Update email's extraction metadata
                         email.extraction_metadata = metadata
 
-                        # Update associated subscription if exists
-                        if email.subscription_id:
-                            subscription = db.query(Subscription).get(
-                                email.subscription_id
-                            )
-                            if subscription:
+                        # Update associated subscriptions if exist
+                        if email.subscriptions:
+                            for subscription in email.subscriptions:
                                 # Merge service references into subscription metadata
                                 sub_metadata = subscription.extraction_metadata or {}
                                 sub_metadata.update(metadata)
