@@ -82,7 +82,7 @@ async def resync_ovh_emails(provider_filter: str = "OVH", dry_run: bool = True):
                 service_refs = metadata.get("service_references", {})
                 custom_label = extracted.get("custom_label")
 
-                logger.info(f"Extraction results:")
+                logger.info("Extraction results:")
                 logger.info(f"  Custom label: {custom_label}")
                 logger.info(f"  Service references: {service_refs}")
                 logger.info(f"  Service type: {metadata.get('service_type')}")
@@ -115,23 +115,23 @@ async def resync_ovh_emails(provider_filter: str = "OVH", dry_run: bool = True):
                                 updated_count += 1
 
                         db.commit()
-                        logger.info(f"  ✅ Saved to database")
+                        logger.info("  ✅ Saved to database")
                     else:
-                        logger.info(f"  [DRY RUN] Would update with service references")
+                        logger.info("  [DRY RUN] Would update with service references")
                 else:
-                    logger.info(f"  ℹ️  No service references extracted")
+                    logger.info("  ℹ️  No service references extracted")
             else:
-                logger.info(f"  ⚠️  Extraction returned None")
+                logger.info("  ⚠️  Extraction returned None")
 
         logger.info(f"\n{'='*70}")
-        logger.info(f"SUMMARY:")
+        logger.info("SUMMARY:")
         logger.info(f"  Total emails processed: {len(emails)}")
         logger.info(f"  Emails with service references: {new_refs_found}")
         logger.info(f"  Subscriptions updated: {updated_count}")
 
         if dry_run:
-            logger.info(f"\n⚠️  DRY RUN MODE - No changes were saved")
-            logger.info(f"Run with dry_run=False to apply changes")
+            logger.info("\n⚠️  DRY RUN MODE - No changes were saved")
+            logger.info("Run with dry_run=False to apply changes")
 
     finally:
         db.close()

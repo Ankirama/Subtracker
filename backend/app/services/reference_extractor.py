@@ -12,7 +12,6 @@ from openai import OpenAI
 from app.config import settings
 from app.config.provider_patterns import (
     extract_service_references,
-    get_provider_patterns,
     format_custom_label,
 )
 
