@@ -131,23 +131,16 @@ def test_matching_logic():
 
     # Simulate existing subscription metadata
     existing_metadata = {
-        "service_references": {
-            "service_code": "FR73880615",
-            "domain": "example.com"
-        },
+        "service_references": {"service_code": "FR73880615", "domain": "example.com"},
         "service_type": "VPS",
-        "provider": "OVH"
+        "provider": "OVH",
     }
 
     # New email with same service code
-    new_references_match = {
-        "service_code": "FR73880615"
-    }
+    new_references_match = {"service_code": "FR73880615"}
 
     # New email with different service code
-    new_references_no_match = {
-        "service_code": "FR98765432"
-    }
+    new_references_no_match = {"service_code": "FR98765432"}
 
     print("\n📊 Existing subscription metadata:")
     print(f"   {existing_metadata}")
@@ -193,6 +186,7 @@ def main():
     except Exception as e:
         print(f"\n❌ Test failed with error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 

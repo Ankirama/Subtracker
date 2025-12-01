@@ -196,9 +196,7 @@ Service Type:"""
         # Check if any reference matches
         for key, value in references.items():
             if key in existing_refs and existing_refs[key] == value:
-                logger.info(
-                    f"Found matching service reference: {key}={value}"
-                )
+                logger.info(f"Found matching service reference: {key}={value}")
                 return True
 
         return False

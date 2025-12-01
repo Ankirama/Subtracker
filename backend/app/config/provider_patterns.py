@@ -29,108 +29,100 @@ PROVIDER_PATTERNS: Dict[str, List[PatternRule]] = {
             "pattern": r"\b(FR\d{8})\b",
             "description": "OVH service reference code (FR + 8 digits)",
             "priority": 200,
-            "context_hint": "OVH service identifier like FR73880615"
+            "context_hint": "OVH service identifier like FR73880615",
         },
         {
             "name": "domain",
             "pattern": r"\b([a-z0-9][a-z0-9\-]{0,61}[a-z0-9]?\.[a-z]{2,})\b",
             "description": "Domain name",
             "priority": 100,
-            "context_hint": "Domain name being managed or renewed"
+            "context_hint": "Domain name being managed or renewed",
         },
     ],
-
     "AWS": [
         {
             "name": "account_id",
             "pattern": r"\b(\d{12})\b",
             "description": "AWS 12-digit account ID",
             "priority": 200,
-            "context_hint": "AWS account identifier"
+            "context_hint": "AWS account identifier",
         },
         {
             "name": "service_name",
             "pattern": r"\b(EC2|S3|RDS|Lambda|DynamoDB|CloudFront|Route53|ECS|EKS)\b",
             "description": "AWS service name",
             "priority": 150,
-            "context_hint": "Specific AWS service being used"
+            "context_hint": "Specific AWS service being used",
         },
     ],
-
     "Google Cloud": [
         {
             "name": "project_id",
             "pattern": r"\b([a-z][a-z0-9\-]{4,28}[a-z0-9])\b",
             "description": "Google Cloud project ID",
             "priority": 200,
-            "context_hint": "GCP project identifier"
+            "context_hint": "GCP project identifier",
         },
     ],
-
     "Azure": [
         {
             "name": "subscription_id",
             "pattern": r"\b([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\b",
             "description": "Azure subscription UUID",
             "priority": 200,
-            "context_hint": "Azure subscription GUID"
+            "context_hint": "Azure subscription GUID",
         },
     ],
-
     "Namecheap": [
         {
             "name": "domain",
             "pattern": r"\b([a-z0-9][a-z0-9\-]{0,61}[a-z0-9]?\.[a-z]{2,})\b",
             "description": "Domain name",
             "priority": 150,
-            "context_hint": "Domain being registered or renewed"
+            "context_hint": "Domain being registered or renewed",
         },
     ],
-
     "GoDaddy": [
         {
             "name": "domain",
             "pattern": r"\b([a-z0-9][a-z0-9\-]{0,61}[a-z0-9]?\.[a-z]{2,})\b",
             "description": "Domain name",
             "priority": 150,
-            "context_hint": "Domain being managed"
+            "context_hint": "Domain being managed",
         },
     ],
-
     "Cloudflare": [
         {
             "name": "zone_id",
             "pattern": r"\b([a-f0-9]{32})\b",
             "description": "Cloudflare zone ID",
             "priority": 200,
-            "context_hint": "Cloudflare zone identifier"
+            "context_hint": "Cloudflare zone identifier",
         },
         {
             "name": "domain",
             "pattern": r"\b([a-z0-9][a-z0-9\-]{0,61}[a-z0-9]?\.[a-z]{2,})\b",
             "description": "Domain name",
             "priority": 150,
-            "context_hint": "Domain being protected"
+            "context_hint": "Domain being protected",
         },
     ],
-
     "Twitch": [
         {
             "name": "channel_name",
             "pattern": r"(?:twitch\.tv/|@)([a-zA-Z0-9_]{3,25})\b",
             "description": "Twitch channel name",
             "priority": 200,
-            "context_hint": "Twitch channel or streamer name"
+            "context_hint": "Twitch channel or streamer name",
         },
     ],
-
     "Discord": [
         {
             "name": "server_id",
             "pattern": r"\b(\d{17,19})\b",
             "description": "Discord server ID",
             "priority": 150,
-            "context_hint": "Discord server/guild identifier"
+            "context_hint": "Discord server/guild identifier",
         },
     ],
 }
@@ -143,14 +135,14 @@ GENERIC_PATTERNS: List[PatternRule] = [
         "pattern": r"\b(?:invoice|bill|receipt)[#\s:-]*([A-Z0-9\-]{6,})\b",
         "description": "Invoice/receipt number",
         "priority": 50,
-        "context_hint": "Invoice or receipt identifier"
+        "context_hint": "Invoice or receipt identifier",
     },
     {
         "name": "order_number",
         "pattern": r"\b(?:order|transaction)[#\s:-]*([A-Z0-9\-]{6,})\b",
         "description": "Order/transaction number",
         "priority": 50,
-        "context_hint": "Order or transaction identifier"
+        "context_hint": "Order or transaction identifier",
     },
 ]
 
@@ -231,9 +223,7 @@ def get_provider_patterns(provider: str) -> List[PatternRule]:
 
 
 def format_custom_label(
-    provider: str,
-    references: Dict[str, str],
-    service_type: str = None
+    provider: str, references: Dict[str, str], service_type: str = None
 ) -> str:
     """
     Generate a smart custom label from extracted references.

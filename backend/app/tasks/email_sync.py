@@ -467,17 +467,26 @@ async def _sync_mailbox_async(
                         custom_label = subscription_data.get("custom_label")
 
                         # NEW: Try service reference matching first (most reliable)
-                        extraction_metadata = subscription_data.get("extraction_metadata", {})
-                        service_references = extraction_metadata.get("service_references", {})
+                        extraction_metadata = subscription_data.get(
+                            "extraction_metadata", {}
+                        )
+                        service_references = extraction_metadata.get(
+                            "service_references", {}
+                        )
 
                         if service_references and len(potential_matches) > 1:
                             # Try to find a match based on service references
-                            from app.services.reference_extractor import get_reference_extractor
+                            from app.services.reference_extractor import (
+                                get_reference_extractor,
+                            )
+
                             extractor = get_reference_extractor()
 
                             for match in potential_matches:
                                 match_metadata = match.extraction_metadata or {}
-                                if extractor.can_match_subscription(service_references, match_metadata):
+                                if extractor.can_match_subscription(
+                                    service_references, match_metadata
+                                ):
                                     existing_sub = match
                                     logger.info(
                                         f"Found service reference match for {subscription_data['provider']}: {service_references}"

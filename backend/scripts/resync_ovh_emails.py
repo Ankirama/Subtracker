@@ -96,7 +96,9 @@ async def resync_ovh_emails(provider_filter: str = "OVH", dry_run: bool = True):
 
                         # Update associated subscription if exists
                         if email.subscription_id:
-                            subscription = db.query(Subscription).get(email.subscription_id)
+                            subscription = db.query(Subscription).get(
+                                email.subscription_id
+                            )
                             if subscription:
                                 # Merge service references into subscription metadata
                                 sub_metadata = subscription.extraction_metadata or {}
@@ -107,7 +109,9 @@ async def resync_ovh_emails(provider_filter: str = "OVH", dry_run: bool = True):
                                 if custom_label and not subscription.custom_label:
                                     subscription.custom_label = custom_label
 
-                                logger.info(f"  ✅ Updated subscription {subscription.id}")
+                                logger.info(
+                                    f"  ✅ Updated subscription {subscription.id}"
+                                )
                                 updated_count += 1
 
                         db.commit()
@@ -137,30 +141,27 @@ async def main():
     """Run the re-sync script."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Re-sync emails with service reference extraction")
+    parser = argparse.ArgumentParser(
+        description="Re-sync emails with service reference extraction"
+    )
     parser.add_argument(
-        "--provider",
-        default="OVH",
-        help="Provider name to filter (default: OVH)"
+        "--provider", default="OVH", help="Provider name to filter (default: OVH)"
     )
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Actually apply changes (default is dry-run)"
+        help="Actually apply changes (default is dry-run)",
     )
 
     args = parser.parse_args()
 
     logger.info("🚀 SERVICE REFERENCE RE-SYNC SCRIPT")
-    logger.info("="*70)
+    logger.info("=" * 70)
     logger.info(f"Provider: {args.provider}")
     logger.info(f"Mode: {'APPLY CHANGES' if args.apply else 'DRY RUN'}")
-    logger.info("="*70)
+    logger.info("=" * 70)
 
-    await resync_ovh_emails(
-        provider_filter=args.provider,
-        dry_run=not args.apply
-    )
+    await resync_ovh_emails(provider_filter=args.provider, dry_run=not args.apply)
 
 
 if __name__ == "__main__":
