@@ -19,7 +19,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.config import settings
-from app.models import EmailMessage as EmailMessageModel, Subscription
+from app.models import EmailMessage as EmailMessageModel
 from app.services.subscription_extractor import extract_subscription_data
 from app.email_providers.base import EmailMessage
 import logging
