@@ -466,13 +466,31 @@ async def _sync_mailbox_async(
                         existing_sub = None
                         custom_label = subscription_data.get("custom_label")
 
-                        if len(potential_matches) == 1:
+                        # NEW: Try service reference matching first (most reliable)
+                        extraction_metadata = subscription_data.get("extraction_metadata", {})
+                        service_references = extraction_metadata.get("service_references", {})
+
+                        if service_references and len(potential_matches) > 1:
+                            # Try to find a match based on service references
+                            from app.services.reference_extractor import get_reference_extractor
+                            extractor = get_reference_extractor()
+
+                            for match in potential_matches:
+                                match_metadata = match.extraction_metadata or {}
+                                if extractor.can_match_subscription(service_references, match_metadata):
+                                    existing_sub = match
+                                    logger.info(
+                                        f"Found service reference match for {subscription_data['provider']}: {service_references}"
+                                    )
+                                    break
+
+                        if not existing_sub and len(potential_matches) == 1:
                             # Only one subscription for this provider - use it
                             existing_sub = potential_matches[0]
                             logger.debug(
                                 f"Found single match for {subscription_data['provider']}"
                             )
-                        elif len(potential_matches) > 1:
+                        elif not existing_sub and len(potential_matches) > 1:
                             # Multiple subscriptions for this provider - try to disambiguate
                             # Priority: 1) email_sender match, 2) billing_cycle match, 3) meaningful custom_label
 
