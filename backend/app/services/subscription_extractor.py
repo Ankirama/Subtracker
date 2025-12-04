@@ -41,14 +41,17 @@ REQUIRED EVIDENCE (must have at least ONE):
 1. Explicit subscription cost/price mentioned (e.g., "$9.99/month", "€15.99 monthly")
 2. Recurring payment confirmation with service name
 3. Subscription renewal/expiration date mentioned
-4. Explicit words: "subscription", "recurring", "renew", "auto-renewal"
+4. Explicit words: "subscription", "recurring", "renew", "auto-renewal", "renouvellement"
 5. Billing cycle explicitly stated (monthly, yearly, etc.)
+6. **Cloud/Hosting Provider Invoices**: OVH, AWS, Azure, Google Cloud, DigitalOcean, etc. renewal/billing emails with amounts
 
 VALID subscription emails (extract data):
 ✅ "Your Netflix subscription: $15.99 monthly"
 ✅ "Amazon Prime membership renewal: $139/year"
 ✅ "Your Spotify Premium subscription renews on..."
 ✅ PayPal receipt FOR a recurring subscription service
+✅ OVH/AWS/Azure invoice/renewal emails with service codes and amounts
+✅ Hosting provider "renouvellement automatique" (automatic renewal) emails
 
 INVALID emails (return confidence_score: 0.0):
 ❌ New device access notifications
@@ -112,7 +115,7 @@ This field identifies WHICH specific subscription within a service (e.g., which 
 
 Extract the following information and respond ONLY with a JSON object:
 {{
-    "provider": "Service name ONLY if subscription evidence found, else null",
+    "provider": "Service name extracted from sender email or body (e.g., 'OVH' from support@ovh.com, 'Netflix' from info@netflix.com). MUST be populated if subscription evidence found, else null",
     "amount": decimal number ONLY if explicitly stated (CRITICAL: Use TOTAL amount including taxes, NOT subtotal), else null,
     "currency": "USD|EUR|GBP etc ONLY if amount found, else null",
     "billing_cycle": "monthly|yearly|weekly ONLY if explicitly stated, else null",

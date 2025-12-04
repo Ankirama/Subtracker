@@ -38,12 +38,13 @@ import {
   TabPanel,
   useDisclosure,
 } from '@chakra-ui/react'
-import { FiArrowLeft, FiMail, FiCalendar, FiClock, FiInfo, FiEdit2, FiXCircle } from 'react-icons/fi'
+import { FiArrowLeft, FiMail, FiCalendar, FiClock, FiInfo, FiEdit2, FiXCircle, FiScissors } from 'react-icons/fi'
 import DOMPurify from 'dompurify'
 import { subscriptionsAPI } from '../../api/subscriptions'
 import { cancellationAPI } from '../../api/cancellation'
 import { SubscriptionEmailLink, SubscriptionCancellationInfo } from '../../types'
 import { SubscriptionModal } from './SubscriptionModal'
+import { SplitSubscriptionModal } from './SplitSubscriptionModal'
 import { PriceHistoryCard } from './PriceHistoryCard'
 import { CancellationInstructions } from './CancellationInstructions'
 import { CancellationStatusManager } from './CancellationStatusManager'
@@ -55,6 +56,7 @@ export const SubscriptionDetailPage = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure()
+  const { isOpen: isSplitOpen, onOpen: onSplitOpen, onClose: onSplitClose } = useDisclosure()
 
   const { data: subscription, isLoading, error } = useQuery({
     queryKey: ['subscription', id],
@@ -340,7 +342,20 @@ export const SubscriptionDetailPage = () => {
                 <CardHeader>
                   <HStack justify="space-between">
                     <Heading size="md">Source Emails</Heading>
-                    <Badge colorScheme="purple">AI-Extracted Data</Badge>
+                    <HStack>
+                      <Badge colorScheme="purple">AI-Extracted Data</Badge>
+                      {subscription.source_emails && subscription.source_emails.length > 1 && (
+                        <Button
+                          size="sm"
+                          leftIcon={<Icon as={FiScissors} />}
+                          colorScheme="orange"
+                          variant="outline"
+                          onClick={onSplitOpen}
+                        >
+                          Split Subscription
+                        </Button>
+                      )}
+                    </HStack>
                   </HStack>
                 </CardHeader>
                 <CardBody>
@@ -457,6 +472,13 @@ export const SubscriptionDetailPage = () => {
       <SubscriptionModal
         isOpen={isEditOpen}
         onClose={handleEditClose}
+        subscription={subscription}
+      />
+
+      {/* Split Subscription Modal */}
+      <SplitSubscriptionModal
+        isOpen={isSplitOpen}
+        onClose={onSplitClose}
         subscription={subscription}
       />
     </Container>

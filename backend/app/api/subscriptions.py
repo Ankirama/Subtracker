@@ -1251,3 +1251,191 @@ async def dismiss_cancellation_suggestion(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to dismiss cancellation suggestion",
         )
+
+
+@router.post("/{subscription_id}/split")
+async def split_subscription(
+    subscription_id: UUID,
+    email_groups: List[dict],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Manually split a subscription into multiple subscriptions based on email grouping.
+
+    This allows users to separate merged subscriptions that should be distinct services.
+    For example, splitting 3 different OVH services that were incorrectly merged into one.
+
+    Args:
+        subscription_id: The subscription to split
+        email_groups: List of groups, each containing:
+            - email_ids: List of email IDs for this group
+            - custom_label: Optional label for the new subscription
+            - amount: Optional amount override
+            - service_references: Optional service references (e.g., service_code)
+
+    Returns:
+        List of newly created subscriptions
+
+    Example request body:
+    [
+        {
+            "email_ids": ["email-uuid-1", "email-uuid-2"],
+            "custom_label": "OVH VPS FR73880615",
+            "amount": 23.99,
+            "service_references": {"service_code": "FR73880615"}
+        },
+        {
+            "email_ids": ["email-uuid-3", "email-uuid-4"],
+            "custom_label": "OVH Domain FR69204676",
+            "amount": 17.47,
+            "service_references": {"service_code": "FR69204676"}
+        }
+    ]
+    """
+    # Get original subscription and verify ownership
+    original_sub = (
+        db.query(Subscription)
+        .join(Mailbox)
+        .options(joinedload(Subscription.source_emails))
+        .filter(Subscription.id == subscription_id, Mailbox.user_id == current_user.id)
+        .first()
+    )
+
+    if not original_sub:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found"
+        )
+
+    # Validate email groups
+    if not email_groups or len(email_groups) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Must provide at least 2 email groups to split subscription",
+        )
+
+    # Collect all email IDs from groups
+    all_group_email_ids = set()
+    for group in email_groups:
+        if "email_ids" not in group or not group["email_ids"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Each group must have at least one email_id",
+            )
+        all_group_email_ids.update([UUID(eid) for eid in group["email_ids"]])
+
+    # Get all emails currently linked to subscription
+    original_email_ids = {email.id for email in original_sub.source_emails}
+
+    # Validate that all provided email IDs belong to the subscription
+    invalid_ids = all_group_email_ids - original_email_ids
+    if invalid_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Some email IDs do not belong to this subscription: {invalid_ids}",
+        )
+
+    # Validate that all emails are accounted for
+    if all_group_email_ids != original_email_ids:
+        missing_ids = original_email_ids - all_group_email_ids
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"All emails must be assigned to a group. Missing: {missing_ids}",
+        )
+
+    try:
+        new_subscriptions = []
+
+        # Create new subscriptions for each group
+        for i, group in enumerate(email_groups):
+            group_email_ids = [UUID(eid) for eid in group["email_ids"]]
+
+            # Determine if this is the first group (keep original ID) or create new
+            if i == 0:
+                # First group keeps the original subscription
+                target_sub = original_sub
+                logger.info(
+                    f"Keeping original subscription {target_sub.id} for first group"
+                )
+            else:
+                # Create new subscription for other groups
+                new_sub_data = {
+                    "provider": original_sub.provider,
+                    "amount": group.get("amount", original_sub.amount),
+                    "currency": original_sub.currency,
+                    "billing_cycle": original_sub.billing_cycle,
+                    "category": original_sub.category,
+                    "custom_label": group.get(
+                        "custom_label", original_sub.custom_label
+                    ),
+                    "email_sender": original_sub.email_sender,
+                    "renewal_date": original_sub.renewal_date,
+                    "is_active": original_sub.is_active,
+                    "mailbox_id": original_sub.mailbox_id,
+                    "user_id": current_user.id,
+                    "confidence_score": 1.0,  # Manual split has perfect confidence
+                    "extraction_method": "manual_split",
+                    "extraction_metadata": original_sub.extraction_metadata or {},
+                }
+
+                # Update service references if provided
+                if "service_references" in group:
+                    new_sub_data["extraction_metadata"]["service_references"] = group[
+                        "service_references"
+                    ]
+
+                target_sub = Subscription(**new_sub_data)
+                db.add(target_sub)
+                db.flush()  # Get ID for junction table
+                logger.info(f"Created new subscription {target_sub.id} for group {i+1}")
+
+            # Update the first group with overrides if provided
+            if i == 0:
+                if "amount" in group:
+                    target_sub.amount = group["amount"]
+                if "custom_label" in group:
+                    target_sub.custom_label = group["custom_label"]
+                if "service_references" in group:
+                    if not target_sub.extraction_metadata:
+                        target_sub.extraction_metadata = {}
+                    target_sub.extraction_metadata["service_references"] = group[
+                        "service_references"
+                    ]
+
+            # Reassign emails to this subscription
+            db.execute(
+                subscription_emails.update()
+                .where(subscription_emails.c.email_id.in_(group_email_ids))
+                .where(subscription_emails.c.subscription_id == original_sub.id)
+                .values(subscription_id=target_sub.id)
+            )
+
+            new_subscriptions.append(target_sub)
+
+        db.commit()
+
+        # Refresh all subscriptions to get latest data
+        for sub in new_subscriptions:
+            db.refresh(sub)
+
+        logger.info(
+            f"Split subscription {subscription_id} into {len(new_subscriptions)} subscriptions for user {current_user.id}"
+        )
+
+        return {
+            "success": True,
+            "message": f"Successfully split subscription into {len(new_subscriptions)} subscriptions",
+            "subscriptions": [
+                SubscriptionResponse.model_validate(sub) for sub in new_subscriptions
+            ],
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to split subscription: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to split subscription: {str(e)}",
+        )

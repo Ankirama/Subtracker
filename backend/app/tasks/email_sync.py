@@ -474,7 +474,10 @@ async def _sync_mailbox_async(
                             "service_references", {}
                         )
 
-                        if service_references and len(potential_matches) > 1:
+                        # CRITICAL FIX: Check service references for ALL potential matches,
+                        # not just when there are multiple. This prevents incorrectly merging
+                        # different services from the same provider (e.g., different OVH services)
+                        if service_references and len(potential_matches) > 0:
                             # Try to find a match based on service references
                             from app.services.reference_extractor import (
                                 get_reference_extractor,
@@ -493,11 +496,23 @@ async def _sync_mailbox_async(
                                     )
                                     break
 
-                        if not existing_sub and len(potential_matches) == 1:
-                            # Only one subscription for this provider - use it
+                            # If we have service references but no match found, this is a NEW service
+                            # Don't fall back to single-match assumption - create new subscription
+                            if not existing_sub:
+                                logger.info(
+                                    f"Service references present but no match found for {subscription_data['provider']}: {service_references}. Creating new subscription."
+                                )
+
+                        # Only fall back to single-match assumption if NO service references exist
+                        if (
+                            not existing_sub
+                            and not service_references
+                            and len(potential_matches) == 1
+                        ):
+                            # Only one subscription for this provider and no service references to check - use it
                             existing_sub = potential_matches[0]
                             logger.debug(
-                                f"Found single match for {subscription_data['provider']}"
+                                f"Found single match for {subscription_data['provider']} (no service references to verify)"
                             )
                         elif not existing_sub and len(potential_matches) > 1:
                             # Multiple subscriptions for this provider - try to disambiguate
