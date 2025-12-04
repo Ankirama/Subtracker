@@ -1,0 +1,29 @@
+{
+  "title": "Settings",
+  "language": {
+    "title": "Language",
+    "description": "Choose your preferred language",
+    "english": "English",
+    "french": "Français",
+    "saveSuccess": "Language preference saved successfully",
+    "saveError": "Failed to save language preference"
+  },
+  "profile": {
+    "title": "Profile",
+    "email": "Email",
+    "updateProfile": "Update Profile"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "emailNotifications": "Email Notifications",
+    "renewalReminders": "Renewal Reminders"
+  },
+  "mailbox": {
+    "title": "Email Connection",
+    "status": "Status",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "reconnect": "Reconnect",
+    "configure": "Configure"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "title": "Paramètres",
+  "language": {
+    "title": "Langue",
+    "description": "Choisissez votre langue préférée",
+    "english": "English",
+    "french": "Français",
+    "saveSuccess": "Préférence de langue enregistrée avec succès",
+    "saveError": "Échec de l'enregistrement de la préférence de langue"
+  },
+  "profile": {
+    "title": "Profil",
+    "email": "Email",
+    "updateProfile": "Mettre à jour le profil"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "emailNotifications": "Notifications par email",
+    "renewalReminders": "Rappels de renouvellement"
+  },
+  "mailbox": {
+    "title": "Connexion email",
+    "status": "Statut",
+    "connected": "Connecté",
+    "disconnected": "Déconnecté",
+    "reconnect": "Reconnecter",
+    "configure": "Configurer"
+  }
+}

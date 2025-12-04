@@ -1,0 +1,83 @@
+{
+  "list": {
+    "title": "My Subscriptions",
+    "empty": "No subscriptions found",
+    "addNew": "Add Subscription"
+  },
+  "detail": {
+    "backToList": "Back to Subscriptions",
+    "editSubscription": "Edit Subscription",
+    "splitSubscription": "Split Subscription",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "fields": {
+    "provider": "Provider",
+    "amount": "Amount",
+    "billingCycle": "Billing Cycle",
+    "category": "Category",
+    "nextRenewal": "Next Renewal",
+    "customLabel": "Custom Label",
+    "notes": "Notes",
+    "emailSender": "Email Sender",
+    "extractionMethod": "Extraction Method",
+    "confidenceScore": "Confidence Score",
+    "firstDetected": "First Detected",
+    "lastUpdated": "Last Updated"
+  },
+  "billingCycles": {
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "quarterly": "Quarterly",
+    "weekly": "Weekly"
+  },
+  "categories": {
+    "streaming": "Streaming",
+    "software": "Software",
+    "cloud": "Cloud Services",
+    "entertainment": "Entertainment",
+    "utilities": "Utilities",
+    "other": "Other"
+  },
+  "split": {
+    "title": "Split Subscription",
+    "description": "Assign each email to a group. Each group will become a separate subscription.",
+    "group": "Group",
+    "emails": "emails",
+    "removeGroup": "Remove",
+    "customLabel": "Custom Label",
+    "amount": "Amount",
+    "selectEmails": "Select emails for this group:",
+    "addGroup": "+ Add Another Group",
+    "submit": "Split Subscription",
+    "cancel": "Cancel",
+    "errors": {
+      "incompleteAssignment": "All emails must be assigned to a group",
+      "emptyGroup": "Each group must have at least one email",
+      "minGroups": "Must have at least 2 groups for splitting"
+    },
+    "success": "Subscription split successfully"
+  },
+  "sourceEmails": {
+    "title": "Source Emails",
+    "aiExtracted": "AI-Extracted Data",
+    "noEmails": "No source emails found",
+    "from": "From",
+    "to": "To",
+    "date": "Date",
+    "extractedData": "Extracted Data",
+    "aiClassification": "AI Classification",
+    "emailContent": "Email Content",
+    "sourceCode": "Source Code",
+    "renderedHtml": "Rendered HTML",
+    "confidence": "Confidence"
+  },
+  "cancellation": {
+    "title": "Cancellation",
+    "instructions": "Cancellation Instructions",
+    "status": "Status"
+  },
+  "priceHistory": {
+    "title": "Price History"
+  }
+}
