@@ -1354,7 +1354,9 @@ async def split_subscription(
             if i == 0:
                 # First group keeps the original subscription
                 target_sub = original_sub
-                logger.info(f"Keeping original subscription {target_sub.id} for first group")
+                logger.info(
+                    f"Keeping original subscription {target_sub.id} for first group"
+                )
             else:
                 # Create new subscription for other groups
                 new_sub_data = {
@@ -1363,7 +1365,9 @@ async def split_subscription(
                     "currency": original_sub.currency,
                     "billing_cycle": original_sub.billing_cycle,
                     "category": original_sub.category,
-                    "custom_label": group.get("custom_label", original_sub.custom_label),
+                    "custom_label": group.get(
+                        "custom_label", original_sub.custom_label
+                    ),
                     "email_sender": original_sub.email_sender,
                     "renewal_date": original_sub.renewal_date,
                     "is_active": original_sub.is_active,

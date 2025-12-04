@@ -504,7 +504,11 @@ async def _sync_mailbox_async(
                                 )
 
                         # Only fall back to single-match assumption if NO service references exist
-                        if not existing_sub and not service_references and len(potential_matches) == 1:
+                        if (
+                            not existing_sub
+                            and not service_references
+                            and len(potential_matches) == 1
+                        ):
                             # Only one subscription for this provider and no service references to check - use it
                             existing_sub = potential_matches[0]
                             logger.debug(
