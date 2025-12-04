@@ -96,6 +96,19 @@ export const subscriptionsAPI = {
     return response.data
   },
 
+  split: async (
+    id: string,
+    emailGroups: Array<{
+      email_ids: string[]
+      custom_label?: string
+      amount?: number
+      service_references?: Record<string, any>
+    }>
+  ): Promise<{ success: boolean; message: string; subscriptions: Subscription[] }> => {
+    const response = await apiClient.post(`/subscriptions/${id}/split`, emailGroups)
+    return response.data
+  },
+
   acceptCancellationSuggestion: async (id: string): Promise<Subscription> => {
     const response = await apiClient.post<Subscription>(`/subscriptions/${id}/accept-suggestion`)
     return response.data

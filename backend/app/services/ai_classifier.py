@@ -48,6 +48,8 @@ A SUBSCRIPTION is a service with RECURRING payments for ongoing access.
    - Trial ending notices (e.g., "Your Disney+ free trial ends tomorrow")
    - Auto-renewal confirmations
    - Subscription expiration notices
+   - **French hosting renewal invoices**: "facture de renouvellement" with service codes and amounts
+   - **OVH renewal invoices**: "Votre facture est disponible", "Une facture est disponible" with FR service codes
 
 3. **Subscription Management**:
    - Subscription upgrade/downgrade confirmations
@@ -98,19 +100,24 @@ A SUBSCRIPTION is a service with RECURRING payments for ongoing access.
 - ✅ "Your Amazon Prime membership renews on..." → IS subscription (renewal)
 - ❌ "Your order has shipped" → NOT subscription (one-time purchase)
 
-**AWS/Cloud Emails**:
+**AWS/Cloud/Hosting Emails**:
 - ❌ "AWS Lambda end of support notification" → NOT subscription (service alert)
 - ❌ "CloudWatch alarm triggered" → NOT subscription (usage alert)
 - ✅ "Your AWS invoice is ready" → IS subscription (billing)
+- ✅ "Votre facture est disponible" (OVH) with FR######## code → IS subscription (renewal invoice)
+- ✅ "La facture de renouvellement FR########" (OVH) → IS subscription (renewal invoice with service code)
 
 **Streaming Services**:
 - ❌ "New login from Windows PC" → NOT subscription (security alert)
 - ❌ "New episodes available on Crunchyroll" → NOT subscription (content notification)
 - ✅ "Your Crunchyroll subscription renews on 12/15" → IS subscription (renewal)
 
-**PayPal/Payment Emails**:
+**PayPal/Payment Processor Emails**:
 - ❌ "You sent $50 to John Doe" → NOT subscription (one-time transfer)
-- ✅ "Automatic payment to Netflix for $15.99" → IS subscription (recurring payment)
+- ❌ "Payment confirmation for OVH service" → NOT subscription (payment FOR a subscription, not the subscription itself)
+- ❌ "Paiement en 4X" (installment payment) → NOT subscription (payment method, not recurring service)
+- ⚠️ Payment processor emails (PayPal, Stripe, etc.) mentioning OTHER services should NOT be classified as subscriptions
+- ⚠️ The subscription is with the SERVICE (e.g., OVH), not the payment processor (e.g., PayPal)
 
 **Newsletter/Content Emails**:
 - ❌ "Here's your daily tech news" → NOT subscription (content delivery)
