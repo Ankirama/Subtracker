@@ -23,6 +23,7 @@ import { Link as RouterLink, useLocation, Outlet } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { NotificationBell } from '../notifications/NotificationBell'
 import { BottomNav } from '../navigation/BottomNav'
+import { LanguageSwitcher } from './LanguageSwitcher'
 import {
   FiHome,
   FiCreditCard,
@@ -190,6 +191,9 @@ export const DashboardLayout = () => {
           </Heading>
 
           <HStack spacing={2}>
+            {/* Language switcher */}
+            <LanguageSwitcher variant="menu" size="sm" />
+
             {/* Color mode toggle */}
             <IconButton
               aria-label={`Switch to ${colorMode === 'light' ? 'dark' : 'light'} mode`}
