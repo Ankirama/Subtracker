@@ -4,18 +4,26 @@ import LanguageDetector from 'i18next-browser-languagedetector'
 
 import enCommon from './locales/en/common.json'
 import enAuth from './locales/en/auth.json'
+import enDashboard from './locales/en/dashboard.json'
+import enSettings from './locales/en/settings.json'
 
 import frCommon from './locales/fr/common.json'
 import frAuth from './locales/fr/auth.json'
+import frDashboard from './locales/fr/dashboard.json'
+import frSettings from './locales/fr/settings.json'
 
 const resources = {
   en: {
     common: enCommon,
     auth: enAuth,
+    dashboard: enDashboard,
+    settings: enSettings,
   },
   fr: {
     common: frCommon,
     auth: frAuth,
+    dashboard: frDashboard,
+    settings: frSettings,
   },
 }
 
@@ -26,7 +34,7 @@ i18n
     resources,
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'auth'],
+    ns: ['common', 'auth', 'dashboard', 'settings'],
 
     interpolation: {
       escapeValue: false, // React already escapes values

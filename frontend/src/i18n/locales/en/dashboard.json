@@ -1,0 +1,31 @@
+{
+  "title": "Dashboard",
+  "subtitle": "Overview of your subscriptions",
+  "stats": {
+    "totalSubscriptions": "Total Subscriptions",
+    "active": "active",
+    "monthlyCost": "Monthly Cost",
+    "perMonth": "per month",
+    "yearlyCost": "Yearly Cost",
+    "perYear": "per year",
+    "upcomingRenewals": "Upcoming Renewals",
+    "next30Days": "next 30 days"
+  },
+  "byCategory": "By Category",
+  "monthSuffix": "/month",
+  "renewals": {
+    "title": "Upcoming Renewals",
+    "configureReminders": "Configure Reminders",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "days": "days",
+    "viewAll": "View all {{count}} renewals"
+  },
+  "actions": {
+    "viewAllSubscriptions": "View All Subscriptions",
+    "manageMailboxes": "Manage Mailboxes"
+  },
+  "errors": {
+    "loadFailed": "Failed to load dashboard data. Please try again."
+  }
+}

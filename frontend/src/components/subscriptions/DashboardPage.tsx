@@ -22,12 +22,14 @@ import {
   Icon,
 } from '@chakra-ui/react'
 import { FiDollarSign, FiCreditCard, FiCalendar, FiTrendingUp, FiBell } from 'react-icons/fi'
+import { useTranslation } from 'react-i18next'
 import { subscriptionsAPI } from '../../api/subscriptions'
 import { notificationsApi } from '../../api/notifications'
 import { Link as RouterLink } from 'react-router-dom'
 import { SubscriptionStats } from '../../types'
 
 export const DashboardPage = () => {
+  const { t } = useTranslation()
   const { data: stats, isLoading, error, refetch: refetchStats } = useQuery<SubscriptionStats>({
     queryKey: ['subscriptionStats'],
     queryFn: () => subscriptionsAPI.getStats(),
@@ -51,7 +53,7 @@ export const DashboardPage = () => {
       <Container maxW="container.xl" py={8}>
         <Alert status="error">
           <AlertIcon />
-          Failed to load dashboard data. Please try again.
+          {t('dashboard:errors.loadFailed')}
         </Alert>
       </Container>
     )
@@ -82,9 +84,9 @@ export const DashboardPage = () => {
         {/* Header */}
         <Box>
           <Heading size="lg" mb={2}>
-            Dashboard
+            {t('dashboard:title')}
           </Heading>
-          <Text color="text.subtle">Overview of your subscriptions</Text>
+          <Text color="text.subtle">{t('dashboard:subtitle')}</Text>
         </Box>
 
         {/* Stats Cards */}
@@ -95,12 +97,12 @@ export const DashboardPage = () => {
                 <StatLabel>
                   <HStack>
                     <Icon as={FiCreditCard} color="blue.500" />
-                    <Text>Total Subscriptions</Text>
+                    <Text>{t('dashboard:stats.totalSubscriptions')}</Text>
                   </HStack>
                 </StatLabel>
                 <StatNumber>{stats?.total_subscriptions || 0}</StatNumber>
                 <StatHelpText>
-                  {stats?.active_subscriptions || 0} active
+                  {stats?.active_subscriptions || 0} {t('dashboard:stats.active')}
                 </StatHelpText>
               </Stat>
             </CardBody>
@@ -112,11 +114,11 @@ export const DashboardPage = () => {
                 <StatLabel>
                   <HStack>
                     <Icon as={FiDollarSign} color="green.500" />
-                    <Text>Monthly Cost</Text>
+                    <Text>{t('dashboard:stats.monthlyCost')}</Text>
                   </HStack>
                 </StatLabel>
                 <StatNumber>{formatCurrency(stats?.total_monthly_cost)}</StatNumber>
-                <StatHelpText>per month</StatHelpText>
+                <StatHelpText>{t('dashboard:stats.perMonth')}</StatHelpText>
               </Stat>
             </CardBody>
           </Card>
@@ -127,11 +129,11 @@ export const DashboardPage = () => {
                 <StatLabel>
                   <HStack>
                     <Icon as={FiTrendingUp} color="purple.500" />
-                    <Text>Yearly Cost</Text>
+                    <Text>{t('dashboard:stats.yearlyCost')}</Text>
                   </HStack>
                 </StatLabel>
                 <StatNumber>{formatCurrency(stats?.total_yearly_cost)}</StatNumber>
-                <StatHelpText>per year</StatHelpText>
+                <StatHelpText>{t('dashboard:stats.perYear')}</StatHelpText>
               </Stat>
             </CardBody>
           </Card>
@@ -142,11 +144,11 @@ export const DashboardPage = () => {
                 <StatLabel>
                   <HStack>
                     <Icon as={FiCalendar} color="orange.500" />
-                    <Text>Upcoming Renewals</Text>
+                    <Text>{t('dashboard:stats.upcomingRenewals')}</Text>
                   </HStack>
                 </StatLabel>
                 <StatNumber>{upcomingRenewals?.length || 0}</StatNumber>
-                <StatHelpText>next 30 days</StatHelpText>
+                <StatHelpText>{t('dashboard:stats.next30Days')}</StatHelpText>
               </Stat>
             </CardBody>
           </Card>
@@ -158,7 +160,7 @@ export const DashboardPage = () => {
           <Card>
             <CardBody>
               <Heading size="md" mb={4}>
-                By Category
+                {t('dashboard:byCategory')}
               </Heading>
               <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
                 {Object.entries(stats.by_category).map(([category, data]) => (
@@ -170,7 +172,7 @@ export const DashboardPage = () => {
                       <Text fontWeight="bold">{data.count}</Text>
                     </HStack>
                     <Text fontSize="sm" color="text.subtle">
-                      {formatCurrency(data.total)}/month
+                      {formatCurrency(data.total)}{t('dashboard:monthSuffix')}
                     </Text>
                   </Box>
                 ))}
@@ -184,7 +186,7 @@ export const DashboardPage = () => {
           <Card>
             <CardBody>
               <HStack justify="space-between" mb={4}>
-                <Heading size="md">Upcoming Renewals</Heading>
+                <Heading size="md">{t('dashboard:renewals.title')}</Heading>
                 <Button
                   as={RouterLink}
                   to="/notifications/settings"
@@ -193,7 +195,7 @@ export const DashboardPage = () => {
                   variant="ghost"
                   colorScheme="blue"
                 >
-                  Configure Reminders
+                  {t('dashboard:renewals.configureReminders')}
                 </Button>
               </HStack>
               <VStack align="stretch" spacing={3}>
@@ -212,9 +214,9 @@ export const DashboardPage = () => {
                         <Text fontWeight="bold">{renewal.provider}</Text>
                         <HStack spacing={2}>
                           <Badge colorScheme={getUrgencyColor(renewal.days_until_renewal)}>
-                            {renewal.days_until_renewal === 0 && 'Today'}
-                            {renewal.days_until_renewal === 1 && 'Tomorrow'}
-                            {renewal.days_until_renewal > 1 && `${renewal.days_until_renewal} days`}
+                            {renewal.days_until_renewal === 0 && t('dashboard:renewals.today')}
+                            {renewal.days_until_renewal === 1 && t('dashboard:renewals.tomorrow')}
+                            {renewal.days_until_renewal > 1 && `${renewal.days_until_renewal} ${t('dashboard:renewals.days')}`}
                           </Badge>
                           <Text fontSize="sm" color="text.subtle">
                             {new Date(renewal.renewal_date).toLocaleDateString()}
@@ -240,7 +242,7 @@ export const DashboardPage = () => {
                     colorScheme="blue"
                     size="sm"
                   >
-                    View all {upcomingRenewals.length} renewals
+                    {t('dashboard:renewals.viewAll', { count: upcomingRenewals.length })}
                   </Button>
                 )}
               </VStack>
@@ -251,10 +253,10 @@ export const DashboardPage = () => {
         {/* Quick Actions */}
         <HStack>
           <Button as={RouterLink} to="/subscriptions" colorScheme="blue">
-            View All Subscriptions
+            {t('dashboard:actions.viewAllSubscriptions')}
           </Button>
           <Button as={RouterLink} to="/mailboxes" variant="outline">
-            Manage Mailboxes
+            {t('dashboard:actions.manageMailboxes')}
           </Button>
         </HStack>
         </VStack>
