@@ -16,6 +16,7 @@ import {
   Heading,
 } from '@chakra-ui/react'
 import { Link as RouterLink, useLocation, Outlet } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   FiSettings,
@@ -32,23 +33,24 @@ import {
 } from 'react-icons/fi'
 
 interface NavItem {
-  label: string
+  labelKey: string
   icon: any
   path: string
 }
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
-  { label: 'Configuration', icon: FiSettings, path: '/admin/config' },
-  { label: 'Announcements', icon: FiBell, path: '/admin/announcements' },
-  { label: 'Users', icon: FiUsers, path: '/admin/users' },
-  { label: 'Invites', icon: FiUserPlus, path: '/admin/invites' },
-  { label: 'Logs', icon: FiActivity, path: '/admin/logs' },
-  { label: 'Security Events', icon: FiAlertTriangle, path: '/admin/security' },
-  { label: 'IP Whitelist', icon: FiShield, path: '/admin/ip-whitelist' },
-  { label: 'Feedback Metrics', icon: FiMessageCircle, path: '/admin/feedback-metrics' },
+  { labelKey: 'common:admin.configuration', icon: FiSettings, path: '/admin/config' },
+  { labelKey: 'common:admin.announcements', icon: FiBell, path: '/admin/announcements' },
+  { labelKey: 'common:admin.users', icon: FiUsers, path: '/admin/users' },
+  { labelKey: 'common:admin.invites', icon: FiUserPlus, path: '/admin/invites' },
+  { labelKey: 'common:admin.logs', icon: FiActivity, path: '/admin/logs' },
+  { labelKey: 'common:admin.securityEvents', icon: FiAlertTriangle, path: '/admin/security' },
+  { labelKey: 'common:admin.ipWhitelist', icon: FiShield, path: '/admin/ip-whitelist' },
+  { labelKey: 'common:admin.feedbackMetrics', icon: FiMessageCircle, path: '/admin/feedback-metrics' },
 ]
 
 export const AdminLayout = () => {
+  const { t } = useTranslation()
   const { user, logout } = useAuth()
   const location = useLocation()
   const bgColor = useColorModeValue('gray.50', 'gray.900')
@@ -70,7 +72,7 @@ export const AdminLayout = () => {
           {/* Logo */}
           <Box>
             <Heading size="md" color="red.500">
-              🛡️ Admin Panel
+              🛡️ {t('common:admin.title')}
             </Heading>
           </Box>
 
@@ -83,7 +85,7 @@ export const AdminLayout = () => {
             size="sm"
             colorScheme="blue"
           >
-            Return to Dashboard
+            {t('common:admin.returnToDashboard')}
           </Button>
 
           {/* Navigation */}
@@ -100,7 +102,7 @@ export const AdminLayout = () => {
                   colorScheme={isActive ? 'red' : 'gray'}
                   justifyContent="flex-start"
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Button>
               )
             })}
@@ -117,16 +119,16 @@ export const AdminLayout = () => {
                       {user?.email}
                     </Text>
                     <Text fontSize="xs" color="gray.500">
-                      Administrator
+                      {t('common:admin.administrator')}
                     </Text>
                   </VStack>
                 </HStack>
               </MenuButton>
               <MenuList>
-                <MenuItem icon={<FiUser />}>Profile</MenuItem>
+                <MenuItem icon={<FiUser />}>{t('common:menu.profile')}</MenuItem>
                 <MenuDivider />
                 <MenuItem icon={<FiLogOut />} onClick={logout}>
-                  Logout
+                  {t('common:menu.logout')}
                 </MenuItem>
               </MenuList>
             </Menu>
@@ -145,10 +147,10 @@ export const AdminLayout = () => {
           py={4}
         >
           <HStack justify="space-between">
-            <Heading size="lg">Admin Panel</Heading>
+            <Heading size="lg">{t('common:admin.title')}</Heading>
             <HStack spacing={4}>
               <Text fontSize="sm" color="gray.500">
-                Last login: {new Date().toLocaleDateString()}
+                {t('common:admin.lastLogin')}: {new Date().toLocaleDateString()}
               </Text>
             </HStack>
           </HStack>

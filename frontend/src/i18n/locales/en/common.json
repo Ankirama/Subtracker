@@ -12,7 +12,31 @@
     "aiSandbox": "AI Sandbox",
     "adminPanel": "Admin Panel",
     "settings": "Settings",
-    "twoFactorAuth": "Two-Factor Auth"
+    "twoFactorAuth": "Two-Factor Auth",
+    "notifications": "Notifications",
+    "profile": "Profile"
+  },
+  "admin": {
+    "title": "Admin Panel",
+    "returnToDashboard": "Return to Dashboard",
+    "configuration": "Configuration",
+    "announcements": "Announcements",
+    "users": "Users",
+    "invites": "Invites",
+    "logs": "Logs",
+    "securityEvents": "Security Events",
+    "ipWhitelist": "IP Whitelist",
+    "feedbackMetrics": "Feedback Metrics",
+    "administrator": "Administrator",
+    "lastLogin": "Last login"
+  },
+  "menu": {
+    "logout": "Logout",
+    "profile": "Profile"
+  },
+  "aria": {
+    "switchToDarkMode": "Switch to dark mode",
+    "switchToLightMode": "Switch to light mode"
   },
   "actions": {
     "save": "Save",
