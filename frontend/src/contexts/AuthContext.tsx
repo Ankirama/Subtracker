@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { User, LoginRequest, RegisterRequest } from '../types'
 import { authAPI } from '../api/auth'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { syncUserLanguagePreference } from '../i18n/detector'
 
 interface AuthContextType {
   user: User | null
@@ -31,6 +33,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const navigate = useNavigate()
+  const { i18n } = useTranslation()
 
   // Check if user is logged in on mount
   useEffect(() => {
@@ -40,6 +43,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           const currentUser = await authAPI.getCurrentUser()
           setUser(currentUser)
+          // Sync language preference with i18next
+          await syncUserLanguagePreference(currentUser.preferred_language || null)
+          if (currentUser.preferred_language) {
+            await i18n.changeLanguage(currentUser.preferred_language)
+          }
         } catch (error) {
           console.error('Failed to fetch user:', error)
           localStorage.removeItem('access_token')
@@ -50,7 +58,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     initAuth()
-  }, [])
+  }, [i18n])
 
   const login = async (credentials: LoginRequest) => {
     const response = await authAPI.login(credentials)
@@ -62,6 +70,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       const currentUser = await authAPI.getCurrentUser()
       setUser(currentUser)
+      // Sync language preference with i18next
+      await syncUserLanguagePreference(currentUser.preferred_language || null)
+      if (currentUser.preferred_language) {
+        await i18n.changeLanguage(currentUser.preferred_language)
+      }
       navigate('/dashboard')
     }
     // If it's TwoFactorRequiredResponse, the calling component should handle 2FA flow
@@ -90,6 +103,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // This is called after 2FA verification when tokens are already in localStorage
     const currentUser = await authAPI.getCurrentUser()
     setUser(currentUser)
+    // Sync language preference with i18next
+    await syncUserLanguagePreference(currentUser.preferred_language || null)
+    if (currentUser.preferred_language) {
+      await i18n.changeLanguage(currentUser.preferred_language)
+    }
     navigate('/dashboard')
   }
 

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 // import { registerSW } from 'virtual:pwa-register'  // Temporarily disabled
 import App from './App'
 import theme from './theme'
+import './i18n/config'  // Initialize i18next
 
 // Create React Query client
 const queryClient = new QueryClient({
