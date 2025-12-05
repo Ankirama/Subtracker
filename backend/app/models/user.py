@@ -26,6 +26,11 @@ class User(Base):
     email_verified_at = Column(DateTime(timezone=True), nullable=True)
     display_name = Column(String(255), nullable=True)  # Optional personalized name
 
+    # Language Preference
+    preferred_language = Column(
+        String(5), nullable=True
+    )  # User's preferred language ('en', 'fr', or None for browser detection)
+
     # Two-Factor Authentication
     two_factor_enabled = Column(Boolean, default=False, nullable=False)
     two_factor_method = Column(String(20), nullable=True)  # 'totp' or 'email'
