@@ -16,6 +16,7 @@ import {
   FormHelperText,
 } from '@chakra-ui/react'
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { authAPI } from '../../api/auth'
 
 export const RegisterPage = () => {
@@ -30,6 +31,7 @@ export const RegisterPage = () => {
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState('')
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const toast = useToast()
 
   // Pre-fill invite token from URL query param
@@ -46,12 +48,12 @@ export const RegisterPage = () => {
 
     // Validation
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
+      setError(t('common:validation.passwordMismatch'))
       return
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters long')
+      setError(t('common:validation.passwordTooShort'))
       return
     }
 
@@ -69,16 +71,16 @@ export const RegisterPage = () => {
       setRegistrationSuccess(true)
       setRegisteredEmail(response.email)
       toast({
-        title: 'Registration successful!',
+        title: t('auth:register.registrationSuccess'),
         description: response.message,
         status: 'success',
         duration: 5000,
       })
     } catch (err: any) {
-      const message = err.response?.data?.detail || 'Registration failed. Please try again.'
+      const message = err.response?.data?.detail || t('auth:register.registrationFailed')
       setError(message)
       toast({
-        title: 'Registration failed',
+        title: t('auth:register.registrationFailed'),
         description: message,
         status: 'error',
         duration: 5000,
@@ -96,7 +98,7 @@ export const RegisterPage = () => {
             📧 Subscription Tracker
           </Heading>
           <Text color="text.subtle">
-            {registrationSuccess ? 'Check your email!' : 'Create your account'}
+            {registrationSuccess ? t('auth:register.verifyEmailTitle') : t('auth:register.subtitle')}
           </Text>
         </Box>
 
@@ -104,32 +106,27 @@ export const RegisterPage = () => {
           {registrationSuccess ? (
             // Success message - Email verification required
             <VStack spacing={4}>
-              <Heading size="md">📬 Verify Your Email</Heading>
+              <Heading size="md">📬 {t('auth:register.verifyEmailTitle')}</Heading>
 
               <Alert status="success" borderRadius="md">
                 <AlertIcon />
-                Registration successful! Please check your email.
+                {t('auth:register.registrationSuccess')}
               </Alert>
 
               <Text textAlign="center">
-                We've sent a verification link to <strong>{registeredEmail}</strong>
-              </Text>
-
-              <Text fontSize="sm" textAlign="center" color="text.subtle">
-                Click the link in your email to verify your account and start using Subscription Tracker.
-                The link will expire in 24 hours.
+                {t('auth:register.verifyEmailMessage', { email: registeredEmail })}
               </Text>
 
               <Text fontSize="sm" textAlign="center" mt={4}>
-                Didn't receive the email?{' '}
+                {t('auth:register.verifyEmailNote')}{' '}
                 <Link as={RouterLink} to="/resend-verification" color="blue.500">
-                  Resend verification email
+                  {t('auth:register.resendButton')}
                 </Link>
               </Text>
 
               <Text fontSize="sm" textAlign="center" mt={2}>
                 <Link as={RouterLink} to="/login" color="blue.500">
-                  Back to login
+                  {t('auth:register.backButton')}
                 </Link>
               </Text>
             </VStack>
@@ -138,7 +135,7 @@ export const RegisterPage = () => {
             <form onSubmit={handleSubmit}>
               <VStack spacing={4}>
                 <Heading size="md" alignSelf="start">
-                  Register
+                  {t('auth:register.title')}
                 </Heading>
 
                 {error && (
@@ -149,33 +146,33 @@ export const RegisterPage = () => {
                 )}
 
                 <FormControl isRequired>
-                  <FormLabel>Invite Token</FormLabel>
+                  <FormLabel>{t('auth:register.inviteTokenLabel')}</FormLabel>
                   <Input
                     type="text"
                     value={inviteToken}
                     onChange={(e) => setInviteToken(e.target.value)}
-                    placeholder="Enter your invite token"
+                    placeholder={t('auth:register.inviteTokenPlaceholder')}
                     isReadOnly={!!searchParams.get('token')}
                     bg={searchParams.get('token') ? 'gray.100' : undefined}
                   />
                   <FormHelperText>
-                    Required to register. Get one from an admin.
+                    {t('auth:register.inviteTokenHelp', { defaultValue: 'Required to register. Get one from an admin.' })}
                   </FormHelperText>
                 </FormControl>
 
                 <FormControl>
-                  <FormLabel>Display Name (Optional)</FormLabel>
+                  <FormLabel>{t('auth:register.displayNameLabel')}</FormLabel>
                   <Input
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="How should we call you?"
+                    placeholder={t('auth:register.displayNamePlaceholder')}
                   />
-                  <FormHelperText>Used in personalized emails</FormHelperText>
+                  <FormHelperText>{t('auth:register.displayNameHelp', { defaultValue: 'Used in personalized emails' })}</FormHelperText>
                 </FormControl>
 
                 <FormControl isRequired>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>{t('auth:register.emailLabel')}</FormLabel>
                   <Input
                     type="email"
                     value={email}
@@ -185,23 +182,23 @@ export const RegisterPage = () => {
                 </FormControl>
 
                 <FormControl isRequired>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>{t('auth:register.passwordLabel')}</FormLabel>
                   <Input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter password"
+                    placeholder={t('auth:register.passwordLabel')}
                   />
-                  <FormHelperText>At least 8 characters</FormHelperText>
+                  <FormHelperText>{t('auth:register.passwordHelp', { defaultValue: 'At least 8 characters' })}</FormHelperText>
                 </FormControl>
 
                 <FormControl isRequired>
-                  <FormLabel>Confirm Password</FormLabel>
+                  <FormLabel>{t('auth:register.confirmPasswordLabel', { defaultValue: 'Confirm Password' })}</FormLabel>
                   <Input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm password"
+                    placeholder={t('auth:register.confirmPasswordLabel', { defaultValue: 'Confirm password' })}
                   />
                 </FormControl>
 
@@ -210,15 +207,15 @@ export const RegisterPage = () => {
                   colorScheme="blue"
                   width="full"
                   isLoading={isLoading}
-                  loadingText="Creating account..."
+                  loadingText={t('common:messages.loading')}
                 >
-                  Create Account
+                  {t('auth:register.registerButton')}
                 </Button>
 
                 <Text fontSize="sm">
-                  Already have an account?{' '}
+                  {t('auth:register.hasAccount')}{' '}
                   <Link as={RouterLink} to="/login" color="blue.500">
-                    Sign in here
+                    {t('auth:register.signIn')}
                   </Link>
                 </Text>
               </VStack>

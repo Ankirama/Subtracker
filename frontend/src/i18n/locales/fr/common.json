@@ -1,0 +1,72 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "subscriptions": "Abonnements",
+    "duplicates": "Doublons",
+    "reviews": "Révisions",
+    "categories": "Catégories",
+    "mailboxes": "Boîtes mail",
+    "budgets": "Budgets",
+    "analytics": "Analytiques",
+    "optimize": "Optimiser",
+    "aiSandbox": "Bac à sable IA",
+    "adminPanel": "Panneau d'administration",
+    "settings": "Paramètres",
+    "twoFactorAuth": "Authentification à deux facteurs"
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "update": "Mettre à jour",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "submit": "Soumettre",
+    "close": "Fermer",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "logout": "Déconnexion",
+    "login": "Connexion",
+    "register": "S'inscrire"
+  },
+  "labels": {
+    "email": "Email",
+    "password": "Mot de passe",
+    "name": "Nom",
+    "description": "Description",
+    "status": "Statut",
+    "date": "Date",
+    "time": "Heure",
+    "amount": "Montant",
+    "currency": "Devise",
+    "category": "Catégorie",
+    "provider": "Fournisseur",
+    "active": "Actif",
+    "inactive": "Inactif"
+  },
+  "messages": {
+    "success": "Succès",
+    "error": "Erreur",
+    "warning": "Avertissement",
+    "info": "Information",
+    "loading": "Chargement...",
+    "noData": "Aucune donnée disponible",
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer ceci ?",
+    "changesSaved": "Modifications enregistrées avec succès",
+    "operationFailed": "L'opération a échoué"
+  },
+  "validation": {
+    "required": "Ce champ est obligatoire",
+    "invalidEmail": "Adresse email invalide",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
+    "passwordMismatch": "Les mots de passe ne correspondent pas"
+  },
+  "language": {
+    "selectLanguage": "Sélectionner la langue",
+    "english": "Anglais",
+    "french": "Français"
+  }
+}

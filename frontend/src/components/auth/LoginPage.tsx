@@ -19,6 +19,7 @@ import {
 } from '@chakra-ui/react'
 import { ArrowBackIcon } from '@chakra-ui/icons'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
 import { authAPI } from '../../api/auth'
 import { TwoFactorRequiredResponse } from '../../types'
@@ -40,6 +41,7 @@ export const LoginPage = () => {
   const [isVerifying, setIsVerifying] = useState(false)
 
   const { completeLogin } = useAuth()
+  const { t } = useTranslation()
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -58,7 +60,7 @@ export const LoginPage = () => {
         setTwoFactorMethod(twoFactorResponse.method)
         setTwoFactorMessage(twoFactorResponse.message)
         toast({
-          title: '2FA Required',
+          title: t('auth:twoFactor.required'),
           description: twoFactorResponse.message,
           status: 'info',
           duration: 5000,
@@ -69,7 +71,7 @@ export const LoginPage = () => {
         localStorage.setItem('refresh_token', response.refresh_token)
 
         toast({
-          title: 'Login successful',
+          title: t('auth:login.loginSuccess'),
           status: 'success',
           duration: 3000,
         })
@@ -78,13 +80,13 @@ export const LoginPage = () => {
         await completeLogin()
       }
     } catch (err: any) {
-      const message = err.response?.data?.detail || 'Login failed. Please check your credentials.'
+      const message = err.response?.data?.detail || t('auth:login.loginFailed')
       const isUnverified = err.response?.status === 403 && message.toLowerCase().includes('not verified')
 
       setError(message)
       setIsUnverifiedError(isUnverified)
       toast({
-        title: isUnverified ? 'Email not verified' : 'Login failed',
+        title: isUnverified ? t('auth:verification.failed') : t('auth:login.loginFailed'),
         description: message,
         status: 'error',
         duration: isUnverified ? 7000 : 5000,
@@ -111,8 +113,8 @@ export const LoginPage = () => {
       localStorage.setItem('refresh_token', response.refresh_token)
 
       toast({
-        title: 'Login successful',
-        description: '2FA verification completed',
+        title: t('auth:login.loginSuccess'),
+        description: t('auth:twoFactor.verificationSuccess'),
         status: 'success',
         duration: 3000,
       })
@@ -120,10 +122,10 @@ export const LoginPage = () => {
       // Complete login by fetching user and navigating
       await completeLogin()
     } catch (err: any) {
-      const message = err.response?.data?.detail || 'Invalid verification code'
+      const message = err.response?.data?.detail || t('auth:twoFactor.invalidCode')
       setError(message)
       toast({
-        title: 'Verification failed',
+        title: t('auth:verification.failed'),
         description: message,
         status: 'error',
         duration: 5000,
@@ -149,7 +151,7 @@ export const LoginPage = () => {
             📧 Subscription Tracker
           </Heading>
           <Text color="text.subtle">
-            {requires2FA ? 'Enter verification code' : 'Sign in to manage your subscriptions'}
+            {requires2FA ? t('auth:twoFactor.enterCode') : t('auth:login.subtitle')}
           </Text>
         </Box>
 
@@ -159,7 +161,7 @@ export const LoginPage = () => {
             <form onSubmit={handleSubmit}>
               <VStack spacing={4}>
                 <Heading size="md" alignSelf="start">
-                  Sign In
+                  {t('auth:login.title')}
                 </Heading>
 
                 {error && (
@@ -171,7 +173,7 @@ export const LoginPage = () => {
                     {isUnverifiedError && (
                       <Text fontSize="sm" textAlign="center" color="blue.600">
                         <Link as={RouterLink} to="/resend-verification" color="blue.500">
-                          Click here to resend verification email
+                          {t('auth:register.resendButton')}
                         </Link>
                       </Text>
                     )}
@@ -179,7 +181,7 @@ export const LoginPage = () => {
                 )}
 
                 <FormControl isRequired>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>{t('auth:login.emailLabel')}</FormLabel>
                   <Input
                     type="email"
                     value={email}
@@ -189,12 +191,12 @@ export const LoginPage = () => {
                 </FormControl>
 
                 <FormControl isRequired>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>{t('auth:login.passwordLabel')}</FormLabel>
                   <Input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder={t('auth:login.passwordLabel')}
                   />
                 </FormControl>
 
@@ -203,15 +205,15 @@ export const LoginPage = () => {
                   colorScheme="blue"
                   width="full"
                   isLoading={isLoading}
-                  loadingText="Signing in..."
+                  loadingText={t('common:messages.loading')}
                 >
-                  Sign In
+                  {t('auth:login.loginButton')}
                 </Button>
 
                 <Text fontSize="sm">
-                  Don't have an account?{' '}
+                  {t('auth:login.noAccount')}{' '}
                   <Link as={RouterLink} to="/register" color="blue.500">
-                    Register here
+                    {t('auth:login.signUp')}
                   </Link>
                 </Text>
               </VStack>
@@ -222,13 +224,13 @@ export const LoginPage = () => {
               <VStack spacing={4}>
                 <HStack w="full" justifyContent="space-between" alignItems="center">
                   <IconButton
-                    aria-label="Back to login"
+                    aria-label={t('auth:login.backButton')}
                     icon={<ArrowBackIcon />}
                     onClick={handleBackToLogin}
                     variant="ghost"
                     size="sm"
                   />
-                  <Heading size="md">Two-Factor Authentication</Heading>
+                  <Heading size="md">{t('auth:login.twoFactorTitle')}</Heading>
                   <Box w="40px" /> {/* Spacer for alignment */}
                 </HStack>
 
@@ -247,11 +249,7 @@ export const LoginPage = () => {
                 )}
 
                 <FormControl isRequired>
-                  <FormLabel>
-                    {twoFactorMethod === 'totp'
-                      ? 'Authenticator Code'
-                      : 'Email Verification Code'}
-                  </FormLabel>
+                  <FormLabel>{t('auth:login.codeLabel')}</FormLabel>
                   <Input
                     type="text"
                     value={verificationCode}
@@ -261,9 +259,7 @@ export const LoginPage = () => {
                     autoFocus
                   />
                   <Text fontSize="xs" color="text.subtle" mt={1}>
-                    {twoFactorMethod === 'totp'
-                      ? 'Enter the 6-digit code from your authenticator app'
-                      : 'Enter the 6-digit code sent to your email'}
+                    {t('auth:login.twoFactorSubtitle')}
                   </Text>
                 </FormControl>
 
@@ -275,7 +271,7 @@ export const LoginPage = () => {
                       setVerificationCode('')
                     }}
                   >
-                    <Text fontSize="sm">Using backup code?</Text>
+                    <Text fontSize="sm">{t('auth:twoFactor.usingBackupCode', { defaultValue: 'Using backup code?' })}</Text>
                   </Checkbox>
                 </FormControl>
 
@@ -284,14 +280,14 @@ export const LoginPage = () => {
                   colorScheme="blue"
                   width="full"
                   isLoading={isVerifying}
-                  loadingText="Verifying..."
+                  loadingText={t('common:messages.loading')}
                   isDisabled={verificationCode.length < (isBackupCode ? 9 : 6)}
                 >
-                  Verify & Sign In
+                  {t('auth:login.verifyButton')}
                 </Button>
 
                 <Text fontSize="xs" color="gray.500" textAlign="center">
-                  Backup codes are one-time use codes shown when you enabled 2FA
+                  {t('auth:twoFactor.backupCodeHint', { defaultValue: 'Backup codes are one-time use codes shown when you enabled 2FA' })}
                 </Text>
               </VStack>
             </form>
