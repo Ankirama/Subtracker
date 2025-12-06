@@ -5,13 +5,14 @@ Revises: 9beec16f7bd0, abc123def456
 Create Date: 2025-12-06 09:36:25.111083
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'e9477877620d'
-down_revision = ('9beec16f7bd0', 'abc123def456')
+revision = "e9477877620d"
+down_revision = ("9beec16f7bd0", "abc123def456")
 branch_labels = None
 depends_on = None
 
