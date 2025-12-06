@@ -233,11 +233,12 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         run: |
           # Test downgrade works
-          # Check if current head is a merge point, if so downgrade to branchpoint
+          # Check if current head is a merge point, if so downgrade to first parent
           if alembic current | grep -q "mergepoint"; then
-            echo "At merge point, downgrading to branchpoint"
-            CURRENT=$(alembic current --verbose | grep "Parent:" | head -1 | awk '{print $2}')
-            alembic downgrade $CURRENT
+            echo "At merge point, downgrading to first parent"
+            PARENT=$(alembic current --verbose | grep "Merges:" | head -1 | awk '{print $2}' | sed 's/,$//')
+            echo "Downgrading to $PARENT"
+            alembic downgrade $PARENT
           else
             alembic downgrade -1
           fi
