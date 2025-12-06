@@ -10,7 +10,9 @@ SUPPORTED_LANGUAGES = ["en", "fr"]
 DEFAULT_LANGUAGE = "en"
 
 
-def get_user_language(user: Optional[User], accept_language: Optional[str] = None) -> str:
+def get_user_language(
+    user: Optional[User], accept_language: Optional[str] = None
+) -> str:
     """
     Get the appropriate language for a user.
 
