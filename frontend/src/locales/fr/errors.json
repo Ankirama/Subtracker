@@ -1,0 +1,32 @@
+{
+  "generic": {
+    "title": "Erreur",
+    "message": "Une erreur s'est produite. Veuillez réessayer.",
+    "retry": "Réessayer",
+    "goBack": "Retour"
+  },
+  "network": {
+    "title": "Erreur de connexion",
+    "message": "Impossible de se connecter au serveur. Veuillez vérifier votre connexion Internet."
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "message": "La page que vous recherchez n'existe pas."
+  },
+  "unauthorized": {
+    "title": "Non autorisé",
+    "message": "Vous n'avez pas la permission d'accéder à cette ressource."
+  },
+  "validation": {
+    "required": "Ce champ est requis",
+    "invalidEmail": "Adresse email invalide",
+    "invalidAmount": "Montant invalide",
+    "invalidDate": "Date invalide"
+  },
+  "api": {
+    "subscriptionNotFound": "Abonnement introuvable",
+    "failedToLoad": "Échec du chargement des données",
+    "failedToSave": "Échec de l'enregistrement des modifications",
+    "failedToDelete": "Échec de la suppression de l'élément"
+  }
+}

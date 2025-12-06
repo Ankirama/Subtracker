@@ -1,0 +1,96 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "subscriptions": "Abonnements",
+    "duplicates": "Doublons",
+    "reviews": "Révisions",
+    "categories": "Catégories",
+    "mailboxes": "Boîtes mail",
+    "budgets": "Budgets",
+    "analytics": "Analytique",
+    "optimize": "Optimiser",
+    "aiSandbox": "Bac à sable IA",
+    "adminPanel": "Panneau Admin",
+    "settings": "Paramètres",
+    "twoFactorAuth": "Auth. à deux facteurs",
+    "notifications": "Notifications",
+    "profile": "Profil"
+  },
+  "admin": {
+    "title": "Panneau d'administration",
+    "returnToDashboard": "Retour au tableau de bord",
+    "configuration": "Configuration",
+    "announcements": "Annonces",
+    "users": "Utilisateurs",
+    "invites": "Invitations",
+    "logs": "Journaux",
+    "securityEvents": "Événements de sécurité",
+    "ipWhitelist": "Liste blanche IP",
+    "feedbackMetrics": "Métriques de retour",
+    "administrator": "Administrateur",
+    "lastLogin": "Dernière connexion"
+  },
+  "menu": {
+    "logout": "Déconnexion",
+    "profile": "Profil"
+  },
+  "aria": {
+    "switchToDarkMode": "Passer en mode sombre",
+    "switchToLightMode": "Passer en mode clair"
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "update": "Mettre à jour",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "submit": "Soumettre",
+    "close": "Fermer",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "logout": "Déconnexion",
+    "login": "Connexion",
+    "register": "S'inscrire"
+  },
+  "labels": {
+    "email": "Email",
+    "password": "Mot de passe",
+    "name": "Nom",
+    "description": "Description",
+    "status": "Statut",
+    "date": "Date",
+    "time": "Heure",
+    "amount": "Montant",
+    "currency": "Devise",
+    "category": "Catégorie",
+    "provider": "Fournisseur",
+    "active": "Actif",
+    "inactive": "Inactif"
+  },
+  "messages": {
+    "success": "Succès",
+    "error": "Erreur",
+    "warning": "Avertissement",
+    "info": "Information",
+    "loading": "Chargement...",
+    "noData": "Aucune donnée disponible",
+    "confirmDelete": "Êtes-vous sûr de vouloir supprimer ceci ?",
+    "changesSaved": "Modifications enregistrées avec succès",
+    "operationFailed": "Échec de l'opération"
+  },
+  "validation": {
+    "required": "Ce champ est requis",
+    "invalidEmail": "Adresse email invalide",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
+    "passwordMismatch": "Les mots de passe ne correspondent pas"
+  },
+  "language": {
+    "selectLanguage": "Sélectionner la langue",
+    "english": "Anglais",
+    "french": "Français"
+  }
+}

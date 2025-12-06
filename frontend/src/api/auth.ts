@@ -22,6 +22,8 @@ import {
   DeleteAccountRequest,
   MessageResponse,
   PreferencesResponse,
+  LanguagePreferenceUpdate,
+  LanguagePreferenceResponse,
 } from '../types'
 
 export const authAPI = {
@@ -112,6 +114,20 @@ export const authAPI = {
 
   resendVerification: async (data: ResendVerificationRequest): Promise<EmailVerificationResponse> => {
     const response = await apiClient.post<EmailVerificationResponse>('/auth/resend-verification', data)
+    return response.data
+  },
+
+  // Language Preference methods
+
+  getLanguagePreference: async (): Promise<LanguagePreferenceResponse> => {
+    const response = await apiClient.get<LanguagePreferenceResponse>('/auth/me/language')
+    return response.data
+  },
+
+  updateLanguagePreference: async (language: string | null): Promise<LanguagePreferenceResponse> => {
+    const response = await apiClient.patch<LanguagePreferenceResponse>('/auth/me/language', {
+      language,
+    })
     return response.data
   },
 }

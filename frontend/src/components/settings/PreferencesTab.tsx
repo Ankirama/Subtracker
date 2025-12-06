@@ -16,6 +16,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { authAPI } from '../../api/auth'
 import type { UserPreferencesUpdate } from '../../types'
+import { LanguageSwitcher } from '../common/LanguageSwitcher'
 
 export function PreferencesTab() {
   const toast = useToast()
@@ -112,12 +113,10 @@ export function PreferencesTab() {
           <VStack spacing={4} align="stretch">
             <FormControl>
               <FormLabel>Language</FormLabel>
-              <Select value={language} onChange={(e) => setLanguage(e.target.value)}>
-                <option value="en">English</option>
-                <option value="fr">Français</option>
-                <option value="es">Español</option>
-                <option value="de">Deutsch</option>
-              </Select>
+              <LanguageSwitcher variant="buttons" size="md" />
+              <Text fontSize="sm" color="gray.500" mt={2}>
+                Choose your preferred language for the application
+              </Text>
             </FormControl>
 
             <FormControl>

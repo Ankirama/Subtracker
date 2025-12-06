@@ -1,0 +1,27 @@
+{
+  "app": {
+    "name": "Suivi d'Abonnements",
+    "title": "Suivi d'Abonnements"
+  },
+  "nav": {
+    "subscriptions": "Abonnements",
+    "dashboard": "Tableau de bord",
+    "settings": "Paramètres",
+    "logout": "Déconnexion"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "search": "Rechercher",
+    "filter": "Filtrer"
+  }
+}

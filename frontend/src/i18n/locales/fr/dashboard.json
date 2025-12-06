@@ -1,0 +1,31 @@
+{
+  "title": "Tableau de bord",
+  "subtitle": "Aperçu de vos abonnements",
+  "stats": {
+    "totalSubscriptions": "Total des abonnements",
+    "active": "actif",
+    "monthlyCost": "Coût mensuel",
+    "perMonth": "par mois",
+    "yearlyCost": "Coût annuel",
+    "perYear": "par an",
+    "upcomingRenewals": "Renouvellements à venir",
+    "next30Days": "30 prochains jours"
+  },
+  "byCategory": "Par catégorie",
+  "monthSuffix": "/mois",
+  "renewals": {
+    "title": "Renouvellements à venir",
+    "configureReminders": "Configurer les rappels",
+    "today": "Aujourd'hui",
+    "tomorrow": "Demain",
+    "days": "jours",
+    "viewAll": "Voir les {{count}} renouvellements"
+  },
+  "actions": {
+    "viewAllSubscriptions": "Voir tous les abonnements",
+    "manageMailboxes": "Gérer les boîtes mail"
+  },
+  "errors": {
+    "loadFailed": "Échec du chargement des données. Veuillez réessayer."
+  }
+}

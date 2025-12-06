@@ -29,6 +29,8 @@ from app.schemas.auth import (
     PasswordChangeRequest,
     UserPreferencesUpdate,
     DeleteAccountRequest,
+    LanguagePreferenceUpdate,
+    LanguagePreferenceResponse,
 )
 from app.security.password import hash_password, verify_password
 from app.security.jwt import create_access_token, create_refresh_token, verify_token
@@ -595,6 +597,59 @@ async def update_preferences(
 
     logger.info(f"Preferences updated for user: {current_user.email}")
     return {"message": "Preferences updated successfully", "preferences": settings}
+
+
+@router.get("/me/language", response_model=LanguagePreferenceResponse)
+async def get_language_preference(
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get user's language preference.
+
+    Args:
+        current_user: Current authenticated user
+
+    Returns:
+        User's preferred language or null for browser detection
+    """
+    return LanguagePreferenceResponse(
+        preferred_language=current_user.preferred_language,
+        message="Language preference retrieved successfully",
+    )
+
+
+@router.patch("/me/language", response_model=LanguagePreferenceResponse)
+async def update_language_preference(
+    language_data: LanguagePreferenceUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Update user's language preference.
+
+    Args:
+        language_data: Language preference update data (null for browser detection)
+        current_user: Current authenticated user
+        db: Database session
+
+    Returns:
+        Updated language preference
+
+    Raises:
+        HTTPException: If validation fails
+    """
+    # Update language preference
+    current_user.preferred_language = language_data.language
+    db.commit()
+    db.refresh(current_user)
+
+    logger.info(
+        f"Language preference updated for user: {current_user.email} to {language_data.language or 'browser detection'}"
+    )
+    return LanguagePreferenceResponse(
+        preferred_language=current_user.preferred_language,
+        message="Language preference updated successfully",
+    )
 
 
 @router.delete("/me")

@@ -20,9 +20,11 @@ import {
   Image,
 } from '@chakra-ui/react'
 import { Link as RouterLink, useLocation, Outlet } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../contexts/AuthContext'
 import { NotificationBell } from '../notifications/NotificationBell'
 import { BottomNav } from '../navigation/BottomNav'
+import { LanguageSwitcher } from './LanguageSwitcher'
 import {
   FiHome,
   FiCreditCard,
@@ -44,25 +46,26 @@ import {
 } from 'react-icons/fi'
 
 interface NavItem {
-  label: string
+  labelKey: string
   icon: any
   path: string
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', icon: FiHome, path: '/dashboard' },
-  { label: 'Subscriptions', icon: FiCreditCard, path: '/subscriptions' },
-  { label: 'Duplicates', icon: FiCopy, path: '/duplicates' },
-  { label: 'Reviews', icon: FiAlertCircle, path: '/reviews' },
-  { label: 'Categories', icon: FiTag, path: '/categories' },
-  { label: 'Mailboxes', icon: FiMail, path: '/mailboxes' },
-  { label: 'Budgets', icon: FiDollarSign, path: '/budgets' },
-  { label: 'Analytics', icon: FiBarChart2, path: '/analytics' },
-  { label: 'Optimize', icon: FiTrendingDown, path: '/optimize' },
-  { label: 'AI Sandbox', icon: FiTool, path: '/ai-sandbox' },
+  { labelKey: 'common:nav.dashboard', icon: FiHome, path: '/dashboard' },
+  { labelKey: 'common:nav.subscriptions', icon: FiCreditCard, path: '/subscriptions' },
+  { labelKey: 'common:nav.duplicates', icon: FiCopy, path: '/duplicates' },
+  { labelKey: 'common:nav.reviews', icon: FiAlertCircle, path: '/reviews' },
+  { labelKey: 'common:nav.categories', icon: FiTag, path: '/categories' },
+  { labelKey: 'common:nav.mailboxes', icon: FiMail, path: '/mailboxes' },
+  { labelKey: 'common:nav.budgets', icon: FiDollarSign, path: '/budgets' },
+  { labelKey: 'common:nav.analytics', icon: FiBarChart2, path: '/analytics' },
+  { labelKey: 'common:nav.optimize', icon: FiTrendingDown, path: '/optimize' },
+  { labelKey: 'common:nav.aiSandbox', icon: FiTool, path: '/ai-sandbox' },
 ]
 
 export const DashboardLayout = () => {
+  const { t } = useTranslation()
   const { user, logout } = useAuth()
   const location = useLocation()
   const { colorMode, toggleColorMode } = useColorMode()
@@ -113,7 +116,7 @@ export const DashboardLayout = () => {
                   justifyContent="flex-start"
                   fontWeight={isActive ? 'bold' : 'normal'}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Button>
               )
             })}
@@ -131,7 +134,7 @@ export const DashboardLayout = () => {
                   justifyContent="flex-start"
                   fontWeight={location.pathname.startsWith('/admin') ? 'bold' : 'normal'}
                 >
-                  Admin Panel
+                  {t('common:admin.title')}
                 </Button>
               </>
             )}
@@ -152,14 +155,14 @@ export const DashboardLayout = () => {
             </MenuButton>
             <MenuList>
               <MenuItem icon={<Icon as={FiSettings} />} as={RouterLink} to="/settings">
-                Settings
+                {t('common:nav.settings')}
               </MenuItem>
               <MenuItem icon={<Icon as={FiLock} />} as={RouterLink} to="/settings/2fa">
-                Two-Factor Auth
+                {t('common:nav.twoFactorAuth')}
               </MenuItem>
               <MenuDivider />
               <MenuItem icon={<Icon as={FiLogOut} />} onClick={logout}>
-                Logout
+                {t('common:menu.logout')}
               </MenuItem>
             </MenuList>
           </Menu>
@@ -190,9 +193,12 @@ export const DashboardLayout = () => {
           </Heading>
 
           <HStack spacing={2}>
+            {/* Language switcher */}
+            <LanguageSwitcher variant="menu" size="sm" />
+
             {/* Color mode toggle */}
             <IconButton
-              aria-label={`Switch to ${colorMode === 'light' ? 'dark' : 'light'} mode`}
+              aria-label={t(colorMode === 'light' ? 'common:aria.switchToDarkMode' : 'common:aria.switchToLightMode')}
               icon={<Icon as={colorMode === 'light' ? FiMoon : FiSun} />}
               onClick={toggleColorMode}
               variant="ghost"
@@ -214,10 +220,10 @@ export const DashboardLayout = () => {
                 </MenuButton>
                 <MenuList>
                   <MenuItem icon={<Icon as={FiSettings} />} as={RouterLink} to="/settings">
-                    Settings
+                    {t('common:nav.settings')}
                   </MenuItem>
                   <MenuItem icon={<Icon as={FiLock} />} as={RouterLink} to="/settings/2fa">
-                    Two-Factor Auth
+                    {t('common:nav.twoFactorAuth')}
                   </MenuItem>
                   {user?.is_admin && (
                     <MenuItem
@@ -225,12 +231,12 @@ export const DashboardLayout = () => {
                       as={RouterLink}
                       to="/admin/config"
                     >
-                      Admin Panel
+                      {t('common:admin.title')}
                     </MenuItem>
                   )}
                   <MenuDivider />
                   <MenuItem icon={<Icon as={FiLogOut} />} onClick={logout}>
-                    Logout
+                    {t('common:menu.logout')}
                   </MenuItem>
                 </MenuList>
               </Menu>

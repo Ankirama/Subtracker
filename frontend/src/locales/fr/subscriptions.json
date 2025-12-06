@@ -1,0 +1,83 @@
+{
+  "list": {
+    "title": "Mes Abonnements",
+    "empty": "Aucun abonnement trouvé",
+    "addNew": "Ajouter un abonnement"
+  },
+  "detail": {
+    "backToList": "Retour aux abonnements",
+    "editSubscription": "Modifier l'abonnement",
+    "splitSubscription": "Diviser l'abonnement",
+    "active": "Actif",
+    "inactive": "Inactif"
+  },
+  "fields": {
+    "provider": "Fournisseur",
+    "amount": "Montant",
+    "billingCycle": "Cycle de facturation",
+    "category": "Catégorie",
+    "nextRenewal": "Prochain renouvellement",
+    "customLabel": "Libellé personnalisé",
+    "notes": "Notes",
+    "emailSender": "Expéditeur de l'email",
+    "extractionMethod": "Méthode d'extraction",
+    "confidenceScore": "Score de confiance",
+    "firstDetected": "Première détection",
+    "lastUpdated": "Dernière mise à jour"
+  },
+  "billingCycles": {
+    "monthly": "Mensuel",
+    "yearly": "Annuel",
+    "quarterly": "Trimestriel",
+    "weekly": "Hebdomadaire"
+  },
+  "categories": {
+    "streaming": "Streaming",
+    "software": "Logiciel",
+    "cloud": "Services cloud",
+    "entertainment": "Divertissement",
+    "utilities": "Utilitaires",
+    "other": "Autre"
+  },
+  "split": {
+    "title": "Diviser l'abonnement",
+    "description": "Assignez chaque email à un groupe. Chaque groupe deviendra un abonnement séparé.",
+    "group": "Groupe",
+    "emails": "emails",
+    "removeGroup": "Supprimer",
+    "customLabel": "Libellé personnalisé",
+    "amount": "Montant",
+    "selectEmails": "Sélectionnez les emails pour ce groupe :",
+    "addGroup": "+ Ajouter un autre groupe",
+    "submit": "Diviser l'abonnement",
+    "cancel": "Annuler",
+    "errors": {
+      "incompleteAssignment": "Tous les emails doivent être assignés à un groupe",
+      "emptyGroup": "Chaque groupe doit contenir au moins un email",
+      "minGroups": "Il faut au moins 2 groupes pour diviser"
+    },
+    "success": "Abonnement divisé avec succès"
+  },
+  "sourceEmails": {
+    "title": "Emails sources",
+    "aiExtracted": "Données extraites par IA",
+    "noEmails": "Aucun email source trouvé",
+    "from": "De",
+    "to": "À",
+    "date": "Date",
+    "extractedData": "Données extraites",
+    "aiClassification": "Classification IA",
+    "emailContent": "Contenu de l'email",
+    "sourceCode": "Code source",
+    "renderedHtml": "HTML rendu",
+    "confidence": "Confiance"
+  },
+  "cancellation": {
+    "title": "Résiliation",
+    "instructions": "Instructions de résiliation",
+    "status": "Statut"
+  },
+  "priceHistory": {
+    "title": "Historique des prix"
+  }
+}

@@ -4,6 +4,7 @@ export interface User {
   email: string
   is_admin: boolean
   display_name?: string | null
+  preferred_language?: string | null
   created_at: string
   updated_at: string
 }
@@ -131,6 +132,16 @@ export interface MessageResponse {
 export interface PreferencesResponse {
   message: string
   preferences: UserPreferences
+}
+
+// Language Preference types
+export interface LanguagePreferenceUpdate {
+  language: string | null
+}
+
+export interface LanguagePreferenceResponse {
+  preferred_language: string | null
+  message: string
 }
 
 // Subscription types

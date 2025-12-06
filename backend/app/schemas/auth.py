@@ -47,6 +47,7 @@ class UserResponse(BaseModel):
     email: str
     is_active: bool
     is_admin: bool
+    preferred_language: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -233,3 +234,31 @@ class ResendVerificationRequest(BaseModel):
     """Schema for resending verification email."""
 
     email: EmailStr
+
+
+# Language Preference Schemas
+
+
+class LanguagePreferenceUpdate(BaseModel):
+    """Schema for updating user language preference."""
+
+    language: Optional[str] = Field(
+        None,
+        max_length=5,
+        description="Preferred language code ('en', 'fr', or null for browser detection)",
+    )
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, v: Optional[str]) -> Optional[str]:
+        """Validate language code."""
+        if v is not None and v not in ["en", "fr"]:
+            raise ValueError("Language must be 'en', 'fr', or null")
+        return v
+
+
+class LanguagePreferenceResponse(BaseModel):
+    """Schema for language preference response."""
+
+    preferred_language: Optional[str]
+    message: str

@@ -1,21 +1,23 @@
 import { Box, HStack, VStack, Text, Icon, useColorModeValue } from '@chakra-ui/react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { FiHome, FiCreditCard, FiBell, FiUser } from 'react-icons/fi'
 
 interface NavItem {
-  label: string
+  labelKey: string
   icon: any
   path: string
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', icon: FiHome, path: '/dashboard' },
-  { label: 'Subscriptions', icon: FiCreditCard, path: '/subscriptions' },
-  { label: 'Notifications', icon: FiBell, path: '/notifications' },
-  { label: 'Profile', icon: FiUser, path: '/settings/2fa' },
+  { labelKey: 'common:nav.dashboard', icon: FiHome, path: '/dashboard' },
+  { labelKey: 'common:nav.subscriptions', icon: FiCreditCard, path: '/subscriptions' },
+  { labelKey: 'common:nav.notifications', icon: FiBell, path: '/notifications' },
+  { labelKey: 'common:nav.profile', icon: FiUser, path: '/settings/2fa' },
 ]
 
 export const BottomNav = () => {
+  const { t } = useTranslation()
   const location = useLocation()
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.700')
@@ -73,7 +75,7 @@ export const BottomNav = () => {
                   color={isActive ? activeColor : inactiveColor}
                   transition="all 0.2s"
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Text>
               </VStack>
             </Box>
