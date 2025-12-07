@@ -1,0 +1,115 @@
+{
+  "hero": {
+    "title": "Take Control of Your Subscriptions",
+    "subtitle": "Track, manage, and optimize all your recurring expenses in one intelligent platform",
+    "cta": "Join Waitlist",
+    "alreadyHaveCode": "Already have an access code?"
+  },
+  "features": {
+    "title": "Everything You Need to Manage Subscriptions",
+    "subtitle": "Powerful features to help you stay on top of your recurring expenses",
+    "aiDetection": {
+      "title": "AI-Powered Detection",
+      "description": "Automatically detect and categorize subscriptions from your emails with advanced AI"
+    },
+    "smartAnalytics": {
+      "title": "Smart Analytics",
+      "description": "Get insights into your spending patterns and identify optimization opportunities"
+    },
+    "budgetTracking": {
+      "title": "Budget Tracking",
+      "description": "Set budgets and receive alerts when you're approaching your limits"
+    },
+    "multiCurrency": {
+      "title": "Multi-Currency Support",
+      "description": "Track subscriptions in multiple currencies with automatic conversion"
+    },
+    "duplicateDetection": {
+      "title": "Duplicate Detection",
+      "description": "Identify and eliminate duplicate subscriptions to save money"
+    },
+    "cancellationAssist": {
+      "title": "Cancellation Assistant",
+      "description": "Get step-by-step guidance to cancel unwanted subscriptions"
+    }
+  },
+  "showcase": {
+    "title": "See It In Action",
+    "subtitle": "Explore how Subscription Tracker helps you manage your recurring expenses",
+    "dashboard": {
+      "title": "Dashboard",
+      "description": "Get a comprehensive overview of all your subscriptions, upcoming renewals, and spending trends at a glance"
+    },
+    "subscriptions": {
+      "title": "Subscriptions",
+      "description": "View and manage all your subscriptions in one place with detailed information and quick actions"
+    },
+    "analytics": {
+      "title": "Analytics",
+      "description": "Analyze your spending patterns with interactive charts and discover opportunities to save money"
+    },
+    "budgets": {
+      "title": "Budgets",
+      "description": "Set spending limits for different categories and get notified when you're approaching your budget"
+    },
+    "optimize": {
+      "title": "Optimize",
+      "description": "Receive personalized recommendations to optimize your subscriptions and reduce unnecessary costs"
+    },
+    "reviews": {
+      "title": "Reviews",
+      "description": "Review and confirm AI-detected subscriptions to ensure accurate tracking of your recurring expenses"
+    }
+  },
+  "howItWorks": {
+    "title": "How It Works",
+    "subtitle": "Get started in minutes with our simple 3-step process",
+    "step1": {
+      "title": "Connect Your Mailbox",
+      "description": "Securely connect your email to automatically detect subscription confirmations and receipts"
+    },
+    "step2": {
+      "title": "AI Analyzes Your Emails",
+      "description": "Our intelligent system scans and categorizes all your subscription-related emails"
+    },
+    "step3": {
+      "title": "Track & Optimize",
+      "description": "View your dashboard, set budgets, and get recommendations to save money"
+    }
+  },
+  "trust": {
+    "title": "Your Data is Safe With Us",
+    "subtitle": "We take security and privacy seriously",
+    "encryption": {
+      "title": "End-to-End Encryption",
+      "description": "All your data is encrypted in transit and at rest"
+    },
+    "privacy": {
+      "title": "Privacy First",
+      "description": "We never sell your data or share it with third parties"
+    },
+    "noTracking": {
+      "title": "No Third-Party Tracking",
+      "description": "We don't use analytics or tracking scripts that compromise your privacy"
+    }
+  },
+  "waitlist": {
+    "title": "Join the Waitlist",
+    "subtitle": "Be among the first to experience the future of subscription management",
+    "emailPlaceholder": "Enter your email address",
+    "submit": "Join Waitlist",
+    "successTitle": "You're on the list!",
+    "successMessage": "We'll notify you when your access is approved. Check your inbox for updates.",
+    "alreadyOnList": "You're already on the waitlist",
+    "alreadyApproved": "This email has already been approved",
+    "invalidEmail": "Please enter a valid email address",
+    "errorTitle": "Oops!",
+    "errorMessage": "Something went wrong. Please try again.",
+    "rateLimitTitle": "Too Many Requests",
+    "rateLimitMessage": "You've made too many requests. Please try again in {{minutes}} minutes."
+  },
+  "footer": {
+    "tagline": "Intelligent subscription management for everyone",
+    "rights": "All rights reserved"
+  }
+}
