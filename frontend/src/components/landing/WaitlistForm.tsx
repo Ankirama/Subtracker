@@ -103,9 +103,8 @@ export const WaitlistForm = ({ onSuccess }: WaitlistFormProps) => {
             }}
             size="lg"
             bg="white"
-            _dark={{ bg: 'gray.700' }}
+            _dark={{ bg: 'gray.700', borderColor: 'gray.600' }}
             borderColor="gray.300"
-            _dark={{ borderColor: 'gray.600' }}
             _hover={{ borderColor: 'blue.400' }}
             _focus={{ borderColor: 'blue.500', boxShadow: '0 0 0 1px var(--chakra-colors-blue-500)' }}
             disabled={isLoading}

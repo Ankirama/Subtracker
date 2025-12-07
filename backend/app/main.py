@@ -43,6 +43,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize rate limiter
     from app.middleware.rate_limiter import init_rate_limiter
+
     try:
         await init_rate_limiter()
     except Exception as e:
@@ -55,6 +56,7 @@ async def lifespan(app: FastAPI):
 
     # Close rate limiter
     from app.middleware.rate_limiter import close_rate_limiter
+
     try:
         await close_rate_limiter()
     except Exception as e:
