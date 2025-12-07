@@ -41,10 +41,24 @@ async def lifespan(app: FastAPI):
     logger.info(f"Debug mode: {settings.DEBUG}")
     logger.info(f"CORS origins: {settings.cors_origins_list}")
 
+    # Initialize rate limiter
+    from app.middleware.rate_limiter import init_rate_limiter
+    try:
+        await init_rate_limiter()
+    except Exception as e:
+        logger.error(f"Failed to initialize rate limiter: {e}")
+
     yield
 
     # Shutdown
     logger.info(f"Shutting down {settings.APP_NAME}...")
+
+    # Close rate limiter
+    from app.middleware.rate_limiter import close_rate_limiter
+    try:
+        await close_rate_limiter()
+    except Exception as e:
+        logger.error(f"Failed to close rate limiter: {e}")
 
 
 # Create FastAPI app
@@ -126,6 +140,7 @@ from app.api import (
     feedback,
     providers,
     oauth,
+    waitlist,
 )
 from app.api.endpoints import push_notifications
 from app.api.admin import (
@@ -135,6 +150,7 @@ from app.api.admin import (
     logs as admin_logs,
     security as admin_security,
     invites as admin_invites,
+    demo as admin_demo,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -159,12 +175,14 @@ app.include_router(
 app.include_router(optimize.router, prefix="/api/optimize", tags=["Optimization"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
 app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])
+app.include_router(waitlist.router, prefix="/api", tags=["Waitlist"])
 app.include_router(admin_config.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(admin_announcements.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(admin_users.router, prefix="/api", tags=["Admin"])
 app.include_router(admin_logs.router, prefix="/api", tags=["Admin"])
 app.include_router(admin_security.router, prefix="/api", tags=["Admin"])
 app.include_router(admin_invites.router, prefix="/api/admin", tags=["Admin"])
+app.include_router(admin_demo.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(oauth.router, prefix="/api/oauth", tags=["OAuth"])
 
 # Additional routers (will be added as we create them)
