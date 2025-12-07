@@ -14,6 +14,8 @@ from app.models.notification import Notification, NotificationPreference
 from app.models.invite_token import InviteToken
 from app.models.push_subscription import PushSubscription
 from app.models.two_factor import EmailOTP
+from app.models.category import Category, DEFAULT_CATEGORIES
+from app.models.waitlist import Waitlist
 
 __all__ = [
     "User",
@@ -33,4 +35,7 @@ __all__ = [
     "InviteToken",
     "PushSubscription",
     "EmailOTP",
+    "Category",
+    "DEFAULT_CATEGORIES",
+    "Waitlist",
 ]
