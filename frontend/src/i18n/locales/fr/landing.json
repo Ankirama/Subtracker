@@ -1,0 +1,85 @@
+{
+  "hero": {
+    "title": "Prenez le Contrôle de Vos Abonnements",
+    "subtitle": "Suivez, gérez et optimisez toutes vos dépenses récurrentes sur une plateforme intelligente",
+    "cta": "Rejoindre la Liste d'Attente",
+    "alreadyHaveCode": "Vous avez déjà un code d'accès ?"
+  },
+  "features": {
+    "title": "Tout Ce Dont Vous Avez Besoin pour Gérer Vos Abonnements",
+    "subtitle": "Des fonctionnalités puissantes pour vous aider à suivre vos dépenses récurrentes",
+    "aiDetection": {
+      "title": "Détection par IA",
+      "description": "Détectez et catégorisez automatiquement les abonnements à partir de vos emails grâce à l'IA avancée"
+    },
+    "smartAnalytics": {
+      "title": "Analytique Intelligente",
+      "description": "Obtenez des informations sur vos habitudes de dépenses et identifiez les opportunités d'optimisation"
+    },
+    "budgetTracking": {
+      "title": "Suivi de Budget",
+      "description": "Définissez des budgets et recevez des alertes lorsque vous approchez de vos limites"
+    },
+    "multiCurrency": {
+      "title": "Support Multi-Devises",
+      "description": "Suivez les abonnements dans plusieurs devises avec conversion automatique"
+    },
+    "duplicateDetection": {
+      "title": "Détection de Doublons",
+      "description": "Identifiez et éliminez les abonnements en double pour économiser de l'argent"
+    },
+    "cancellationAssist": {
+      "title": "Assistant d'Annulation",
+      "description": "Obtenez des instructions étape par étape pour annuler les abonnements indésirables"
+    }
+  },
+  "howItWorks": {
+    "title": "Comment Ça Marche",
+    "subtitle": "Commencez en quelques minutes avec notre processus simple en 3 étapes",
+    "step1": {
+      "title": "Connectez Votre Boîte Mail",
+      "description": "Connectez votre email en toute sécurité pour détecter automatiquement les confirmations et reçus d'abonnement"
+    },
+    "step2": {
+      "title": "L'IA Analyse Vos Emails",
+      "description": "Notre système intelligent scanne et catégorise tous vos emails liés aux abonnements"
+    },
+    "step3": {
+      "title": "Suivez et Optimisez",
+      "description": "Consultez votre tableau de bord, définissez des budgets et obtenez des recommandations pour économiser"
+    }
+  },
+  "trust": {
+    "title": "Vos Données Sont En Sécurité",
+    "subtitle": "Nous prenons la sécurité et la confidentialité au sérieux",
+    "encryption": {
+      "title": "Chiffrement de Bout en Bout",
+      "description": "Toutes vos données sont chiffrées en transit et au repos"
+    },
+    "privacy": {
+      "title": "Confidentialité d'Abord",
+      "description": "Nous ne vendons jamais vos données ni ne les partageons avec des tiers"
+    },
+    "openSource": {
+      "title": "Open Source",
+      "description": "Notre code est transparent et vérifiable par la communauté"
+    }
+  },
+  "waitlist": {
+    "title": "Rejoindre la Liste d'Attente",
+    "subtitle": "Soyez parmi les premiers à découvrir l'avenir de la gestion d'abonnements",
+    "emailPlaceholder": "Entrez votre adresse email",
+    "submit": "Rejoindre la Liste",
+    "successTitle": "Vous êtes sur la liste !",
+    "successMessage": "Nous vous informerons lorsque votre accès sera approuvé. Vérifiez votre boîte de réception pour les mises à jour.",
+    "alreadyOnList": "Vous êtes déjà sur la liste d'attente",
+    "alreadyApproved": "Cet email a déjà été approuvé",
+    "invalidEmail": "Veuillez entrer une adresse email valide",
+    "errorTitle": "Oups !",
+    "errorMessage": "Quelque chose s'est mal passé. Veuillez réessayer."
+  },
+  "footer": {
+    "tagline": "Gestion intelligente d'abonnements pour tous",
+    "rights": "Tous droits réservés"
+  }
+}

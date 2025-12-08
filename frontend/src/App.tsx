@@ -38,6 +38,9 @@ const SettingsPage = lazy(() => import('./components/settings/SettingsPage').the
 const ConfigPage = lazy(() => import('./pages/admin/ConfigPage').then(m => ({ default: m.ConfigPage })))
 const AdminAnnouncementsPage = lazy(() => import('./components/admin/AdminAnnouncementsPage').then(m => ({ default: m.AdminAnnouncementsPage })))
 const AdminUsersPage = lazy(() => import('./components/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })))
+
+// Landing page
+const LandingPageWrapper = lazy(() => import('./components/landing').then(m => ({ default: m.LandingPageWrapper })))
 const AdminLogsPage = lazy(() => import('./components/admin/AdminLogsPage').then(m => ({ default: m.AdminLogsPage })))
 const AdminSecurityEventsPage = lazy(() => import('./components/admin/AdminSecurityEventsPage').then(m => ({ default: m.AdminSecurityEventsPage })))
 const AdminIPWhitelistPage = lazy(() => import('./components/admin/AdminIPWhitelistPage').then(m => ({ default: m.AdminIPWhitelistPage })))
@@ -107,8 +110,8 @@ function App() {
                   <Route path="invites" element={<AdminInvitesPage />} />
                 </Route>
 
-                {/* Default redirect */}
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                {/* Landing page for unauthenticated users, dashboard for authenticated */}
+                <Route path="/" element={<LandingPageWrapper />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Suspense>
