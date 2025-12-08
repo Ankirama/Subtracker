@@ -55,7 +55,7 @@ async def generate_demo_data(
         demo_mailbox = create_demo_mailbox(db, demo_user.id)
 
         # Create subscriptions
-        subscriptions = create_subscriptions(db, demo_user.id, demo_mailbox.id)
+        create_subscriptions(db, demo_user.id, demo_mailbox.id)
 
         # Create budgets
         create_budgets(db, demo_user.id)
@@ -124,7 +124,7 @@ async def delete_demo_data(
 
         return {
             "success": True,
-            "message": f"Demo user and all related data deleted successfully",
+            "message": "Demo user and all related data deleted successfully",
         }
 
     except HTTPException:
@@ -176,7 +176,9 @@ async def get_demo_status(
         "exists": True,
         "email": DEMO_EMAIL,
         "user_id": str(demo_user.id),
-        "created_at": demo_user.created_at.isoformat() if demo_user.created_at else None,
+        "created_at": (
+            demo_user.created_at.isoformat() if demo_user.created_at else None
+        ),
         "data_counts": {
             "subscriptions": subscription_count,
             "budgets": budget_count,
