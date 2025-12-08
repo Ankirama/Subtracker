@@ -59,7 +59,7 @@ def create_demo_mailbox(db: Session, user_id: uuid.UUID) -> Mailbox:
     )
 
     if mailbox:
-        print(f"✓ Demo mailbox already exists")
+        print("✓ Demo mailbox already exists")
         return mailbox
 
     mailbox = Mailbox(
@@ -73,7 +73,7 @@ def create_demo_mailbox(db: Session, user_id: uuid.UUID) -> Mailbox:
     db.add(mailbox)
     db.commit()
     db.refresh(mailbox)
-    print(f"✓ Created demo mailbox")
+    print("✓ Created demo mailbox")
     return mailbox
 
 
@@ -372,7 +372,7 @@ def disable_notifications(db: Session, user_id: uuid.UUID):
         created_prefs.append(pref)
 
     db.commit()
-    print(f"✓ Disabled all notifications for demo user (safety measure)")
+    print("✓ Disabled all notifications for demo user (safety measure)")
 
 
 def seed_demo_data():
@@ -401,7 +401,7 @@ def seed_demo_data():
         print("=" * 60)
         print("✅ DEMO DATA SEEDED SUCCESSFULLY!")
         print("=" * 60)
-        print(f"Demo user credentials:")
+        print("Demo user credentials:")
         print(f"  Email: {DEMO_EMAIL}")
         print(f"  Password: {DEMO_PASSWORD}")
         print("=" * 60)
