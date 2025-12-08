@@ -173,6 +173,39 @@ export interface InviteListResponse {
   invites: Invite[]
 }
 
+// Waitlist Management Types
+export interface WaitlistEntry {
+  id: string
+  email: string
+  status: 'pending' | 'approved' | 'rejected'
+  access_code?: string
+  created_at: string
+  approved_at?: string
+  rejected_at?: string
+}
+
+export interface WaitlistApproveRequest {
+  send_email?: boolean
+}
+
+export interface WaitlistRejectRequest {
+  reason?: string
+}
+
+export interface WaitlistApproveResponse {
+  success: boolean
+  message: string
+  access_code?: string
+}
+
+export interface WaitlistListResponse {
+  items: WaitlistEntry[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
 // IP Whitelist Management Types
 export interface IPWhitelistEntry {
   ip_address: string
@@ -424,5 +457,34 @@ export const adminApi = {
 
   async revokeInvite(inviteId: string): Promise<void> {
     await apiClient.delete(`/admin/invites/${inviteId}`)
+  },
+
+  // Waitlist Management
+  async listWaitlist(params?: {
+    page?: number
+    page_size?: number
+    status_filter?: 'pending' | 'approved' | 'rejected'
+  }): Promise<WaitlistListResponse> {
+    const response = await apiClient.get('/admin/waitlist', { params })
+    return response.data
+  },
+
+  async approveWaitlist(
+    entryId: string,
+    data: WaitlistApproveRequest
+  ): Promise<WaitlistApproveResponse> {
+    const response = await apiClient.post(`/admin/waitlist/${entryId}/approve`, data)
+    return response.data
+  },
+
+  async rejectWaitlist(
+    entryId: string,
+    data: WaitlistRejectRequest
+  ): Promise<void> {
+    await apiClient.post(`/admin/waitlist/${entryId}/reject`, data)
+  },
+
+  async deleteWaitlist(entryId: string): Promise<void> {
+    await apiClient.delete(`/admin/waitlist/${entryId}`)
   },
 }

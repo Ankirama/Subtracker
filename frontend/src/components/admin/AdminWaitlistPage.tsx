@@ -130,7 +130,7 @@ export const AdminWaitlistPage = () => {
         approved: statusFilter ? approved : response.items.filter(e => e.status === 'approved').length,
         rejected: statusFilter ? rejected : response.items.filter(e => e.status === 'rejected').length,
       })
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: 'Error Loading Waitlist',
         description: error instanceof Error ? error.message : 'Unknown error',
@@ -172,10 +172,13 @@ export const AdminWaitlistPage = () => {
 
       onApproveClose()
       loadWaitlist()
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? ((error as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Unknown error')
+        : 'Unknown error'
       toast({
         title: 'Error Approving Entry',
-        description: error.response?.data?.detail || 'Unknown error',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
       })
@@ -204,10 +207,13 @@ export const AdminWaitlistPage = () => {
 
       onRejectClose()
       loadWaitlist()
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? ((error as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Unknown error')
+        : 'Unknown error'
       toast({
         title: 'Error Rejecting Entry',
-        description: error.response?.data?.detail || 'Unknown error',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
       })
@@ -234,10 +240,13 @@ export const AdminWaitlistPage = () => {
 
       onDeleteClose()
       loadWaitlist()
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? ((error as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Unknown error')
+        : 'Unknown error'
       toast({
         title: 'Error Deleting Entry',
-        description: error.response?.data?.detail || 'Unknown error',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
       })
@@ -257,7 +266,7 @@ export const AdminWaitlistPage = () => {
         duration: 2000,
       })
       setTimeout(() => setCopiedId(null), 2000)
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: 'Failed to Copy',
         status: 'error',

@@ -1,6 +1,5 @@
 """Fix demo subscriptions by linking them to the demo mailbox."""
 
-from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import User, Mailbox, Subscription
 
@@ -22,7 +21,7 @@ try:
     )
 
     if not mailbox:
-        print(f"❌ Demo mailbox not found")
+        print("❌ Demo mailbox not found")
         exit(1)
 
     print(f"✓ Found demo mailbox: {mailbox.id}")
@@ -30,7 +29,7 @@ try:
     # Update subscriptions without mailbox_id
     subscriptions = (
         db.query(Subscription)
-        .filter(Subscription.user_id == user.id, Subscription.mailbox_id == None)
+        .filter(Subscription.user_id == user.id, Subscription.mailbox_id.is_(None))
         .all()
     )
 
@@ -47,11 +46,11 @@ try:
 
     linked_subs = (
         db.query(Subscription)
-        .filter(Subscription.user_id == user.id, Subscription.mailbox_id != None)
+        .filter(Subscription.user_id == user.id, Subscription.mailbox_id.isnot(None))
         .count()
     )
 
-    print(f"\n✅ Success!")
+    print("\n✅ Success!")
     print(f"Total subscriptions: {total_subs}")
     print(f"Linked to mailbox: {linked_subs}")
 
