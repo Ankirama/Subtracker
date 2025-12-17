@@ -27,6 +27,7 @@ class GmailAuthError(Exception):
         message: Human-readable error message
         needs_reconnect: If True, user needs to re-authenticate via OAuth
     """
+
     def __init__(self, message: str, needs_reconnect: bool = False):
         self.message = message
         self.needs_reconnect = needs_reconnect
@@ -83,16 +84,18 @@ class GmailProvider(EmailProviderInterface):
             except RefreshError as e:
                 # Token refresh failed - user needs to re-authenticate
                 error_msg = str(e)
-                logger.error(f"Gmail token refresh failed (needs reconnect): {error_msg}")
+                logger.error(
+                    f"Gmail token refresh failed (needs reconnect): {error_msg}"
+                )
                 raise GmailAuthError(
                     message=f"Gmail authentication expired. Please reconnect your account.",
-                    needs_reconnect=True
+                    needs_reconnect=True,
                 )
             except Exception as e:
                 logger.error(f"Failed to refresh Gmail token: {e}")
                 raise GmailAuthError(
                     message=f"Gmail token refresh failed: {str(e)}",
-                    needs_reconnect=True
+                    needs_reconnect=True,
                 )
 
         return creds
@@ -126,7 +129,7 @@ class GmailProvider(EmailProviderInterface):
             if status in (401, 403):
                 raise GmailAuthError(
                     message=f"Gmail authentication failed (HTTP {status}). Please reconnect your account.",
-                    needs_reconnect=True
+                    needs_reconnect=True,
                 )
             return False
         except Exception as e:

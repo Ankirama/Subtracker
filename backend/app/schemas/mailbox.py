@@ -115,7 +115,15 @@ class MailboxSyncStatus(BaseModel):
     """Schema for mailbox sync status response."""
 
     mailbox_id: UUID
-    status: Literal["success", "failed", "in_progress", "queued", "never_synced", "auth_failed", "cancelling"]
+    status: Literal[
+        "success",
+        "failed",
+        "in_progress",
+        "queued",
+        "never_synced",
+        "auth_failed",
+        "cancelling",
+    ]
     last_sync_at: Optional[datetime]
     total_emails_processed: Optional[int] = None
     subscriptions_found: Optional[int] = None

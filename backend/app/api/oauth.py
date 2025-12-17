@@ -311,7 +311,9 @@ async def google_callback(
             # Update credentials
             credentials = {
                 "access_token": tokens["access_token"],
-                "refresh_token": tokens.get("refresh_token"),  # Must have new refresh token
+                "refresh_token": tokens.get(
+                    "refresh_token"
+                ),  # Must have new refresh token
                 "token_expiry": None,
                 "client_id": settings.GOOGLE_CLIENT_ID,
                 "client_secret": settings.GOOGLE_CLIENT_SECRET,
