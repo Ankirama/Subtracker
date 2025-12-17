@@ -92,6 +92,10 @@ class MailboxResponse(BaseModel):
     import_date_filter: Optional[str]
     created_at: datetime
     updated_at: datetime
+    # OAuth reconnection fields
+    needs_reconnect: bool = False
+    auth_error_at: Optional[datetime] = None
+    auth_error_message: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -111,11 +115,12 @@ class MailboxSyncStatus(BaseModel):
     """Schema for mailbox sync status response."""
 
     mailbox_id: UUID
-    status: Literal["success", "failed", "in_progress", "queued", "never_synced"]
+    status: Literal["success", "failed", "in_progress", "queued", "never_synced", "auth_failed", "cancelling"]
     last_sync_at: Optional[datetime]
     total_emails_processed: Optional[int] = None
     subscriptions_found: Optional[int] = None
     error_message: Optional[str] = None
+    needs_reconnect: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

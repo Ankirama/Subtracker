@@ -18,6 +18,7 @@ from app.models.email_message import EmailMessage, subscription_emails
 from app.models.price_history import PriceHistory
 from app.models.sync_history import SyncHistory
 from app.email_providers import JMAPProvider, GmailProvider
+from app.email_providers.gmail import GmailAuthError
 from app.security.encryption import decrypt_credentials
 from app.config import settings
 from app.utils.config_helper import get_config_value
@@ -120,9 +121,13 @@ async def _sync_mailbox_async(
             raise ValueError(f"Unsupported provider type: {mailbox.provider_type}")
 
         # Authenticate
-        auth_success = await provider.authenticate()
-        if not auth_success:
-            return {"success": False, "error": "Authentication failed"}
+        try:
+            auth_success = await provider.authenticate()
+            if not auth_success:
+                return {"success": False, "error": "Authentication failed"}
+        except GmailAuthError as e:
+            # Re-raise to be handled by the caller with proper reconnect flag handling
+            raise
 
         # Determine date filter - prioritize explicit date_filter parameter
         since_date = None
@@ -1061,6 +1066,11 @@ def sync_mailbox_emails(
             mailbox.progress_percentage = 100.0  # Set to 100% on completion
             mailbox.estimated_completion_time = None
 
+            # Clear reconnect flags on successful sync (auth is working again)
+            mailbox.needs_reconnect = False
+            mailbox.auth_error_at = None
+            mailbox.auth_error_message = None
+
             # Update history entry for successful completion (Issue #11)
             history_entry.status = "completed"
             history_entry.completed_at = completion_time
@@ -1118,6 +1128,47 @@ def sync_mailbox_emails(
 
         logger.info(f"Email sync completed for mailbox {mailbox_id}: {result}")
         return result
+
+    except GmailAuthError as e:
+        # Handle Gmail authentication errors specifically
+        logger.error(
+            f"Gmail auth error for mailbox {mailbox_id}: {e.message} (needs_reconnect={e.needs_reconnect})"
+        )
+        exception_time = datetime.now(timezone.utc)
+
+        # Set special auth_failed status and reconnect flags
+        mailbox.last_sync_status = "auth_failed"
+        mailbox.last_sync_at = exception_time
+        mailbox.last_sync_error_message = e.message
+
+        if e.needs_reconnect:
+            mailbox.needs_reconnect = True
+            mailbox.auth_error_at = exception_time
+            mailbox.auth_error_message = e.message
+
+        # Update history entry for auth failure
+        history_entry.status = "failed"
+        history_entry.completed_at = exception_time
+        history_entry.duration_seconds = int(
+            (
+                exception_time - history_entry.started_at.replace(tzinfo=timezone.utc)
+            ).total_seconds()
+        )
+        history_entry.error_message = e.message
+        history_entry.error_type = "GmailAuthError"
+        history_entry.total_emails_processed = mailbox.last_sync_emails_processed or 0
+        history_entry.subscriptions_found = mailbox.last_sync_subscriptions_found or 0
+        history_entry.batches_processed = mailbox.last_sync_batch_num or 0
+
+        db.commit()
+
+        # Don't retry auth errors - user needs to reconnect
+        return {
+            "success": False,
+            "error": e.message,
+            "needs_reconnect": e.needs_reconnect,
+            "error_type": "auth_failed",
+        }
 
     except Exception as e:
         logger.error(f"Email sync failed for mailbox {mailbox_id}: {str(e)}")

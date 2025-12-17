@@ -10,12 +10,27 @@ from email.utils import parsedate_to_datetime
 
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
+from google.auth.exceptions import RefreshError
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 from app.email_providers.base import EmailProviderInterface, EmailMessage, EmailFolder
 
 logger = logging.getLogger(__name__)
+
+
+class GmailAuthError(Exception):
+    """
+    Raised when Gmail authentication fails due to token issues.
+
+    Attributes:
+        message: Human-readable error message
+        needs_reconnect: If True, user needs to re-authenticate via OAuth
+    """
+    def __init__(self, message: str, needs_reconnect: bool = False):
+        self.message = message
+        self.needs_reconnect = needs_reconnect
+        super().__init__(message)
 
 
 class GmailProvider(EmailProviderInterface):
@@ -65,15 +80,29 @@ class GmailProvider(EmailProviderInterface):
                 self.access_token = creds.token
                 self.token_expiry = creds.expiry.isoformat() if creds.expiry else None
                 logger.info("Gmail access token refreshed successfully")
+            except RefreshError as e:
+                # Token refresh failed - user needs to re-authenticate
+                error_msg = str(e)
+                logger.error(f"Gmail token refresh failed (needs reconnect): {error_msg}")
+                raise GmailAuthError(
+                    message=f"Gmail authentication expired. Please reconnect your account.",
+                    needs_reconnect=True
+                )
             except Exception as e:
                 logger.error(f"Failed to refresh Gmail token: {e}")
-                raise
+                raise GmailAuthError(
+                    message=f"Gmail token refresh failed: {str(e)}",
+                    needs_reconnect=True
+                )
 
         return creds
 
     async def authenticate(self) -> bool:
         """
         Authenticate with Gmail API using stored OAuth tokens.
+
+        Raises:
+            GmailAuthError: If authentication fails due to token issues
         """
         try:
             self._creds = self._get_credentials()
@@ -87,8 +116,18 @@ class GmailProvider(EmailProviderInterface):
             logger.info(f"Gmail authentication successful for {self.email_address}")
             return True
 
+        except GmailAuthError:
+            # Re-raise our custom auth errors
+            raise
         except HttpError as e:
-            logger.error(f"Gmail authentication failed: HTTP {e.resp.status}")
+            status = e.resp.status
+            logger.error(f"Gmail authentication failed: HTTP {status}")
+            # 401 Unauthorized or 403 Forbidden indicate auth issues
+            if status in (401, 403):
+                raise GmailAuthError(
+                    message=f"Gmail authentication failed (HTTP {status}). Please reconnect your account.",
+                    needs_reconnect=True
+                )
             return False
         except Exception as e:
             logger.error(f"Gmail authentication error: {str(e)}")

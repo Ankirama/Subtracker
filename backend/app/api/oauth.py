@@ -98,6 +98,94 @@ async def google_authorize(current_user: User = Depends(get_current_user)):
     return {"authorization_url": auth_url, "state": state}
 
 
+@router.get("/google/reconnect/{mailbox_id}")
+async def google_reconnect(
+    mailbox_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Initiate OAuth flow to reconnect an existing Gmail mailbox.
+
+    Used when OAuth tokens have expired and cannot be refreshed.
+    This is similar to google_authorize but includes mailbox_id in the state
+    so the callback knows to update existing mailbox instead of creating new.
+    """
+    if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google OAuth is not configured",
+        )
+
+    # Verify mailbox exists and belongs to user
+    mailbox = (
+        db.query(Mailbox)
+        .filter(
+            Mailbox.id == mailbox_id,
+            Mailbox.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if not mailbox:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Mailbox not found",
+        )
+
+    if mailbox.provider_type != "gmail":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only Gmail mailboxes can be reconnected via OAuth",
+        )
+
+    # Generate state token for CSRF protection
+    state = secrets.token_urlsafe(32)
+
+    # Store state -> user_id + mailbox_id mapping in Redis
+    if redis_client:
+        try:
+            state_data = {
+                "user_id": str(current_user.id),
+                "mailbox_id": str(mailbox_id),  # Include mailbox_id for reconnection
+                "is_reconnect": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            redis_key = f"oauth:state:{state}"
+            redis_client.setex(redis_key, OAUTH_STATE_TTL, json.dumps(state_data))
+            logger.info(
+                f"Stored OAuth reconnect state in Redis for user {current_user.id}, mailbox {mailbox_id}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to store OAuth state in Redis: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="OAuth state storage failed. Please try again.",
+            )
+    else:
+        logger.error("Redis client not available for OAuth state storage")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OAuth service temporarily unavailable",
+        )
+
+    # Build authorization URL with prompt=consent to force new refresh token
+    params = {
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": " ".join(GMAIL_SCOPES),
+        "access_type": "offline",  # Request refresh token
+        "prompt": "consent",  # Force consent to get new refresh token
+        "state": state,
+        "login_hint": mailbox.email_address,  # Pre-fill email
+    }
+
+    auth_url = f"{GOOGLE_AUTH_URL}?" + "&".join(f"{k}={v}" for k, v in params.items())
+
+    return {"authorization_url": auth_url, "state": state}
+
+
 @router.get("/google/callback")
 async def google_callback(
     code: str = Query(..., description="Authorization code from Google"),
@@ -142,7 +230,11 @@ async def google_callback(
         # Parse state data
         state_data = json.loads(state_json)
         user_id = state_data["user_id"]
-        logger.info(f"OAuth state validated for user {user_id}")
+        is_reconnect = state_data.get("is_reconnect", False)
+        reconnect_mailbox_id = state_data.get("mailbox_id")
+        logger.info(
+            f"OAuth state validated for user {user_id} (reconnect={is_reconnect})"
+        )
 
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse OAuth state data: {e}")
@@ -197,7 +289,57 @@ async def google_callback(
                     url=f"{settings.FRONTEND_URL}/mailboxes/add?error=no_email"
                 )
 
-        # Check if mailbox already exists
+        # Handle reconnect flow - find mailbox by ID from state
+        if is_reconnect and reconnect_mailbox_id:
+            existing = (
+                db.query(Mailbox)
+                .filter(
+                    Mailbox.id == reconnect_mailbox_id,
+                    Mailbox.user_id == user_id,
+                )
+                .first()
+            )
+
+            if not existing:
+                logger.error(
+                    f"Reconnect failed: mailbox {reconnect_mailbox_id} not found"
+                )
+                return RedirectResponse(
+                    url=f"{settings.FRONTEND_URL}/mailboxes?error=mailbox_not_found"
+                )
+
+            # Update credentials
+            credentials = {
+                "access_token": tokens["access_token"],
+                "refresh_token": tokens.get("refresh_token"),  # Must have new refresh token
+                "token_expiry": None,
+                "client_id": settings.GOOGLE_CLIENT_ID,
+                "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                "email_address": email,
+            }
+
+            existing.encrypted_credentials = encrypt_credentials(credentials)
+            existing.is_active = True
+
+            # Clear reconnect flags
+            existing.needs_reconnect = False
+            existing.auth_error_at = None
+            existing.auth_error_message = None
+
+            # Clear any error status
+            existing.last_sync_error_message = None
+
+            db.commit()
+
+            logger.info(
+                f"Reconnected Gmail mailbox {reconnect_mailbox_id} for user {user_id}: {email}"
+            )
+
+            return RedirectResponse(
+                url=f"{settings.FRONTEND_URL}/mailboxes?success=gmail_reconnected"
+            )
+
+        # Check if mailbox already exists (normal flow)
         existing = (
             db.query(Mailbox)
             .filter(Mailbox.user_id == user_id, Mailbox.email_address == email)
@@ -225,6 +367,12 @@ async def google_callback(
             existing.encrypted_credentials = encrypt_credentials(credentials)
             existing.provider_type = "gmail"
             existing.is_active = True
+
+            # Also clear reconnect flags in case user connected again via normal flow
+            existing.needs_reconnect = False
+            existing.auth_error_at = None
+            existing.auth_error_message = None
+
             db.commit()
 
             logger.info(f"Updated Gmail mailbox for user {user_id}: {email}")
