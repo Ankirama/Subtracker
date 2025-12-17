@@ -88,7 +88,7 @@ class GmailProvider(EmailProviderInterface):
                     f"Gmail token refresh failed (needs reconnect): {error_msg}"
                 )
                 raise GmailAuthError(
-                    message=f"Gmail authentication expired. Please reconnect your account.",
+                    message="Gmail authentication expired. Please reconnect your account.",
                     needs_reconnect=True,
                 )
             except Exception as e:

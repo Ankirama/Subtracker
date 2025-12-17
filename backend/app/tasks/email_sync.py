@@ -125,7 +125,7 @@ async def _sync_mailbox_async(
             auth_success = await provider.authenticate()
             if not auth_success:
                 return {"success": False, "error": "Authentication failed"}
-        except GmailAuthError as e:
+        except GmailAuthError:
             # Re-raise to be handled by the caller with proper reconnect flag handling
             raise
 
