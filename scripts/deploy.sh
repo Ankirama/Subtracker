@@ -109,6 +109,22 @@ print_status "Running database migrations..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T backend alembic upgrade head
 print_success "Migrations completed"
 
+# Setup automated backups
+print_status "Setting up automated database backups..."
+if [ -f "$PROJECT_DIR/scripts/setup_cron_backup.sh" ]; then
+    chmod +x "$PROJECT_DIR/scripts/setup_cron_backup.sh"
+    # Run with sudo if available, otherwise warn
+    if sudo -n true 2>/dev/null; then
+        sudo BACKUP_RETENTION_DAYS=14 "$PROJECT_DIR/scripts/setup_cron_backup.sh"
+        print_success "Automated backups configured (daily at 2 AM, 14 days retention)"
+    else
+        echo -e "${YELLOW}Warning: Cannot setup cron without sudo${NC}"
+        echo "Run manually: sudo BACKUP_RETENTION_DAYS=14 $PROJECT_DIR/scripts/setup_cron_backup.sh"
+    fi
+else
+    echo -e "${YELLOW}Warning: Backup setup script not found${NC}"
+fi
+
 # Final health check
 print_status "Running final health check..."
 sleep 5
@@ -138,4 +154,9 @@ echo "Useful commands:"
 echo "  View logs:     docker compose -f $COMPOSE_FILE logs -f"
 echo "  Stop services: docker compose -f $COMPOSE_FILE down"
 echo "  Restart:       docker compose -f $COMPOSE_FILE restart"
+echo ""
+echo "Backup commands:"
+echo "  Manual backup: $PROJECT_DIR/scripts/backup_postgres.sh"
+echo "  Backup status: sudo $PROJECT_DIR/scripts/setup_cron_backup.sh --status"
+echo "  List backups:  ls -lh $PROJECT_DIR/backups/"
 echo ""
