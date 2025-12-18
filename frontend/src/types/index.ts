@@ -303,6 +303,10 @@ export interface Mailbox {
   import_date_filter: string | null
   created_at: string
   updated_at: string
+  // OAuth reconnection fields
+  needs_reconnect: boolean
+  auth_error_at: string | null
+  auth_error_message: string | null
 }
 
 export interface MailboxCreate {
@@ -339,6 +343,7 @@ export interface MailboxSyncStatus {
   total_emails_processed: number | null
   subscriptions_found: number | null
   error_message: string | null
+  needs_reconnect: boolean
 }
 
 export interface MailboxTestResult {

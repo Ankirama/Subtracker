@@ -89,6 +89,17 @@ class Mailbox(Base):
         DateTime(timezone=True), nullable=True
     )  # Estimated completion time
 
+    # OAuth reconnection tracking
+    needs_reconnect = Column(
+        Boolean, default=False, nullable=False
+    )  # True if OAuth tokens expired and need re-authentication
+    auth_error_at = Column(
+        DateTime(timezone=True), nullable=True
+    )  # When the auth error occurred
+    auth_error_message = Column(
+        String(500), nullable=True
+    )  # Human-readable auth error message
+
     # Sync configuration
     sync_frequency = Column(
         String(50), default="weekly", nullable=False

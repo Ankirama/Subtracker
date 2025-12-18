@@ -24,7 +24,7 @@ import {
   SimpleGrid,
   Progress,
 } from '@chakra-ui/react'
-import { FiPlus, FiRefreshCw, FiEdit2, FiTrash2, FiCheckCircle, FiXCircle, FiAlertCircle } from 'react-icons/fi'
+import { FiPlus, FiRefreshCw, FiEdit2, FiTrash2, FiCheckCircle, FiXCircle, FiAlertCircle, FiAlertTriangle, FiLink } from 'react-icons/fi'
 import { mailboxesAPI } from '../../api/mailboxes'
 import { Mailbox, MailboxSyncStatus } from '../../types'
 import { AddMailboxModal } from './AddMailboxModal'
@@ -69,6 +69,16 @@ export const MailboxesPage = () => {
       })
       queryClient.invalidateQueries({ queryKey: ['mailboxes'] })
       setSearchParams({})
+    } else if (success === 'gmail_reconnected') {
+      toast({
+        title: 'Gmail Reconnected',
+        description: 'Your Gmail account has been reconnected successfully. You can now sync your emails again.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+      queryClient.invalidateQueries({ queryKey: ['mailboxes'] })
+      setSearchParams({})
     } else if (error) {
       const errorMessages: Record<string, string> = {
         'invalid_state': 'OAuth session expired. Please try again.',
@@ -77,6 +87,7 @@ export const MailboxesPage = () => {
         'no_email': 'Could not retrieve email address from Google.',
         'callback_failed': 'OAuth callback failed. Please try again.',
         'access_denied': 'Access was denied. Please grant Gmail access to continue.',
+        'mailbox_not_found': 'Mailbox not found. It may have been deleted.',
       }
       toast({
         title: 'Gmail Connection Failed',
@@ -246,6 +257,22 @@ export const MailboxesPage = () => {
     onSyncOpen()
   }
 
+  const handleReconnectGoogle = async (mailbox: Mailbox) => {
+    try {
+      const { authorization_url } = await mailboxesAPI.reconnectGoogle(mailbox.id)
+      // Redirect to Google OAuth
+      window.location.href = authorization_url
+    } catch (error: any) {
+      toast({
+        title: 'Reconnection Failed',
+        description: error.response?.data?.detail || 'Failed to initiate reconnection',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    }
+  }
+
   const handleSyncStarted = () => {
     if (syncMailbox) {
       setSyncingMailboxId(syncMailbox.id)
@@ -328,11 +355,19 @@ export const MailboxesPage = () => {
                     {/* Header with name and status */}
                     <HStack justify="space-between">
                       <VStack align="start" spacing={1}>
-                        <HStack>
+                        <HStack wrap="wrap" spacing={2}>
                           <Heading size="md">{mailbox.display_name || mailbox.email_address}</Heading>
                           <Badge colorScheme={mailbox.is_active ? 'green' : 'gray'}>
                             {mailbox.is_active ? 'Active' : 'Inactive'}
                           </Badge>
+                          {mailbox.needs_reconnect && (
+                            <Badge colorScheme="orange" variant="solid">
+                              <HStack spacing={1}>
+                                <Icon as={FiAlertTriangle} boxSize={3} />
+                                <Text>Reconnect Required</Text>
+                              </HStack>
+                            </Badge>
+                          )}
                         </HStack>
                         <Text fontSize="sm" color="text.subtle">
                           {mailbox.email_address}
@@ -435,10 +470,25 @@ export const MailboxesPage = () => {
                       )}
 
                       {/* Show error message if failed */}
-                      {mailbox.last_sync_status === 'failed' && mailbox.last_sync_error_message && (
+                      {mailbox.last_sync_status === 'failed' && mailbox.last_sync_error_message && !mailbox.needs_reconnect && (
                         <Alert status="error" size="sm" borderRadius="md">
                           <Icon as={FiAlertCircle} mr={2} />
                           <Text fontSize="xs">{mailbox.last_sync_error_message}</Text>
+                        </Alert>
+                      )}
+
+                      {/* Show auth error if reconnect is needed */}
+                      {mailbox.needs_reconnect && (
+                        <Alert status="warning" size="sm" borderRadius="md">
+                          <AlertIcon />
+                          <Box flex="1">
+                            <Text fontSize="xs" fontWeight="medium">
+                              Authentication expired
+                            </Text>
+                            <Text fontSize="xs">
+                              {mailbox.auth_error_message || 'Please reconnect your Gmail account to continue syncing.'}
+                            </Text>
+                          </Box>
                         </Alert>
                       )}
 
@@ -464,17 +514,29 @@ export const MailboxesPage = () => {
                     <Divider />
 
                     {/* Sync Actions */}
-                    <Button
-                      size="sm"
-                      leftIcon={<Icon as={FiRefreshCw} />}
-                      colorScheme="blue"
-                      onClick={() => handleOpenSyncModal(mailbox)}
-                      isLoading={syncingMailboxId === mailbox.id}
-                      isDisabled={!mailbox.is_active || syncingMailboxId !== null}
-                      w="full"
-                    >
-                      Sync Emails
-                    </Button>
+                    {mailbox.needs_reconnect && mailbox.provider_type === 'gmail' ? (
+                      <Button
+                        size="sm"
+                        leftIcon={<Icon as={FiLink} />}
+                        colorScheme="orange"
+                        onClick={() => handleReconnectGoogle(mailbox)}
+                        w="full"
+                      >
+                        Reconnect Gmail
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        leftIcon={<Icon as={FiRefreshCw} />}
+                        colorScheme="blue"
+                        onClick={() => handleOpenSyncModal(mailbox)}
+                        isLoading={syncingMailboxId === mailbox.id}
+                        isDisabled={!mailbox.is_active || syncingMailboxId !== null || mailbox.needs_reconnect}
+                        w="full"
+                      >
+                        Sync Emails
+                      </Button>
+                    )}
                   </VStack>
                 </CardBody>
               </Card>

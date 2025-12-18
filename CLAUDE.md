@@ -36,6 +36,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Separate dev/prod configurations
 - Hot-reload enabled for development
 
+## Git Workflow Rules (MANDATORY)
+
+### Branch Policy
+- **NEVER push directly to `main`** - Always create a feature branch and PR
+- Only push to `main` after explicit user validation with a stated reason
+- Feature branches should follow naming: `feature/description`, `fix/description`, `hotfix/description`
+
+### Pre-Commit Checklist (run before EVERY commit)
+1. **Backend linting** (required):
+   ```bash
+   docker-compose -f docker-compose.dev.yml exec backend python -m black --check app/
+   docker-compose -f docker-compose.dev.yml exec backend python -m flake8 app/ --max-line-length=120
+   ```
+   If black fails, fix with:
+   ```bash
+   docker-compose -f docker-compose.dev.yml exec backend python -m black app/
+   ```
+
+2. **Frontend linting** (required):
+   ```bash
+   cd frontend && npm run lint
+   ```
+
+3. Only commit after all linters pass (warnings are acceptable, errors are not)
+
+### PR Workflow
+1. Create feature branch from `main`
+2. Make changes and run linters
+3. Commit with descriptive message
+4. Push feature branch
+5. Create PR with summary and test plan
+6. Wait for user approval before merging
+
 ## Development Commands
 
 ### Initial Setup

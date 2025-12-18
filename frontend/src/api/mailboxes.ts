@@ -72,4 +72,10 @@ export const mailboxesAPI = {
     const response = await apiClient.delete(`/oauth/google/disconnect/${mailboxId}`)
     return response.data
   },
+
+  // Reconnect Gmail mailbox with expired OAuth tokens
+  reconnectGoogle: async (mailboxId: string): Promise<{ authorization_url: string; state: string }> => {
+    const response = await apiClient.get(`/oauth/google/reconnect/${mailboxId}`)
+    return response.data
+  },
 }
