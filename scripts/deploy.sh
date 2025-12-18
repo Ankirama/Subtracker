@@ -113,13 +113,14 @@ print_success "Migrations completed"
 print_status "Setting up automated database backups..."
 if [ -f "$PROJECT_DIR/scripts/setup_cron_backup.sh" ]; then
     chmod +x "$PROJECT_DIR/scripts/setup_cron_backup.sh"
-    # Run with sudo if available, otherwise warn
-    if sudo -n true 2>/dev/null; then
-        sudo BACKUP_RETENTION_DAYS=14 "$PROJECT_DIR/scripts/setup_cron_backup.sh"
+    # Run with sudo (requires sudoers entry - see scripts/sudoers.d/subscription-tracker-backup)
+    if sudo -n "$PROJECT_DIR/scripts/setup_cron_backup.sh" 2>/dev/null; then
         print_success "Automated backups configured (daily at 2 AM, 14 days retention)"
     else
-        echo -e "${YELLOW}Warning: Cannot setup cron without sudo${NC}"
-        echo "Run manually: sudo BACKUP_RETENTION_DAYS=14 $PROJECT_DIR/scripts/setup_cron_backup.sh"
+        echo -e "${YELLOW}Warning: Cannot setup cron - sudoers not configured${NC}"
+        echo "One-time setup required on server (as root):"
+        echo "  sudo $PROJECT_DIR/scripts/install_sudoers.sh deploy"
+        echo "Then re-run deploy or: sudo $PROJECT_DIR/scripts/setup_cron_backup.sh"
     fi
 else
     echo -e "${YELLOW}Warning: Backup setup script not found${NC}"
