@@ -133,7 +133,23 @@ class GmailProvider(EmailProviderInterface):
                 )
             return False
         except Exception as e:
+            error_str = str(e).lower()
             logger.error(f"Gmail authentication error: {str(e)}")
+            # Detect auth-related errors that require reconnection
+            auth_error_indicators = [
+                "invalid_grant",
+                "invalid_client",
+                "token has been expired or revoked",
+                "token has been revoked",
+                "credentials",
+                "unauthorized",
+                "access_denied",
+            ]
+            if any(indicator in error_str for indicator in auth_error_indicators):
+                raise GmailAuthError(
+                    message="Gmail authentication failed. Please reconnect your account.",
+                    needs_reconnect=True,
+                )
             return False
 
     async def test_connection(self) -> Dict[str, Any]:
