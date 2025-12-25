@@ -1310,3 +1310,103 @@ def parse_date_filter(filter_str: str, db: Session = None) -> datetime:
             "email.default_sync_period_days", settings.DEFAULT_SYNC_PERIOD_DAYS, db
         )
         return now - timedelta(days=default_days)
+
+
+@celery_app.task(
+    base=DatabaseTask,
+    bind=True,
+    name="app.tasks.email_sync.check_scheduled_syncs",
+)
+def check_scheduled_syncs(self) -> Dict[str, Any]:
+    """
+    Check for mailboxes that need automatic sync based on their sync_frequency.
+
+    This task runs periodically (daily) and triggers sync for mailboxes where:
+    - sync_frequency is 'daily' or 'weekly'
+    - last_sync_at is older than the sync interval (or never synced)
+    - Not currently syncing (status != 'in_progress' or 'queued')
+    - Not needing reconnection (needs_reconnect = False)
+    - Is active
+
+    Returns:
+        Dict with count of syncs triggered
+    """
+    db = self.db
+    now = datetime.now(timezone.utc)
+    syncs_triggered = 0
+    skipped = []
+
+    logger.info("Checking for scheduled mailbox syncs...")
+
+    try:
+        # Get all active mailboxes with automatic sync enabled
+        mailboxes = (
+            db.query(Mailbox)
+            .filter(
+                Mailbox.is_active == True,
+                Mailbox.needs_reconnect == False,
+                Mailbox.sync_frequency.in_(["daily", "weekly"]),
+            )
+            .all()
+        )
+
+        logger.info(f"Found {len(mailboxes)} mailboxes with automatic sync enabled")
+
+        for mailbox in mailboxes:
+            # Skip if already syncing
+            if mailbox.last_sync_status in ["in_progress", "queued"]:
+                skipped.append(
+                    {"id": str(mailbox.id), "reason": "already_syncing"}
+                )
+                continue
+
+            # Calculate sync interval based on frequency
+            if mailbox.sync_frequency == "daily":
+                sync_interval = timedelta(days=1)
+            elif mailbox.sync_frequency == "weekly":
+                sync_interval = timedelta(days=7)
+            else:
+                continue  # Manual or unknown frequency
+
+            # Check if sync is due
+            if mailbox.last_sync_at is None:
+                # Never synced - trigger sync
+                needs_sync = True
+            else:
+                # Check if enough time has passed since last sync
+                time_since_last_sync = now - mailbox.last_sync_at
+                needs_sync = time_since_last_sync >= sync_interval
+
+            if needs_sync:
+                logger.info(
+                    f"Triggering scheduled sync for mailbox {mailbox.id} "
+                    f"({mailbox.email_address}, frequency={mailbox.sync_frequency})"
+                )
+
+                # Trigger async sync task
+                sync_mailbox_emails.delay(str(mailbox.id), force_full_sync=False)
+                syncs_triggered += 1
+            else:
+                time_until_next = sync_interval - (now - mailbox.last_sync_at)
+                skipped.append(
+                    {
+                        "id": str(mailbox.id),
+                        "reason": "not_due",
+                        "next_sync_in": str(time_until_next),
+                    }
+                )
+
+        logger.info(
+            f"Scheduled sync check complete: {syncs_triggered} syncs triggered, "
+            f"{len(skipped)} skipped"
+        )
+
+        return {
+            "success": True,
+            "syncs_triggered": syncs_triggered,
+            "skipped": skipped,
+        }
+
+    except Exception as e:
+        logger.error(f"Error in scheduled sync check: {str(e)}")
+        return {"success": False, "error": str(e)}

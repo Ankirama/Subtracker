@@ -86,6 +86,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.budget_alerts.check_budget_alerts",
         "schedule": 86400.0,  # Run daily to check budgets and send alerts
     },
+    # Scheduled mailbox syncs
+    "check-scheduled-syncs": {
+        "task": "app.tasks.email_sync.check_scheduled_syncs",
+        "schedule": 3600.0,  # Run hourly to check for mailboxes needing sync
+    },
 }
 
 logger.info("Celery app initialized")
