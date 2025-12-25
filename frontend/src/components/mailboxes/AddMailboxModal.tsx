@@ -12,6 +12,7 @@ import {
   FormControl,
   FormLabel,
   Input,
+  Select,
   VStack,
   useToast,
   Alert,
@@ -27,6 +28,7 @@ import {
   Box,
   SimpleGrid,
   useColorModeValue,
+  FormHelperText,
 } from '@chakra-ui/react'
 import { FiEye, FiEyeOff, FiCheckCircle, FiXCircle, FiMail, FiArrowLeft } from 'react-icons/fi'
 import { FaGoogle } from 'react-icons/fa'
@@ -53,6 +55,7 @@ export const AddMailboxModal = ({
     server_url: '',
     username: '',
     password: '',
+    sync_frequency: 'manual',
   })
   const [showPassword, setShowPassword] = useState(false)
   const [connectionTested, setConnectionTested] = useState(false)
@@ -77,6 +80,7 @@ export const AddMailboxModal = ({
         server_url: '',
         username: mailbox.email_address,
         password: '',
+        sync_frequency: mailbox.sync_frequency || 'manual',
       })
       setConnectionTested(true)
     } else {
@@ -88,6 +92,7 @@ export const AddMailboxModal = ({
         server_url: '',
         username: '',
         password: '',
+        sync_frequency: 'manual',
       })
       setConnectionTested(false)
       setTestResult(null)
@@ -230,6 +235,7 @@ export const AddMailboxModal = ({
       // Update existing mailbox
       const updateData: MailboxUpdate = {
         display_name: formData.name || null,
+        sync_frequency: formData.sync_frequency,
       }
 
       // Include credentials only if any field changed
@@ -248,6 +254,7 @@ export const AddMailboxModal = ({
         provider_type: 'jmap',
         email_address: formData.email,
         display_name: formData.name || null,
+        sync_frequency: formData.sync_frequency,
         credentials: {
           server_url: formData.server_url,
           username: formData.username,
@@ -475,6 +482,27 @@ export const AddMailboxModal = ({
           <AlertDescription fontSize="sm">{testResult.message}</AlertDescription>
         </Alert>
       )}
+
+      <Divider />
+
+      <FormControl>
+        <FormLabel>Auto Sync Frequency</FormLabel>
+        <Select
+          value={formData.sync_frequency}
+          onChange={(e) => setFormData({ ...formData, sync_frequency: e.target.value })}
+        >
+          <option value="manual">Manual only</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+        </Select>
+        <FormHelperText>
+          {formData.sync_frequency === 'manual'
+            ? 'Emails will only be synced when you click "Sync Emails"'
+            : formData.sync_frequency === 'daily'
+            ? 'Emails will be automatically synced once per day'
+            : 'Emails will be automatically synced once per week'}
+        </FormHelperText>
+      </FormControl>
     </VStack>
   )
 
@@ -502,6 +530,24 @@ export const AddMailboxModal = ({
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Gmail Account"
               />
+            </FormControl>
+            <FormControl>
+              <FormLabel>Auto Sync Frequency</FormLabel>
+              <Select
+                value={formData.sync_frequency}
+                onChange={(e) => setFormData({ ...formData, sync_frequency: e.target.value })}
+              >
+                <option value="manual">Manual only</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+              </Select>
+              <FormHelperText>
+                {formData.sync_frequency === 'manual'
+                  ? 'Emails will only be synced when you click "Sync Emails"'
+                  : formData.sync_frequency === 'daily'
+                  ? 'Emails will be automatically synced once per day'
+                  : 'Emails will be automatically synced once per week'}
+              </FormHelperText>
             </FormControl>
           </VStack>
         )
