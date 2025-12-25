@@ -209,26 +209,41 @@ export const AddMailboxModal = ({
   }
 
   const handleSubmit = () => {
-    // Validation
-    if (!formData.name || !formData.email || !formData.server_url || !formData.username) {
-      toast({
-        title: 'Missing fields',
-        description: 'Please fill in all required fields',
-        status: 'warning',
-        duration: 3000,
-      })
-      return
-    }
+    // Validation depends on whether we're editing or creating, and provider type
+    if (mailbox) {
+      // Editing existing mailbox - only display name is required
+      // (sync_frequency has a default value)
+      if (!formData.name) {
+        toast({
+          title: 'Missing fields',
+          description: 'Please enter a display name',
+          status: 'warning',
+          duration: 3000,
+        })
+        return
+      }
+    } else {
+      // Creating new JMAP mailbox - all fields required
+      if (!formData.name || !formData.email || !formData.server_url || !formData.username) {
+        toast({
+          title: 'Missing fields',
+          description: 'Please fill in all required fields',
+          status: 'warning',
+          duration: 3000,
+        })
+        return
+      }
 
-    // For new mailboxes, require connection test
-    if (!mailbox && !connectionTested) {
-      toast({
-        title: 'Test connection first',
-        description: 'Please test the connection before saving',
-        status: 'warning',
-        duration: 3000,
-      })
-      return
+      // For new mailboxes, require connection test
+      if (!connectionTested) {
+        toast({
+          title: 'Test connection first',
+          description: 'Please test the connection before saving',
+          status: 'warning',
+          duration: 3000,
+        })
+        return
+      }
     }
 
     if (mailbox) {
