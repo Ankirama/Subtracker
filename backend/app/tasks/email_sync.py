@@ -1355,9 +1355,7 @@ def check_scheduled_syncs(self) -> Dict[str, Any]:
         for mailbox in mailboxes:
             # Skip if already syncing
             if mailbox.last_sync_status in ["in_progress", "queued"]:
-                skipped.append(
-                    {"id": str(mailbox.id), "reason": "already_syncing"}
-                )
+                skipped.append({"id": str(mailbox.id), "reason": "already_syncing"})
                 continue
 
             # Calculate sync interval based on frequency
