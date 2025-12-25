@@ -1343,8 +1343,8 @@ def check_scheduled_syncs(self) -> Dict[str, Any]:
         mailboxes = (
             db.query(Mailbox)
             .filter(
-                Mailbox.is_active == True,
-                Mailbox.needs_reconnect == False,
+                Mailbox.is_active.is_(True),
+                Mailbox.needs_reconnect.is_(False),
                 Mailbox.sync_frequency.in_(["daily", "weekly"]),
             )
             .all()
