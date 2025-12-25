@@ -111,8 +111,8 @@ export const MailboxesPage = () => {
       const status = await mailboxesAPI.getSyncStatus(mailboxId)
       setSyncStatuses(prev => new Map(prev).set(mailboxId, status))
 
-      // Check if sync is complete
-      if (status.status === 'success' || status.status === 'failed') {
+      // Check if sync is complete (including auth_failed which is a terminal state)
+      if (status.status === 'success' || status.status === 'failed' || status.status === 'auth_failed') {
         // Stop syncing state
         if (syncingMailboxId === mailboxId) {
           setSyncingMailboxId(null)
@@ -125,6 +125,14 @@ export const MailboxesPage = () => {
             description: `Processed ${status.total_emails_processed || 0} emails, found ${status.subscriptions_found || 0} subscriptions`,
             status: 'success',
             duration: 5000,
+            isClosable: true,
+          })
+        } else if (status.status === 'auth_failed' || status.needs_reconnect) {
+          toast({
+            title: 'Authentication Required',
+            description: 'Your email account needs to be reconnected. Click the Reconnect button to continue.',
+            status: 'warning',
+            duration: 10000,
             isClosable: true,
           })
         } else if (status.status === 'failed') {
@@ -420,12 +428,14 @@ export const MailboxesPage = () => {
                                   ? 'green'
                                   : mailbox.last_sync_status === 'failed'
                                   ? 'red'
+                                  : mailbox.last_sync_status === 'auth_failed'
+                                  ? 'orange'
                                   : mailbox.last_sync_status === 'running' || mailbox.last_sync_status === 'in_progress' || mailbox.last_sync_status === 'queued'
                                   ? 'blue'
                                   : 'gray'
                               }
                             >
-                              {mailbox.last_sync_status}
+                              {mailbox.last_sync_status === 'auth_failed' ? 'Auth Failed' : mailbox.last_sync_status}
                             </Badge>
                           </HStack>
                         </HStack>
