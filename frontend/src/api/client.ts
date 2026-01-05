@@ -2,16 +2,18 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
 // Dynamically determine API base URL based on current hostname
 const getApiBaseUrl = () => {
-  // If VITE_API_URL is explicitly set, use it
-  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'http://localhost:8000/api') {
-    return import.meta.env.VITE_API_URL
+  const hostname = window.location.hostname
+  const isProduction = hostname !== 'localhost' && hostname !== '127.0.0.1'
+
+  // In production, always use relative path for same-origin requests
+  // This avoids mixed content issues and works with Traefik routing
+  if (isProduction) {
+    return '/api'
   }
 
-  // In production (not localhost), use relative path for Traefik routing
-  // Otherwise use port 8000 for local development
-  const hostname = window.location.hostname
-  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    return '/api'
+  // If VITE_API_URL is explicitly set for development, use it
+  if (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL !== 'http://localhost:8000/api') {
+    return import.meta.env.VITE_API_URL
   }
 
   // Local development: use port 8000
