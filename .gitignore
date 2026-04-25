@@ -115,3 +115,4 @@ graphify-out/*.json
 graphify-out/*.png
 graphify-out/*.svg
 graphify-out/*.dot
+graphify-out/cache/
