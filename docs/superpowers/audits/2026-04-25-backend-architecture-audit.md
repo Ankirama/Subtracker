@@ -81,7 +81,92 @@ Total ≈ 1490 lines (slight overhead from per-file imports and `__init__.py`). 
 
 ## §2 — `backend/app/tasks/email_sync.py` — 1410 lines
 
-_Pending audit._
+### Symptômes
+
+A single Celery task module that bundles **2 task entry points** (`sync_mailbox_emails` line 938, `check_scheduled_syncs` line 1320) plus **3 module-level helpers** (`filter_subscription_data` line 63, `update_subscription_statuses` line 1198, `parse_date_filter` line 1282), but the bulk of the file is a single **820-line god function**: `_sync_mailbox_async` runs from line 88 to line 922 and orchestrates every stage of the pipeline inline — credential decryption, provider instantiation, date-filter resolution, paginated fetch, classification, extraction, deduplication / service-reference matching, subscription upsert, price-history bookkeeping, renewal calculation, cancellation-suggestion creation, association-table writes, progress persistence, cancellation polling, and history-entry updates. Three **lazy intra-function imports** (line 156 `app.services.ai_classifier`, line 157 `app.services.subscription_extractor`, line 487 `app.services.reference_extractor`) confirm circular-import pressure between this task module and the AI services layer. A nested `try/except` block 5 levels deep (lines 334-808) wraps the per-email processing, and the duplicate-resolution heuristic (service references → email_sender match → custom_label keywords → fallback to first match, lines 462-576) is **115 lines of inline policy** with magic-keyword lists (`"tier"`, `"channel"`, `"plan"`, …) and a hard-coded payment-processor list (`"paypal"`, `"stripe"`, `"paddle"`, `"gumroad"`, `"fastspring"`, line 451) embedded in the orchestrator. Price-change arithmetic (`(new - old) / old * 100`, classified into `"increase"`/`"decrease"`) is **duplicated twice** at lines 374-394 (AI-flagged price update) and 602-625 (post-hoc detection on update). The orchestrator persists progress (`mailbox.last_sync_*`, `current_batch_number`, `progress_percentage`, `estimated_completion_time`, history-entry fields) inline at three different commit points in the same loop body, and the `sync_mailbox_emails` Celery task itself reimplements **80+ lines of completion / failure / auth-error bookkeeping** (lines 1045-1195) that mirrors the in-loop bookkeeping.
+
+### Responsabilités identifiées
+
+1. **Task entry point — interactive sync** (lines 925-1195) — `sync_mailbox_emails`: Celery task with retry policy, resume-from-interrupted detection, history-entry creation, completion/failure/auth-error finalisation.
+2. **Task entry point — scheduled sync** (lines 1315-1410) — `check_scheduled_syncs`: periodic Celery beat task that scans mailboxes with `daily`/`weekly` `sync_frequency` and dispatches `sync_mailbox_emails.delay()`.
+3. **Async orchestrator** (lines 88-922) — `_sync_mailbox_async`: 820-line god function holding the entire pipeline; imports AI services lazily to break circulars.
+4. **Provider bootstrap** (lines 112-130) — credential decryption, JMAP/Gmail factory dispatch (duplicates the factory-pattern intent of `app.email_providers`), authenticate with auth-error re-raise.
+5. **Date-filter resolution** (lines 132-153, 1282-1312) — explicit filter > last_sync > mailbox default > admin config; `parse_date_filter` parses `Ndays`/`Nmonths`/`Nyears` strings.
+6. **Stage 1 — Classification** (lines 207-275) — fetch batch, dedup by `Message-ID`, filter system emails via `should_process_email`, batch-classify via `classify_emails_batch`, persist `EmailMessage` rows.
+7. **Stage 2 — Extraction selection** (lines 277-328) — decide which emails need extraction (new subscription emails always; existing ones only if not already linked), call `extract_subscriptions_batch`.
+8. **Stage 3 — Subscription upsert with multi-strategy dedup** (lines 330-803) — service-reference matching, payment-processor handling, email_sender / custom_label / first-match fallback, price-update detection, subscription create/update with `filter_subscription_data`, association-table insert, renewal calculation via `RenewalCalculator`, cancellation-suggestion creation.
+9. **Price-history bookkeeping** (lines 372-398, 600-625, 647-661) — three separate code paths (AI-flagged update, post-hoc change detection, initial creation) that all instantiate `PriceHistory` rows with similar percentage / change-type arithmetic.
+10. **Progress & history persistence** (lines 810-906) — per-batch update of `mailbox.last_sync_*` resume fields, `current_batch_number`, `total_batches_estimate`, `progress_percentage`, `estimated_completion_time`; cancellation polling via `db.refresh(mailbox)`; cancellation finalisation of `SyncHistory` entry.
+11. **Subscription activity reconciliation** (lines 1198-1279) — `update_subscription_statuses`: scans all subs for a mailbox, applies grace-period table (weekly/monthly/quarterly/biannual/yearly), flips `is_active` based on `last_confirmed_at`. Also exported and consumed by `app.api.subscriptions` (line 783).
+12. **`DatabaseTask` base class** (lines 68-85) — Celery `Task` subclass that lazily creates and closes a SQLAlchemy session per task invocation.
+
+### Couplages (graph-derived)
+
+- **Imports entrants**: 3 modules import from this file.
+  - `backend/app/api/mailboxes.py:355, :474` — both lazy intra-function imports of `sync_mailbox_emails` (suggesting `mailboxes.py` is also fighting circulars; same anti-pattern as `api/subscriptions.py`).
+  - `backend/app/api/subscriptions.py:783` — lazy intra-function import of `update_subscription_statuses` (already documented in §1).
+  - `backend/tests/test_email_sync.py:11` — module-level import for tests.
+  - The fact that **every production caller uses lazy imports** is itself the diagnostic finding: this module is a circular-import hub for the API layer.
+- **Imports sortants**: this file imports from **17 distinct modules**, of which 3 are intra-function (lazy):
+  - Module-level (14): `celery`, `sqlalchemy.orm`, `app.celery_app`, `app.database`, 5 model modules (`mailbox`, `subscription`, `email_message`, `price_history`, `sync_history`), 2 provider modules (`app.email_providers`, `app.email_providers.gmail`), `app.security.encryption`, `app.config`, `app.utils.config_helper`, `app.services.renewal_calculator`, `app.services.email_filter`.
+  - **Lazy / cross-layer** (3): `app.services.ai_classifier` (line 156), `app.services.subscription_extractor` (line 157), `app.services.reference_extractor` (line 487). These three services almost certainly consume something this module also exports (likely shared types or DB models), making the circular hard to break without an interface seam.
+- **Centrality**: `email_sync.py` itself is **not named** as a god node in `GRAPH_REPORT.md`, but it appears in the "Surprising Connections" section at line 228-229: `_sync_mailbox_async()` is flagged with an inferred call to `isInstance()` in a frontend workbox bundle — a graph-extraction artefact, but the listing confirms `_sync_mailbox_async` is a high-fan-out node. The downstream entities `Subscription`, `Mailbox`, `EmailMessage`, `PriceHistory` are all in the GRAPH_REPORT top-10 inferred-edge list (816 / 305 / 136 / 148 edges respectively, lines 217-225 of GRAPH_REPORT) and **all four are written by this single function**.
+
+### Couverture tests
+
+- Test file: `backend/tests/test_email_sync.py` (518 lines, **22 `def test_` functions**, 3 test classes: `TestParseDateFilter` 9 tests, `TestUpdateSubscriptionStatuses` 5 tests, `TestSyncMailboxEmails` 8 tests).
+- Approximate coverage estimate: **~30-40% of LoC**. The two small helpers are well-covered: `parse_date_filter` has 9 happy-path + edge-case tests (singular/plural, whitespace, case, default fallback), and `update_subscription_statuses` has 5 tests (activation, deactivation, manual-override, weekly cycle, yearly cycle). The Celery task itself has 8 tests but they are **outer-shell tests**: nonexistent mailbox, inactive mailbox, exception path, resume from cancelled, force-full-sync, custom date filter, progress-tracking clearance, and one "successful sync" test. Inspection of those tests (lines 267-518) shows they mock `_sync_mailbox_async` or its dependencies — the **inner pipeline (classification → extraction → dedup heuristic → price-history → renewal → cancellation suggestion → association-table writes) has zero behavioural coverage**. Specifically untested: service-reference matching (lines 485-509), payment-processor branch (lines 451-460, 527-533), email_sender / custom_label disambiguation (lines 535-576), AI-flagged price-update path (lines 345-440), post-hoc price-change detection (lines 580-630), renewal-calculator integration (lines 664-731), cancellation-suggestion creation (lines 733-767), and the cancellation-polling + history-entry update on cancel (lines 863-899).
+- Refactor safety: **risky**.
+- Justification: outer Celery-task contract (input UUID, retry policy, status fields, return shape) is well-tested and would survive an extraction unchanged; but ~600 of the 820 lines inside `_sync_mailbox_async` represent **untested business policy** (multi-strategy dedup, three price-history paths, cancellation suggestion, renewal recalculation, progress persistence). Any extraction that re-orders, re-commits, or re-rolls-back differently could silently change which emails get classified, which subscriptions get merged versus duplicated, or whether progress survives interruption — and there is no characterisation harness to catch it.
+
+### Proposition de découpe
+
+```
+backend/app/tasks/email_sync/
+├── __init__.py             (~15 lines — re-exports sync_mailbox_emails, check_scheduled_syncs,
+│                                       update_subscription_statuses, parse_date_filter for back-compat)
+├── celery_tasks.py         (~280 lines — DatabaseTask, sync_mailbox_emails entry point with
+│                                       retry policy + resume detection + history finalisation,
+│                                       check_scheduled_syncs scheduler)
+├── orchestrator.py         (~180 lines — _sync_mailbox_async: provider bootstrap, date-filter
+│                                       resolution, top-level batch loop, progress persistence,
+│                                       cancellation polling)
+├── stages/
+│   ├── __init__.py         (~5 lines)
+│   ├── classification.py   (~100 lines — fetch + Message-ID dedup + system-email filter +
+│                                       classify_emails_batch + EmailMessage row creation)
+│   ├── extraction.py       (~80 lines — extraction-needs decision + extract_subscriptions_batch)
+│   └── persistence.py      (~250 lines — multi-strategy dedup, subscription upsert,
+│                                       association-table writes, calls into price_history.py
+│                                       and renewal_step.py and cancellation_step.py)
+├── dedup_strategy.py       (~140 lines — service-reference matching, payment-processor list,
+│                                       email_sender / custom_label / first-match fallback;
+│                                       extracted from lines 441-576)
+├── price_history.py        (~90 lines — record_price_update(), record_initial_price(),
+│                                       record_price_change() — collapses 3 inline paths
+│                                       at lines 372-398, 600-625, 647-661 into one helper)
+├── renewal_step.py         (~70 lines — wraps RenewalCalculator + reactivation detection
+│                                       from lines 664-731)
+├── cancellation_step.py    (~50 lines — cancellation suggestion creation from lines 733-767)
+├── progress_tracker.py     (~80 lines — mailbox progress fields + history-entry mutations,
+│                                       extracted from lines 810-906 and 1045-1195)
+├── filters.py              (~30 lines — VALID_SUBSCRIPTION_FIELDS, filter_subscription_data,
+│                                       parse_date_filter)
+└── status_reconciler.py    (~90 lines — update_subscription_statuses + GRACE_PERIODS table)
+```
+
+Total ≈ 1430 lines (slight overhead from per-file imports and `__init__.py`). The split exposes the **3-stage pipeline structure** that the file already advertises in comments (`# STAGE 1`, `# STAGE 2`, `# STAGE 3` at lines 207, 277, 330) but never reified into modules. **Three high-value seams** emerge: (a) `dedup_strategy.py` isolates the only truly hot-spot policy (the multi-strategy dedup with magic keyword lists), making it independently testable and replaceable when service-reference matching matures; (b) `price_history.py` collapses three duplicated arithmetic blocks into one helper that can also be reused by `api/subscriptions.py` (which performs similar logic in merge); (c) `progress_tracker.py` removes the persistence chatter from the orchestrator so the loop body reads as a pipeline, not as a state machine. The 3 lazy intra-function imports collapse to clean module-level imports inside `stages/classification.py`, `stages/extraction.py`, and `dedup_strategy.py` because none of those sub-modules need to import back from `celery_tasks.py`. Module-level re-exports in `__init__.py` preserve the existing public surface (`from app.tasks.email_sync import sync_mailbox_emails, update_subscription_statuses, parse_date_filter`) so the 3 inbound import sites in `api/mailboxes.py` and `api/subscriptions.py` and `tests/test_email_sync.py` work unchanged.
+
+### Effort & dépendances
+
+- **Effort**: **L**.
+- **Justification effort**: ~30% of LoC has tests and is a mechanical move (the two helpers, the Celery task shell, `parse_date_filter`); ~70% — the 600 untested lines of `_sync_mailbox_async` business logic — requires writing **characterisation tests before extracting**, especially for the multi-strategy dedup, the three price-history paths, and the cancellation suggestion flow. Roughly: 2h scaffold the sub-package and move the tested helpers (`parse_date_filter`, `update_subscription_statuses`, `DatabaseTask`, `filter_subscription_data`); 4h write characterisation tests for dedup strategy, price-history paths, renewal step, cancellation step (using factory/fixture builders for `EmailMessage`+`Subscription` graphs); 4h extract `dedup_strategy.py` + `price_history.py` + `renewal_step.py` + `cancellation_step.py` and rewire the orchestrator; 2h extract `progress_tracker.py` and the stage modules; 2h-4h iterate on the inevitable hidden coupling (commit boundaries, lazy-vs-eager flush, association-table relationship checks). Realistic 12-16h.
+- **Bloqueurs**: _None._ The 3 inbound callers (`api/mailboxes.py`, `api/subscriptions.py`, `test_email_sync.py`) all import named symbols that can be re-exported from `__init__.py` for compatibility.
+- **Bloquant pour**: §A cross-cutting work on (a) cost-projection / price-change arithmetic duplication shared with `api/subscriptions.py`, (b) circular-import hygiene between the API layer and AI services (`api/subscriptions.py` lazy import of `email_sync`, `email_sync` lazy imports of three AI services). Splitting this file lets §A target a single shared helper module (`app/services/price_history_recorder.py`) instead of chasing inline copies, and the new `dedup_strategy.py` becomes the canonical home for dedup policy that `api/subscriptions.find_duplicate_subscriptions` (currently 71 lines of inline scoring at §1 lines 436-507) could also delegate to.
+- **Risque**: **high**.
+- **Justification risque**: this code is **on the data-write path for every subscription, every email, every price-history entry, and every association-table row** — the four highest-edge entities in the graph (`Subscription` 816, `Mailbox` 305, `PriceHistory` 148, `EmailMessage` 136). The 5-level-deep `try/except` + per-email `db.commit()` + `db.rollback()` (line 803, 807) means transaction granularity is implicit and **any extraction that accidentally hoists a commit out of the per-email scope will batch-corrupt rollback semantics**. The cancellation polling reads `mailbox.sync_cancellation_requested` after `db.refresh(mailbox)` (line 864) — moving that out of the orchestrator without preserving the refresh-then-read ordering will silently break user-initiated cancellations. Mitigation: **mandatory characterisation tests before any extraction**; use a transaction-checkpoint test fixture that records `db.commit()` / `db.rollback()` call counts and verifies they are unchanged after refactor; treat the 600 untested lines as a quality gate identical to the merge/split paths flagged in §1.
+
+
 
 ## §3 — `backend/app/api/auth.py` — 1191 lines
 
