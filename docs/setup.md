@@ -200,7 +200,7 @@ After setup is complete, you can:
    - Changes auto-reload (hot-reload enabled)
 
 4. **Review documentation**:
-   - Architecture: `TECHNICAL_SPEC.md`
+   - Architecture: [`docs/architecture/overview.md`](architecture/overview.md)
    - Development guide: `CLAUDE.md`
    - API reference: http://localhost:8000/docs
 
@@ -224,7 +224,7 @@ After setup is complete, you can:
 
 ## Support
 
-- **Documentation**: See `TECHNICAL_SPEC.md` and `CLAUDE.md`
+- **Documentation**: See [`docs/architecture/overview.md`](architecture/overview.md) and `CLAUDE.md`
 - **Logs**: `docker-compose logs -f <service-name>`
 - **Reset**: `docker-compose down -v && docker-compose up -d`
 

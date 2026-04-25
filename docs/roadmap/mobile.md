@@ -284,7 +284,7 @@ registerSW({
 - [x] Frontend: Push notification subscription UI
 - [x] Frontend: Permission handling and subscription logic
 - [x] Integration with notification settings page
-- [ ] Backend: Web Push Protocol with VAPID keys (see PUSH_NOTIFICATIONS_BACKEND.md)
+- [ ] Backend: Web Push Protocol with VAPID keys (see [docs/features/push-notifications.md](../features/push-notifications.md))
 - [ ] Backend: API endpoints and database models
 - [ ] Test push notifications on mobile
 
@@ -306,7 +306,7 @@ registerSW({
 - Integration with notification preferences ✅
 
 **Backend Implementation Guide**:
-- Complete implementation guide available in `docs/PUSH_NOTIFICATIONS_BACKEND.md`
+- Complete implementation guide available in [`docs/features/push-notifications.md`](../features/push-notifications.md)
 - Includes database models, API endpoints, service layer
 - VAPID key generation and configuration
 - Integration with existing notification system
