@@ -236,7 +236,54 @@ Total ≈ 1070 lines (slight reduction from collapsing the duplicated email-send
 
 ## §4 — `backend/app/services/email_templates.py` — 841 lines
 
-_Pending audit._
+### Symptômes
+
+Contrairement à ce que le nom suggère, ce fichier n'est **pas** un registre de parseurs d'emails entrants par fournisseur (Netflix, Spotify, etc.) — c'est un générateur de **templates HTML sortants** (résumé d'abonnements, OTP 2FA, vérification d'email). Les trois méthodes publiques produisent chacune un document HTML complet via des f-strings multi-lignes : `generate_summary_email` (lignes 14-266, ~252 lignes), `generate_2fa_otp_email` (lignes 481-658, ~178 lignes), `generate_email_verification_email` (lignes 661-841, ~181 lignes). Chaque méthode embarque sa propre feuille de style CSS dupliquée (corps, conteneur, en-tête en gradient `#667eea → #764ba2`, footer SubTracker, media query mobile à 600px) — environ 60 lignes de CSS quasi-identiques répétées trois fois (lignes 38-194, 502-611, 680-787). Le `summary_email` agrège en plus 7 helpers privés `_render_*` (lignes 269-478) qui produisent des fragments HTML par section (insights, changes, catégories, top subs, AI insights/recos, renewals) avec leur propre style inline. Le résultat est une classe statique de 841 lignes sans état, ~85% HTML/CSS littéral et ~15% logique de rendu, où toute modification de marque (logo, palette, footer) impose une édition triple manuelle.
+
+### Responsabilités identifiées
+
+1. **Template "résumé d'abonnements" (orchestrateur)** (lignes 14-266) — assemble les statistiques utilisateur, les insights, les recommandations IA, les changements, les catégories, les top subs et les renouvellements en un email HTML unique avec CTA vers `/subscriptions`.
+2. **Helpers de rendu de fragments du résumé** (lignes 269-478) — 7 fonctions `_render_*` (insights, changes, top_categories, top_subscriptions, ai_insights, ai_recommendations, upcoming_renewals) qui retournent chacune une chaîne HTML ou `""` si données vides ; `_render_upcoming_renewals` importe `datetime` localement (ligne 463) au lieu d'utiliser l'import top-level.
+3. **Template "OTP 2FA"** (lignes 481-658) — email transactionnel pour code de vérification à 6 chiffres avec expiration, mises en garde de sécurité, encart "info-box" et "security-notice".
+4. **Template "vérification d'email d'inscription"** (lignes 661-841) — email d'onboarding avec bouton CTA `verification_url` (24h d'expiration), lien de secours en texte, message de bienvenue.
+5. **Feuille de style commune dupliquée** (lignes 38-194, 502-611, 680-787) — branding SubTracker (gradient header, footer, container 600px, font stack `-apple-system,...`, palette violet `#667eea`/`#764ba2`) répété trois fois sans extraction DRY.
+
+### Couplages (graph-derived)
+
+- **Imports entrants** : 3 sites consommateurs uniquement — `app/services/email_service.py:15` (qui appelle `generate_2fa_otp_email` et `generate_email_verification_email`), et `app/tasks/summary_tasks.py:20` (qui appelle `generate_summary_email` à 2 endroits, lignes 90 et 198). Surface API restreinte → refactor à risque limité.
+- **Imports sortants** : seulement `from typing import Dict, Any` au top-level + un `from datetime import datetime` local dans `_render_upcoming_renewals` (ligne 463). Aucun couplage cross-layer (pas de SQLAlchemy, pas de FastAPI, pas de modèles métier) — fichier de présentation pur.
+- **Centrality** : _Not flagged in GRAPH_REPORT._ Le rapport ne mentionne pas `email_templates` (`grep` renvoie 0 occurrences sur 4143 nœuds), cohérent avec son rôle de feuille pure consommée par 2 modules.
+
+### Couverture tests
+
+- Test file(s) found: `backend/tests/test_email_templates.py` (561 lignes)
+- Approximate coverage estimate: **élevée (~85-95%)** — 4 classes de tests (`TestGenerateSummaryEmail`, `TestGenerate2FAOTPEmail`, `TestGenerateEmailVerificationEmail`, `TestRenderHelpers`) avec 28 cas couvrant chaque méthode publique, chaque helper privé `_render_*`, les chemins vides, les variantes de priorité/pluralisation, le top-5 + reste, les chemins de baisse/hausse de `net_change`.
+- Refactor safety: **safe**
+- Justification: les assertions testent la présence de fragments textuels (`"Hi {user_name}!"`, `"€49.95"`, `"💡 Key Insights"`) plutôt que la structure HTML exacte ; un découpage en sous-modules qui préserve les noms de méthodes et leur sortie exacte n'invalidera aucune assertion, et la suite tournera quasi-instantanément (pas d'I/O).
+
+### Proposition de découpe
+
+```
+backend/app/services/email_templates/
+├── __init__.py              (~15 lignes — réexports `EmailTemplates` pour rétro-compat des appelants)
+├── _styles.py               (~80 lignes — constantes CSS partagées : BASE_CSS, HEADER_GRADIENT, FOOTER_HTML, render_layout())
+├── summary.py               (~280 lignes — generate_summary_email + _render_* helpers, ou split entre summary.py et summary_sections.py)
+├── otp_2fa.py               (~180 lignes — generate_2fa_otp_email)
+└── verification.py          (~180 lignes — generate_email_verification_email)
+```
+
+L'asymétrie du fichier (un gros template orchestré + deux templates standalone) rend le découpe par cas d'usage le plus naturel : chaque sous-module devient indépendamment testable et éditable. Le module `_styles.py` factorise les ~60 lignes de CSS dupliquées trois fois (header gradient, container, footer, font stack, media query 600px) et fournit un helper `render_layout(title, body_html, frontend_url)` qui élimine ~150 lignes de boilerplate. Pour préserver la rétro-compat des deux appelants existants (`email_service.py`, `summary_tasks.py`), `__init__.py` réexporte une classe `EmailTemplates` dont les staticmethods délèguent vers les sous-modules — aucune modification d'appelants requise. Total cible ~735 lignes (vs 841 actuel) grâce à la déduplication CSS.
+
+### Effort & dépendances
+
+- **Effort**: M
+- **Justification effort**: découpage mécanique en 4 sous-modules + extraction CSS commun + façade de rétro-compat ; ~3-5h dont 1h pour valider que la suite de tests existante (28 cas) passe sans modification, plus une revue visuelle des emails rendus (Resend dispose d'un mode preview).
+- **Bloqueurs**: _None._
+- **Bloquant pour**: §5 (`services/email_service.py`) consomme deux des trois templates — un éventuel renommage de méthode impacterait directement l'audit §5 ; conserver les noms `generate_*` exposés via `__init__.py` neutralise ce couplage.
+- **Risque**: low
+- **Justification risque**: fichier sans état, sans I/O, sans dépendance ORM/HTTP ; surface API étroite (3 méthodes publiques, 2 consommateurs) ; couverture de tests élevée et orientée comportement ; régressions visuelles détectables par diff HTML automatisé sur fixtures.
+
+> **Note pour §5 et §A** : `email_service.py` (782 lignes, prochain audit) **délègue** la génération HTML à `email_templates.py` — pas de duplication, l'overlap est une dépendance saine (un layer "delivery" Resend + un layer "rendering"). En revanche, l'asymétrie est suspecte : `email_service.py` envoie probablement aussi d'autres types d'emails (price change, renewal reminder, trial reminder, budget alert, system announcement — à confirmer en §5) qui pourraient générer leur HTML en ligne plutôt que via `EmailTemplates`. Si c'est le cas, §A devrait flagger une **incohérence d'extraction** : seuls 3 templates sont externalisés ici, les autres restant inline dans `email_service.py`. Pattern cross-cutting déjà observé en §3 (auth.py contient lui aussi des helpers d'envoi d'email — voir §3 ligne 233).
 
 ## §5 — `backend/app/services/email_service.py` — 782 lines
 
