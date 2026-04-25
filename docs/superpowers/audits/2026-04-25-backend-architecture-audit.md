@@ -287,7 +287,62 @@ L'asymétrie du fichier (un gros template orchestré + deux templates standalone
 
 ## §5 — `backend/app/services/email_service.py` — 782 lines
 
-_Pending audit._
+### Symptômes
+
+Ce module est annoncé comme « service de livraison Resend » (docstring l.2) mais ~63% de son volume (lignes 287-778, soit ~490 lignes sur 782) est en réalité du **HTML/CSS littéral** dans trois templates inline (`_get_renewal_reminder_template`, `_get_weekly_summary_template`, `_get_monthly_summary_template`). Le module mélange donc trois rôles : configuration du transport Resend, méthodes typées par cas d'usage (6 wrappers `send_*`), et rendu HTML inline pour 3 d'entre eux. La cohabitation est **incohérente** : `send_2fa_otp_email` (l.221) et `send_email_verification` (l.261) délèguent proprement à `EmailTemplates.generate_*`, alors que `send_renewal_reminder`, `send_weekly_summary` et `send_monthly_summary` conservent leur HTML dans le service. Pire, l'inspection des call-sites révèle que **les wrappers typés `send_renewal_reminder` / `send_weekly_summary` / `send_monthly_summary` sont quasiment morts en production** : `summary_tasks.py:90,95,198,203` rend lui-même via `EmailTemplates.generate_summary_email()` puis appelle `email_service.send_email()` (transport brut), seul `notification_service.py:118,136,145` utilise les wrappers typés. Une instance singleton `email_service = EmailService()` (l.782) est créée au chargement du module, ce qui empêche tout accès à un `db: Session` au moment de l'init et neutralise partiellement la valeur du paramètre `db` du constructeur.
+
+### Responsabilités identifiées
+
+1. **Configuration du transport Resend** (lignes 23-42) — lecture clé API et headers `from` via `get_config_value`, configuration globale `resend.api_key`.
+2. **Envoi générique** (lignes 44-86) — `send_email(to, subject, html, plain)` qui retourne `(success, error)`, journalisation et capture d'exception.
+3. **Wrappers typés par cas d'usage** (lignes 88-285) — 5 méthodes `send_renewal_reminder`, `send_weekly_summary`, `send_monthly_summary`, `send_2fa_otp_email`, `send_email_verification` qui composent sujet + texte plain + appel au templater + délégation à `send_email`.
+4. **Rendu HTML inline pour 3 emails** (lignes 287-778) — `_get_renewal_reminder_template`, `_get_weekly_summary_template`, `_get_monthly_summary_template` : ~490 lignes de HTML/CSS f-string avec gradients, layouts et logique de tri/filtrage embarquée (`sorted(...)[:10]`, `subscriptions[:5]`, calcul de `diff_percent`).
+5. **Singleton de module** (ligne 782) — `email_service = EmailService()` instancié à l'import, sans `db` fourni, donc `get_config_value` retombe systématiquement sur les variables d'env.
+
+### Couplages (graph-derived)
+
+- **Imports entrants**: 8 importateurs identifiés (`grep -rln 'from app.services.email_service'`):
+  - `app/tasks/budget_alerts.py`, `app/tasks/renewal_reminders.py`, `app/tasks/trial_reminders.py`, `app/tasks/summary_tasks.py`, `app/tasks/system_announcements.py`, `app/tasks/price_change_monitor.py` (tous via `email_service.send_email(...)` brut)
+  - `app/api/auth.py` (via `send_2fa_otp_email`, `send_email_verification` aux lignes 185, 310, 823, 1176)
+  - `app/services/notification_service.py` (seul caller des wrappers `send_renewal_reminder` / `send_weekly_summary` / `send_monthly_summary`)
+- **Imports sortants**: `resend`, `sqlalchemy.orm.Session`, `app.config.settings`, `app.utils.config_helper.get_config_value`, `app.services.email_templates.EmailTemplates`. Pas de fuite cross-layer (aucun import de `app.models.*` ou `app.api.*`). **Relation avec `email_templates.py` (§4)** : `EmailTemplates` est importé mais utilisé seulement par 2 méthodes sur 5 — l'inverse est aussi vrai côté `email_templates.py` (`generate_summary_email` n'est jamais appelée par `email_service` mais directement par `summary_tasks.py`). Frontière de responsabilité **floue et inconsistante** entre les deux modules.
+- **Centrality**: _Not flagged in GRAPH_REPORT.md_ (le grep ne renvoie aucune occurrence du fichier dans le rapport graphify), mais le fan-in de 8 importateurs et la position de hub de notification suggèrent un god-node de fait pour la couche notifications.
+
+### Couverture tests
+
+- Test file(s) found: aucun `test_email_service.py` direct dans `backend/tests/` (un `test_email_service.cpython-311-pytest-7.4.4.pyc` traîne dans `__pycache__/` → fichier source supprimé sans nettoyage du cache). Couverture indirecte via : `test_renewal_reminders.py`, `test_summary_tasks.py`, `test_trial_reminders.py`, `test_budget_alerts.py`, `test_system_announcements.py`, `test_price_change_monitor.py`, `test_email_verification.py`, `test_email_templates.py`.
+- Approximate coverage estimate: ~30-40% — le transport `send_email` et la délégation `send_2fa_otp_email`/`send_email_verification` sont probablement mockés dans les tests amont, mais les 3 templates HTML inline et les wrappers typés (`send_renewal_reminder`, `send_weekly_summary`, `send_monthly_summary`) n'ont aucune assertion de rendu directe.
+- Refactor safety: **risky**.
+- Justification: l'absence de test direct + le fan-in de 8 importateurs + le singleton de module rendent toute extraction des templates inline détectable uniquement à l'exécution ; un test de non-régression sur le HTML rendu (snapshot) est un préalable obligatoire.
+
+### Proposition de découpe
+
+```
+backend/app/services/
+├── email/
+│   ├── __init__.py
+│   ├── transport.py              # EmailService (Resend wrapper, send_email seul)
+│   └── templates/                # restructuration de §4 + extraction inline
+│       ├── __init__.py
+│       ├── base.py               # layout/CSS partagés (extraction des duplications)
+│       ├── otp_2fa.py            # déjà dans email_templates.py (§4)
+│       ├── verification.py       # déjà dans email_templates.py (§4)
+│       ├── summary.py            # déjà dans email_templates.py (§4)
+│       ├── renewal_reminder.py   # extrait de email_service.py l.287-424
+│       ├── weekly_summary.py     # extrait de email_service.py l.426-596
+│       └── monthly_summary.py    # extrait de email_service.py l.598-778
+```
+
+Cette découpe **fusionne** le rôle « rendu » dans un package `email_templates/` étendu (cf. proposition §4) et réduit `email_service.py` à un transport pur (~80 lignes : `send_email` + config). Les 5 wrappers typés `send_*_reminder/summary` sont à **supprimer** : `notification_service.py` (seul caller) doit être migré vers le pattern déjà utilisé par `summary_tasks.py` (rendu via `EmailTemplates.*` puis `transport.send_email`). Justification : aujourd'hui le rendu HTML est dupliqué entre `email_service.py` (3 templates), `email_templates.py` (3 templates) et **5 fichiers `tasks/*` qui contiennent chacun 7 à 11 occurrences de balises HTML** (`grep` confirme : 8/11/8/11/7 pour renewal/trial/system/price/budget) — l'unification dans `services/email/templates/` est donc un gain transversal, pas seulement local à ce fichier.
+
+### Effort & dépendances
+
+- **Effort**: M
+- **Justification effort**: 3 templates à extraire (~490 lignes de HTML purement déplaçables), 5 wrappers typés à supprimer + 3 call-sites dans `notification_service.py` à migrer, restructuration cohérente avec §4 (effort partiellement mutualisé). Pas de logique métier à réécrire. Estimation 4-6h incluant snapshot tests préalables.
+- **Bloqueurs**: refactor §4 (`email_templates.py`) à mener en même temps ou en amont pour éviter un état intermédiaire fragmenté.
+- **Bloquant pour**: extraction des HTML inline présents dans `tasks/budget_alerts.py`, `tasks/renewal_reminders.py`, `tasks/trial_reminders.py`, `tasks/system_announcements.py`, `tasks/price_change_monitor.py` (5 fichiers, à traiter en §A après consolidation du package templates).
+- **Risque**: medium
+- **Justification risque**: aucun test direct du module + singleton de module + 8 importateurs ; mitigation = snapshot tests sur les 3 templates HTML avant extraction et tests d'intégration mockés sur `send_email` pour préserver la signature `(bool, Optional[str])`.
 
 ## §A — Constats transverses
 
