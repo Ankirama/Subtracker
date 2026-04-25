@@ -108,3 +108,11 @@ certbot/
 
 # Serena memories (development only)
 .serena/
+
+# Graphify (commit GRAPH_REPORT.md + wiki/, ignore binary outputs)
+graphify-out/*.html
+graphify-out/*.json
+graphify-out/*.png
+graphify-out/*.svg
+graphify-out/*.dot
+graphify-out/cache/

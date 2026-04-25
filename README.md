@@ -110,13 +110,13 @@ subscription_tracker/
 │   │   └── types/       # TypeScript types
 │   └── tests/           # Frontend tests
 ├── docker-compose.dev.yml
-├── TECHNICAL_SPEC.md   # Detailed technical documentation
+├── docs/architecture/overview.md   # Detailed technical documentation
 └── CLAUDE.md           # Guide for AI assistants
 ```
 
 ## Documentation
 
-- **[Technical Specification](TECHNICAL_SPEC.md)** - Complete architecture and API documentation
+- **[Technical Specification](docs/architecture/overview.md)** - Complete architecture and API documentation
 - **[CLAUDE.md](CLAUDE.md)** - Development guide for AI assistants
 - **[API Documentation](http://localhost:8000/docs)** - Interactive OpenAPI docs (when running)
 

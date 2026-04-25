@@ -1,6 +1,6 @@
-# Authentication System Guide
+# Authentication & Authorisation
 
-Complete guide to the authentication system implementation.
+> JWT-based access/refresh flow, bcrypt password storage, Fernet credential encryption, and multi-tenant isolation via `user_id` filters. Implemented under `backend/app/security/`.
 
 ## Overview
 
@@ -8,12 +8,10 @@ The authentication system provides secure user registration, login, and token-ba
 
 - **Password Security**: bcrypt hashing with automatic salt generation
 - **Token Authentication**: JWT (JSON Web Tokens) with access and refresh tokens
-- **Credential Encryption**: Fernet symmetric encryption for storing sensitive data
+- **Credential Encryption**: Fernet symmetric encryption for storing sensitive data (mailbox tokens)
 - **FastAPI Integration**: Dependency injection for protecting routes
 
-## Architecture
-
-### Components
+### Architecture
 
 ```
 Security Layer
@@ -62,6 +60,7 @@ Client sends request with Bearer token
 ## API Endpoints
 
 ### POST /api/auth/register
+
 Register a new user account.
 
 **Request:**
@@ -97,7 +96,11 @@ Register a new user account.
 - 400: Email already registered
 - 422: Validation error (weak password, invalid email)
 
+<!-- duplicates the above; reconcile manually -->
+TECHNICAL_SPEC.md showed an alternative register response that returns `id`, `email`, `access_token`, `refresh_token`, `token_type` flat (without a nested `user` object). The version above (with nested `user`) matches the actual code under `backend/app/security/` and `backend/app/api/auth.py`; the flat shape is deprecated.
+
 ### POST /api/auth/login
+
 Login to existing account.
 
 **Request:**
@@ -129,6 +132,7 @@ Login to existing account.
 - 403: Account inactive
 
 ### POST /api/auth/refresh
+
 Refresh access token using refresh token.
 
 **Request:**
@@ -150,6 +154,7 @@ Refresh access token using refresh token.
 - 401: Invalid or expired refresh token
 
 ### GET /api/auth/me
+
 Get current authenticated user information.
 
 **Headers:**
@@ -173,6 +178,7 @@ Authorization: Bearer <access_token>
 - 403: Account inactive
 
 ### POST /api/auth/logout
+
 Logout (client-side token deletion).
 
 **Headers:**
@@ -189,7 +195,7 @@ Authorization: Bearer <access_token>
 
 **Note:** JWT tokens are stateless. Actual logout is handled client-side by deleting tokens.
 
-## Token Details
+## JWT Tokens
 
 ### Access Token
 - **Expiration**: 30 minutes (configurable via `ACCESS_TOKEN_EXPIRE_MINUTES`)
@@ -214,6 +220,112 @@ Authorization: Bearer <access_token>
     "type": "refresh"
   }
   ```
+
+### Implementation
+
+```python
+# backend/app/security/jwt.py
+from datetime import datetime, timedelta
+import jwt
+from fastapi import HTTPException, Security
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+
+security = HTTPBearer()
+
+def create_access_token(user_id: str) -> str:
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {
+        "user_id": user_id,
+        "exp": expire,
+        "type": "access"
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def create_refresh_token(user_id: str) -> str:
+    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    payload = {
+        "user_id": user_id,
+        "exp": expire,
+        "type": "refresh"
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        return payload["user_id"]
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+```
+
+## Password Storage
+
+```python
+# backend/app/security/password.py
+import bcrypt
+
+def hash_password(password: str) -> tuple[str, str]:
+    """Hash password with bcrypt and return (hash, salt)"""
+    salt = bcrypt.gensalt()
+    password_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return password_hash.decode('utf-8'), salt.decode('utf-8')
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify password against hash"""
+    return bcrypt.checkpw(
+        password.encode('utf-8'),
+        password_hash.encode('utf-8')
+    )
+```
+
+Passwords are never stored in plaintext. Salts are bcrypt-generated automatically per password.
+
+## Mailbox Credential Encryption
+
+Mailbox tokens (access + refresh) are stored Fernet-encrypted in `mailboxes.encrypted_credentials` (see data-model.md §3.2). The Fernet key is loaded from `ENCRYPTION_KEY`.
+
+```python
+# backend/app/security/encryption.py
+from cryptography.fernet import Fernet
+import os
+import json
+
+# Load encryption key from environment
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY").encode()
+cipher = Fernet(ENCRYPTION_KEY)
+
+def encrypt_credentials(credentials: dict) -> str:
+    """Encrypt credentials dictionary to string"""
+    json_str = json.dumps(credentials)
+    encrypted = cipher.encrypt(json_str.encode())
+    return encrypted.decode()
+
+def decrypt_credentials(encrypted_credentials: str) -> dict:
+    """Decrypt credentials string to dictionary"""
+    decrypted = cipher.decrypt(encrypted_credentials.encode())
+    return json.loads(decrypted.decode())
+
+# Generate encryption key (run once, store in environment)
+def generate_encryption_key() -> str:
+    return Fernet.generate_key().decode()
+```
+
+Decryption happens only at the moment a provider call is being made (see email-pipeline.md). The decrypted dict is never logged.
+
+## Multi-Tenancy Model
+
+Tenant isolation is enforced at the application layer: every user-scoped query filters by `user_id`. There is no PostgreSQL row-level security in Phase 1; defense-in-depth via RLS is deferred to Phase 4. See `security.md` for the full rationale and broader application-level security model.
 
 ## Using Authentication in Code
 
@@ -368,7 +480,7 @@ axios.interceptors.response.use(
 );
 ```
 
-## Testing
+## Operational Notes
 
 ### Manual Testing with curl
 
@@ -406,26 +518,20 @@ cd backend
 python scripts/test_auth.py
 ```
 
-## Security Best Practices
+### Security Best Practices
 
 1. **Password Storage**: Never store plaintext passwords. Always use bcrypt hashing.
-
 2. **Token Storage** (Client-side):
    - **Best**: Secure, httpOnly cookies
    - **Good**: localStorage with XSS protection
    - **Avoid**: Regular cookies without httpOnly flag
-
 3. **HTTPS**: Always use HTTPS in production to prevent token interception.
-
 4. **Token Expiration**: Short-lived access tokens (30 min) reduce risk if compromised.
-
 5. **Refresh Tokens**: Store securely, rotate on use if possible.
-
 6. **Rate Limiting**: Implement rate limiting on auth endpoints (Phase 2).
-
 7. **Password Requirements**: Enforce strong passwords (8+ chars, mixed case, numbers).
 
-## Environment Configuration
+### Environment Configuration
 
 Required environment variables:
 
@@ -440,29 +546,29 @@ REFRESH_TOKEN_EXPIRE_DAYS=7
 ENCRYPTION_KEY=your-fernet-key-here  # Generate with Python script
 ```
 
-## Troubleshooting
+### Troubleshooting
 
-### "Invalid credentials" on login
+**"Invalid credentials" on login**
 - Check password is correct
 - Verify user exists in database
 - Check logs for specific error
 
-### "Token expired" errors
+**"Token expired" errors**
 - Access tokens expire after 30 minutes
 - Use refresh token to get new access token
 - Re-login if refresh token also expired
 
-### "Could not validate credentials"
+**"Could not validate credentials"**
 - Token might be malformed
 - JWT_SECRET_KEY might have changed
 - Token signature verification failed
 
-### Import errors in auth.py
+**Import errors in auth.py**
 - Ensure all dependencies installed: `pip install -r requirements.txt`
 - Check Python path includes app directory
-- Verify all __init__.py files exist
+- Verify all `__init__.py` files exist
 
-## Next Steps
+### Next Steps
 
 After authentication is working:
 
@@ -471,8 +577,4 @@ After authentication is working:
 3. **Subscriptions**: CRUD endpoints (require auth)
 4. **User Settings**: Custom preferences (require auth)
 
----
-
-**Authentication System Complete!** 🔐
-
-All endpoints documented in the interactive API docs: http://localhost:8000/docs
+All endpoints documented in the interactive API docs: `http://localhost:8000/docs`.
