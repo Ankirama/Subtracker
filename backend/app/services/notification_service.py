@@ -18,7 +18,7 @@ from app.models.notification import (
 )
 from app.models.user import User
 from app.models.subscription import Subscription
-from app.services.email_service import email_service
+from app.services.email_service import EmailService
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ class NotificationService:
 
                     if subscription:
                         metadata = notification.notification_metadata or {}
-                        success, error_message = email_service.send_renewal_reminder(
+                        success, error_message = EmailService(db).send_renewal_reminder(
                             to_email=user.email,
                             user_name=user.name or "there",
                             subscription_name=subscription.name,
@@ -133,7 +133,7 @@ class NotificationService:
                 metadata = notification.notification_metadata or {}
 
                 if notification.type == NotificationType.WEEKLY_SUMMARY:
-                    success, error_message = email_service.send_weekly_summary(
+                    success, error_message = EmailService(db).send_weekly_summary(
                         to_email=user.email,
                         user_name=user.name or "there",
                         total_spent=metadata.get("total_spent", 0.0),
@@ -142,7 +142,7 @@ class NotificationService:
                         upcoming_renewals=metadata.get("upcoming_renewals", []),
                     )
                 else:  # MONTHLY_SUMMARY
-                    success, error_message = email_service.send_monthly_summary(
+                    success, error_message = EmailService(db).send_monthly_summary(
                         to_email=user.email,
                         user_name=user.name or "there",
                         total_spent=metadata.get("total_spent", 0.0),
