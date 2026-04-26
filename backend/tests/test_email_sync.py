@@ -646,9 +646,7 @@ class TestSyncInnerPipelineDedup:
         assert h.email_links_for(sub_a.id)
         assert not h.email_links_for(sub_b.id)
 
-    def test_service_refs_present_no_match_creates_new_sub(
-        self, email_sync_harness
-    ):
+    def test_service_refs_present_no_match_creates_new_sub(self, email_sync_harness):
         """Service references present but no existing match → creates a new sub
         rather than falling back to single-match. Locks in the 'CRITICAL FIX'
         anomaly noted in research."""
@@ -688,9 +686,7 @@ class TestSyncInnerPipelinePriceHistory:
         base.update(overrides)
         return base
 
-    def test_path1_ai_price_update_creates_increase_history(
-        self, email_sync_harness
-    ):
+    def test_path1_ai_price_update_creates_increase_history(self, email_sync_harness):
         """is_price_update=True, existing amount=15.99, new=18.99 → 'increase'.
 
         Plan adjustment: the code reads 'old_amount'/'new_amount' (not 'amount')
@@ -715,9 +711,7 @@ class TestSyncInnerPipelinePriceHistory:
             h.count_price_history(subscription_id=sub.id, change_type="increase") >= 1
         )
 
-    def test_path1_ai_price_update_creates_decrease_history(
-        self, email_sync_harness
-    ):
+    def test_path1_ai_price_update_creates_decrease_history(self, email_sync_harness):
         """is_price_update=True, old=20, new=15 → 'decrease'.
 
         Plan adjustment: same as above — use old_amount/new_amount keys and
@@ -726,9 +720,7 @@ class TestSyncInnerPipelinePriceHistory:
         h = email_sync_harness
         sub = h.add_existing_sub(provider="Netflix", amount=20.0)
         h.add_email(
-            extraction=self._ext(
-                is_price_update=True, old_amount=20.0, new_amount=15.0
-            )
+            extraction=self._ext(is_price_update=True, old_amount=20.0, new_amount=15.0)
         )
 
         result = h.run_sync()
@@ -739,9 +731,7 @@ class TestSyncInnerPipelinePriceHistory:
             h.count_price_history(subscription_id=sub.id, change_type="decrease") >= 1
         )
 
-    def test_path2_existing_sub_amount_diff_creates_history(
-        self, email_sync_harness
-    ):
+    def test_path2_existing_sub_amount_diff_creates_history(self, email_sync_harness):
         """Match found via dedup, amount differs → batch-committed PriceHistory."""
         h = email_sync_harness
         sub = h.add_existing_sub(provider="Netflix", amount=15.99)
@@ -765,9 +755,7 @@ class TestSyncInnerPipelinePriceHistory:
         assert result["success"] is True
         sub = h.get_sub(provider="Netflix")
         assert sub is not None
-        assert (
-            h.count_price_history(subscription_id=sub.id, change_type="initial") >= 1
-        )
+        assert h.count_price_history(subscription_id=sub.id, change_type="initial") >= 1
 
     def test_path3_new_subscription_without_amount_skips_history(
         self, email_sync_harness
@@ -799,9 +787,7 @@ class TestSyncInnerPipelinePriceHistory:
         assert sub is not None
         assert float(sub.amount) == 12.99
         # Initial price history (not increase/decrease)
-        assert (
-            h.count_price_history(subscription_id=sub.id, change_type="initial") >= 1
-        )
+        assert h.count_price_history(subscription_id=sub.id, change_type="initial") >= 1
 
 
 class TestSyncInnerPipelineRenewalStep:
@@ -835,7 +821,7 @@ class TestSyncInnerPipelineRenewalStep:
         h = email_sync_harness
         # Pre-create sub with a linked email so get_subscription_emails returns non-empty
         sub = h.add_existing_sub(provider="Netflix", amount=15.99)
-        first_email = h.add_email(
+        h.add_email(
             message_id="first-email",
             extraction=self._ext(),
         )
@@ -1028,12 +1014,10 @@ class TestSyncInnerPipelineCommitBoundariesAndPolling:
         # 3 emails × at least 1 commit each + final batch/mailbox commit ≥ 4 total
         assert commit_rollback_counter.commits >= 4
 
-    def test_subscription_emails_junction_inserted_per_email(
-        self, email_sync_harness
-    ):
+    def test_subscription_emails_junction_inserted_per_email(self, email_sync_harness):
         """Each new email creates a subscription_emails row for the matched sub."""
         h = email_sync_harness
-        em = h.add_email(extraction=self._ext())
+        h.add_email(extraction=self._ext())
 
         result = h.run_sync()
         assert result["success"] is True

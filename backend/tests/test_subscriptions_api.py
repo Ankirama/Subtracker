@@ -905,8 +905,16 @@ class TestDuplicatesEndpoint:
     Locks in current grouping behaviour for the C1 refactor safety net.
     """
 
-    def _make_subscription(self, db_session, mailbox, *, provider, amount,
-                           billing_cycle="monthly", custom_label=""):
+    def _make_subscription(
+        self,
+        db_session,
+        mailbox,
+        *,
+        provider,
+        amount,
+        billing_cycle="monthly",
+        custom_label="",
+    ):
         """Helper to create a subscription with sensible defaults."""
         from datetime import datetime, timezone
         from app.models.subscription import Subscription
@@ -937,8 +945,9 @@ class TestDuplicatesEndpoint:
     ):
         """3 Netflix subs with similar amounts → 1 group, count=3, similar_amounts=true."""
         for amount in (15.99, 16.49, 15.49):
-            self._make_subscription(db_session, test_mailbox,
-                                    provider="Netflix", amount=amount)
+            self._make_subscription(
+                db_session, test_mailbox, provider="Netflix", amount=amount
+            )
 
         response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
         assert response.status_code == 200
@@ -958,10 +967,12 @@ class TestDuplicatesEndpoint:
         self, client, db_session, test_mailbox, auth_headers
     ):
         """Netflix at 15.99 and 25.99 → variance > 20%, similar_amounts=false."""
-        self._make_subscription(db_session, test_mailbox,
-                                provider="Netflix", amount=15.99)
-        self._make_subscription(db_session, test_mailbox,
-                                provider="Netflix", amount=25.99)
+        self._make_subscription(
+            db_session, test_mailbox, provider="Netflix", amount=15.99
+        )
+        self._make_subscription(
+            db_session, test_mailbox, provider="Netflix", amount=25.99
+        )
 
         response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
         assert response.status_code == 200
@@ -974,10 +985,12 @@ class TestDuplicatesEndpoint:
         self, client, db_session, test_mailbox, auth_headers
     ):
         """Distinct providers → no groups."""
-        self._make_subscription(db_session, test_mailbox,
-                                provider="Netflix", amount=15.99)
-        self._make_subscription(db_session, test_mailbox,
-                                provider="Spotify", amount=9.99)
+        self._make_subscription(
+            db_session, test_mailbox, provider="Netflix", amount=15.99
+        )
+        self._make_subscription(
+            db_session, test_mailbox, provider="Spotify", amount=9.99
+        )
 
         response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
         assert response.status_code == 200
@@ -989,10 +1002,20 @@ class TestDuplicatesEndpoint:
         """Subscriptions with NULL amount but same provider/billing_cycle still group."""
         # billing_cycle is NOT NULL in the schema so we use a valid value;
         # but amount IS nullable — two OVH with NULL amount should still group.
-        self._make_subscription(db_session, test_mailbox,
-                                provider="OVH", amount=None, billing_cycle="monthly")
-        self._make_subscription(db_session, test_mailbox,
-                                provider="OVH", amount=None, billing_cycle="monthly")
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="OVH",
+            amount=None,
+            billing_cycle="monthly",
+        )
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="OVH",
+            amount=None,
+            billing_cycle="monthly",
+        )
 
         response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
         assert response.status_code == 200
@@ -1008,19 +1031,23 @@ class TestDuplicatesEndpoint:
         import uuid
         from sqlalchemy import text
 
-        sub_a = self._make_subscription(db_session, test_mailbox,
-                                        provider="Netflix", amount=15.99)
-        sub_b = self._make_subscription(db_session, test_mailbox,
-                                        provider="Netflix", amount=15.99)
+        sub_a = self._make_subscription(
+            db_session, test_mailbox, provider="Netflix", amount=15.99
+        )
+        sub_b = self._make_subscription(
+            db_session, test_mailbox, provider="Netflix", amount=15.99
+        )
 
         # Link test_email to sub_a only (id must be supplied; Python default
         # uuid.uuid4 does not apply to raw SQL in SQLite)
         db_session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO subscription_emails
                   (id, subscription_id, email_id, extraction_role, extraction_data)
                 VALUES (:id, :sid, :eid, 'detection', '{}')
-            """),
+            """
+            ),
             {"id": str(uuid.uuid4()), "sid": str(sub_a.id), "eid": str(test_email.id)},
         )
         db_session.commit()
@@ -1083,6 +1110,7 @@ class TestMergeEndpoint:
         self, client, db_session, test_mailbox, auth_headers
     ):
         import uuid
+
         target = self._make_sub(db_session, test_mailbox)
         fake_id = uuid.uuid4()
         response = client.post(
@@ -1094,6 +1122,7 @@ class TestMergeEndpoint:
         self, client, db_session, test_mailbox, auth_headers
     ):
         import uuid
+
         source = self._make_sub(db_session, test_mailbox)
         fake_id = uuid.uuid4()
         response = client.post(
@@ -1108,11 +1137,13 @@ class TestMergeEndpoint:
         from datetime import datetime, timezone, timedelta
 
         target = self._make_sub(
-            db_session, test_mailbox,
+            db_session,
+            test_mailbox,
             first_detected_at=datetime.now(timezone.utc) - timedelta(days=30),
         )
         source = self._make_sub(
-            db_session, test_mailbox,
+            db_session,
+            test_mailbox,
             first_detected_at=datetime.now(timezone.utc),
             amount=15.99,  # same as target — no price history
         )
@@ -1128,6 +1159,7 @@ class TestMergeEndpoint:
 
         # Verify DB state
         from app.models.subscription import Subscription
+
         assert db_session.get(Subscription, source.id) is None
         assert db_session.get(Subscription, target.id) is not None
 
@@ -1161,10 +1193,14 @@ class TestMergeEndpoint:
     ):
         """Target has notes='kept'; source has notes='discarded' → target keeps 'kept'."""
         target = self._make_sub(
-            db_session, test_mailbox, custom_label="kept-label",
+            db_session,
+            test_mailbox,
+            custom_label="kept-label",
         )
         source = self._make_sub(
-            db_session, test_mailbox, custom_label="discarded-label",
+            db_session,
+            test_mailbox,
+            custom_label="discarded-label",
         )
 
         response = client.post(
@@ -1173,6 +1209,7 @@ class TestMergeEndpoint:
         assert response.status_code == 200
 
         from app.models.subscription import Subscription
+
         kept = db_session.get(Subscription, target.id)
         # Note: depending on which is older, the swap may invert which subscription
         # carries which label. Locking in: a non-NULL field on the kept row is NOT
@@ -1193,11 +1230,13 @@ class TestMergeEndpoint:
 
         # Link test_email to source (id must be supplied for raw SQL in SQLite)
         db_session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO subscription_emails
                   (id, subscription_id, email_id, extraction_role, extraction_data)
                 VALUES (:id, :sid, :eid, 'detection', '{}')
-            """),
+            """
+            ),
             {"id": str(uuid.uuid4()), "sid": str(source.id), "eid": str(test_email.id)},
         )
         db_session.commit()
@@ -1209,7 +1248,9 @@ class TestMergeEndpoint:
 
         # Verify the junction row is reassigned
         rows = db_session.execute(
-            text("SELECT subscription_id FROM subscription_emails WHERE email_id = :eid"),
+            text(
+                "SELECT subscription_id FROM subscription_emails WHERE email_id = :eid"
+            ),
             {"eid": str(test_email.id)},
         ).fetchall()
         assert len(rows) == 1
@@ -1248,11 +1289,13 @@ class TestUpdateRenewalStatusEndpoint:
         db_session.refresh(sub)
 
         db_session.execute(
-            text("""
+            text(
+                """
                 INSERT INTO subscription_emails
                   (id, subscription_id, email_id, extraction_role, extraction_data)
                 VALUES (:id, :sid, :eid, 'detection', '{}')
-            """),
+            """
+            ),
             {"id": str(uuid.uuid4()), "sid": str(sub.id), "eid": str(email.id)},
         )
         db_session.commit()
@@ -1272,12 +1315,13 @@ class TestUpdateRenewalStatusEndpoint:
 
         future = datetime.now(timezone.utc) + timedelta(days=15)
 
-        with patch(
-            "app.services.renewal_calculator.RenewalCalculator"
-        ) as MockCalc:
+        with patch("app.services.renewal_calculator.RenewalCalculator") as MockCalc:
             instance = MockCalc.return_value
             instance.calculate_renewal_info.return_value = (
-                future, True, None, True,
+                future,
+                True,
+                None,
+                True,
             )
             instance.detect_reactivation.return_value = False
 
@@ -1336,10 +1380,10 @@ class TestUpdateRenewalStatusEndpoint:
         from unittest.mock import patch
         from datetime import datetime, timezone, timedelta
 
-        sub_ok = self._make_sub_with_email(
+        self._make_sub_with_email(
             db_session, test_mailbox, test_email, provider="Netflix"
         )
-        sub_bad = self._make_sub_with_email(
+        self._make_sub_with_email(
             db_session, test_mailbox, test_email, provider="BrokenProvider"
         )
 
@@ -1352,9 +1396,7 @@ class TestUpdateRenewalStatusEndpoint:
                 raise ValueError("calculator failure")
             return (future, True, None, True)
 
-        with patch(
-            "app.services.renewal_calculator.RenewalCalculator"
-        ) as MockCalc:
+        with patch("app.services.renewal_calculator.RenewalCalculator") as MockCalc:
             instance = MockCalc.return_value
             instance.calculate_renewal_info.side_effect = calc_side_effect
             instance.detect_reactivation.return_value = False
@@ -1381,12 +1423,18 @@ class TestUpdateRenewalStatusEndpoint:
         from app.models.mailbox import Mailbox
 
         mb1 = Mailbox(
-            user_id=test_user.id, email_address="a@fastmail.com",
-            provider_type="jmap", encrypted_credentials="x", is_active=True,
+            user_id=test_user.id,
+            email_address="a@fastmail.com",
+            provider_type="jmap",
+            encrypted_credentials="x",
+            is_active=True,
         )
         mb2 = Mailbox(
-            user_id=test_user.id, email_address="b@fastmail.com",
-            provider_type="jmap", encrypted_credentials="x", is_active=True,
+            user_id=test_user.id,
+            email_address="b@fastmail.com",
+            provider_type="jmap",
+            encrypted_credentials="x",
+            is_active=True,
         )
         db_session.add_all([mb1, mb2])
         db_session.commit()
@@ -1418,8 +1466,14 @@ class TestAcceptSuggestionEndpoint:
     Chartests for POST /api/subscriptions/{id}/accept-suggestion.
     """
 
-    def _make_sub_with_suggestion(self, db_session, mailbox, *, status="cancelled",
-                                  reason="No payment for 90 days"):
+    def _make_sub_with_suggestion(
+        self,
+        db_session,
+        mailbox,
+        *,
+        status="cancelled",
+        reason="No payment for 90 days",
+    ):
         from datetime import datetime, timezone
         from app.models.subscription import Subscription
 
@@ -1450,6 +1504,7 @@ class TestAcceptSuggestionEndpoint:
         self, client, db_session, auth_headers
     ):
         import uuid
+
         fake_id = uuid.uuid4()
         response = client.post(
             f"/api/subscriptions/{fake_id}/accept-suggestion",
@@ -1545,6 +1600,7 @@ class TestDismissSuggestionEndpoint:
         self, client, db_session, auth_headers
     ):
         import uuid
+
         response = client.post(
             f"/api/subscriptions/{uuid.uuid4()}/dismiss-suggestion",
             headers=auth_headers,
@@ -1641,11 +1697,13 @@ class TestSplitEndpoint:
             db_session.commit()
             db_session.refresh(e)
             db_session.execute(
-                text("""
+                text(
+                    """
                     INSERT INTO subscription_emails
                       (id, subscription_id, email_id, extraction_role, extraction_data)
                     VALUES (:id, :sid, :eid, 'detection', '{}')
-                """),
+                """
+                ),
                 {"id": str(uuid_mod.uuid4()), "sid": str(sub.id), "eid": str(e.id)},
             )
             db_session.commit()
@@ -1703,6 +1761,7 @@ class TestSplitEndpoint:
 
         # Verify in DB
         from app.models.subscription import Subscription
+
         all_subs = (
             db_session.query(Subscription)
             .filter(Subscription.provider == "Twitch")
@@ -1720,6 +1779,7 @@ class TestSplitEndpoint:
         self, client, db_session, test_mailbox, auth_headers
     ):
         from sqlalchemy import text
+
         sub, emails = self._make_sub_with_3_emails(db_session, test_mailbox)
         body = [
             {"email_ids": [str(emails[0].id)], "custom_label": "g1"},
@@ -1738,9 +1798,7 @@ class TestSplitEndpoint:
         ).fetchall()
         assert len(rows) == 3
         # email[0] still on original
-        original_assignments = [
-            r for r in rows if str(r[1]) == str(emails[0].id)
-        ]
+        original_assignments = [r for r in rows if str(r[1]) == str(emails[0].id)]
         assert len(original_assignments) == 1
         assert str(original_assignments[0][0]) == str(sub.id)
 
@@ -1750,7 +1808,10 @@ class TestSplitEndpoint:
         sub, emails = self._make_sub_with_3_emails(db_session, test_mailbox)
         body = [
             {"email_ids": [str(emails[0].id)], "custom_label": "kept"},
-            {"email_ids": [str(emails[1].id), str(emails[2].id)], "custom_label": "new"},
+            {
+                "email_ids": [str(emails[1].id), str(emails[2].id)],
+                "custom_label": "new",
+            },
         ]
         response = client.post(
             f"/api/subscriptions/{sub.id}/split",
