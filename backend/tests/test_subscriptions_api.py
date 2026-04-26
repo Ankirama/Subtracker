@@ -1411,3 +1411,99 @@ class TestUpdateRenewalStatusEndpoint:
         assert response.status_code == 200
         # Both mb1 and mb2 subs processed (endpoint has no mailbox_id filter)
         assert response.json()["total_processed"] == 2
+
+
+class TestAcceptSuggestionEndpoint:
+    """
+    Chartests for POST /api/subscriptions/{id}/accept-suggestion.
+    """
+
+    def _make_sub_with_suggestion(self, db_session, mailbox, *, status="cancelled",
+                                  reason="No payment for 90 days"):
+        from datetime import datetime, timezone
+        from app.models.subscription import Subscription
+
+        sub = Subscription(
+            user_id=mailbox.user_id,
+            mailbox_id=mailbox.id,
+            provider="Netflix",
+            amount=15.99,
+            currency="EUR",
+            billing_cycle="monthly",
+            category="streaming",
+            is_active=True,
+            is_confirmed=True,
+            extraction_method="ai",
+            confidence_score=0.95,
+            first_detected_at=datetime.now(timezone.utc),
+            last_confirmed_at=datetime.now(timezone.utc),
+            suggested_cancellation_status=status,
+            cancellation_suggestion_reason=reason,
+            cancellation_suggestion_created_at=datetime.now(timezone.utc),
+        )
+        db_session.add(sub)
+        db_session.commit()
+        db_session.refresh(sub)
+        return sub
+
+    def test_returns_404_when_subscription_not_found(
+        self, client, db_session, auth_headers
+    ):
+        import uuid
+        fake_id = uuid.uuid4()
+        response = client.post(
+            f"/api/subscriptions/{fake_id}/accept-suggestion",
+            headers=auth_headers,
+        )
+        assert response.status_code == 404
+
+    def test_returns_400_when_no_pending_suggestion(
+        self, client, db_session, test_mailbox, test_subscription, auth_headers
+    ):
+        """test_subscription fixture has no suggestion → 400."""
+        response = client.post(
+            f"/api/subscriptions/{test_subscription.id}/accept-suggestion",
+            headers=auth_headers,
+        )
+        assert response.status_code == 400
+
+    def test_applies_suggestion_and_clears_fields(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        sub = self._make_sub_with_suggestion(db_session, test_mailbox)
+
+        response = client.post(
+            f"/api/subscriptions/{sub.id}/accept-suggestion",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+
+        # Re-load from DB to verify final state
+        db_session.expire(sub)
+        db_session.refresh(sub)
+
+        assert sub.cancellation_status == "cancelled"
+        assert sub.cancellation_confirmed_at is not None
+        assert sub.cancellation_notes  # populated from suggestion_reason
+        # Suggestion fields cleared
+        assert sub.suggested_cancellation_status is None
+        assert sub.cancellation_suggestion_reason is None
+        assert sub.cancellation_suggestion_created_at is None
+
+    def test_response_body_has_subscription_response_shape(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        sub = self._make_sub_with_suggestion(db_session, test_mailbox)
+
+        response = client.post(
+            f"/api/subscriptions/{sub.id}/accept-suggestion",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        # SubscriptionResponse fields: id, provider, amount, mailbox_id, etc.
+        # Note: cancellation_status is NOT part of SubscriptionResponse schema.
+        assert body["id"] == str(sub.id)
+        assert body["provider"] == "Netflix"
+        assert body["amount"] == 15.99
+        assert "mailbox_id" in body
