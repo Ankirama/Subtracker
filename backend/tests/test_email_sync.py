@@ -516,3 +516,155 @@ class TestSyncMailboxEmails:
         assert updated_mailbox.total_batches_estimate is None
         assert updated_mailbox.progress_percentage == 100.0
         assert updated_mailbox.estimated_completion_time is None
+
+
+class TestSyncInnerPipelineDedup:
+    """Chartests for the multi-strategy dedup logic in _sync_mailbox_async.
+
+    Plan adjustments (documented):
+    - Plan code used `em.id in h.email_links_for(sub.id)`. `em.id` is the
+      provider-side dataclass ID (string), but `email_links_for` returns DB
+      UUIDs. We assert non-empty instead: `assert h.email_links_for(sub.id)`.
+      To further verify the correct sub is linked we assert the *other* sub
+      has no links.
+    - Plan code used `h.mock_ref_extractor.return_value.can_match_subscription`.
+      The actual harness exposes `h.mock_reference_extractor` (the instance
+      directly). We use that attribute.
+    """
+
+    def _ext(self, **overrides):
+        """Build an extraction dict with sensible defaults."""
+        base = {
+            "provider": "OVH",
+            "amount": 10.0,
+            "currency": "EUR",
+            "billing_cycle": "monthly",
+            "email_sender": "billing@ovh.com",
+            "category": "saas",
+            "is_subscription": True,
+            "is_price_update": False,
+            "extraction_metadata": {"service_references": {}},
+        }
+        base.update(overrides)
+        return base
+
+    def test_payment_processor_heuristic_reuses_first_existing_sub(
+        self, email_sync_harness
+    ):
+        """3 OVH subs exist; email from PayPal sender → reuses first existing OVH sub."""
+        h = email_sync_harness
+        sub1 = h.add_existing_sub(provider="OVH", amount=10.0)
+        h.add_existing_sub(provider="OVH", amount=10.0)
+        h.add_existing_sub(provider="OVH", amount=10.0)
+
+        h.add_email(
+            sender="service@paypal.com",
+            extraction=self._ext(email_sender="service@paypal.com"),
+        )
+
+        result = h.run_sync()
+        assert result["success"] is True
+        # No new sub created
+        assert h.count_subs(provider="OVH") == 3
+        # Email linked to first-created sub (payment-processor heuristic)
+        assert h.email_links_for(sub1.id)
+
+    def test_single_match_reuses_existing_sub(self, email_sync_harness):
+        """1 existing Spotify sub, no service refs → reuses it."""
+        h = email_sync_harness
+        sub = h.add_existing_sub(provider="Spotify", amount=9.99)
+        h.add_email(
+            sender="no-reply@spotify.com",
+            extraction=self._ext(
+                provider="Spotify",
+                amount=9.99,
+                email_sender="no-reply@spotify.com",
+            ),
+        )
+
+        result = h.run_sync()
+        assert result["success"] is True
+        assert h.count_subs(provider="Spotify") == 1
+        # Email linked to the only existing sub
+        assert h.email_links_for(sub.id)
+
+    def test_email_sender_exact_match_disambiguates(self, email_sync_harness):
+        """2 Twitch subs with different senders → email-sender exact match wins."""
+        h = email_sync_harness
+        sub_a = h.add_existing_sub(
+            provider="Twitch", amount=4.99, email_sender="streamerA@twitch.tv"
+        )
+        sub_b = h.add_existing_sub(
+            provider="Twitch", amount=4.99, email_sender="streamerB@twitch.tv"
+        )
+
+        h.add_email(
+            sender="streamerA@twitch.tv",
+            extraction=self._ext(
+                provider="Twitch",
+                amount=4.99,
+                email_sender="streamerA@twitch.tv",
+            ),
+        )
+
+        result = h.run_sync()
+        assert result["success"] is True
+        assert h.count_subs(provider="Twitch") == 2
+        # Email linked to sub_a (exact email_sender match), not sub_b
+        assert h.email_links_for(sub_a.id)
+        assert not h.email_links_for(sub_b.id)
+
+    def test_custom_label_keyword_match_disambiguates(self, email_sync_harness):
+        """2 Twitch subs, same email_sender, distinct custom_labels with keywords → matches."""
+        h = email_sync_harness
+        sub_a = h.add_existing_sub(
+            provider="Twitch",
+            amount=4.99,
+            email_sender="billing@twitch.tv",
+            custom_label="basic tier",
+        )
+        sub_b = h.add_existing_sub(
+            provider="Twitch",
+            amount=4.99,
+            email_sender="billing@twitch.tv",
+            custom_label="premium tier",
+        )
+
+        h.add_email(
+            sender="billing@twitch.tv",
+            extraction=self._ext(
+                provider="Twitch",
+                amount=4.99,
+                email_sender="billing@twitch.tv",
+                custom_label="basic tier",
+            ),
+        )
+
+        result = h.run_sync()
+        assert result["success"] is True
+        # The 'basic tier' sub gets the email; 'premium tier' sub does not
+        assert h.email_links_for(sub_a.id)
+        assert not h.email_links_for(sub_b.id)
+
+    def test_service_refs_present_no_match_creates_new_sub(
+        self, email_sync_harness
+    ):
+        """Service references present but no existing match → creates a new sub
+        rather than falling back to single-match. Locks in the 'CRITICAL FIX'
+        anomaly noted in research."""
+        h = email_sync_harness
+        h.add_existing_sub(provider="OVH", amount=10.0)
+        # Configure ref_extractor to consistently NOT match
+        h.mock_reference_extractor.can_match_subscription.return_value = False
+
+        h.add_email(
+            sender="billing@ovh.com",
+            extraction=self._ext(
+                extraction_metadata={"service_references": {"account_id": "ABC123"}}
+            ),
+        )
+
+        result = h.run_sync()
+        assert result["success"] is True
+        # New sub created (because service refs present and no match)
+        assert h.count_subs(provider="OVH") == 2
