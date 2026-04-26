@@ -1214,3 +1214,200 @@ class TestMergeEndpoint:
         ).fetchall()
         assert len(rows) == 1
         assert str(rows[0][0]) == str(target.id)
+
+
+class TestUpdateRenewalStatusEndpoint:
+    """
+    Chartests for POST /api/subscriptions/update-renewal-status.
+    Mocks RenewalCalculator to lock the dispatch + per-sub error handling.
+    """
+
+    def _make_sub_with_email(self, db_session, mailbox, email, *, provider="Netflix"):
+        import uuid
+        from datetime import datetime, timezone
+        from sqlalchemy import text
+        from app.models.subscription import Subscription
+
+        sub = Subscription(
+            user_id=mailbox.user_id,
+            mailbox_id=mailbox.id,
+            provider=provider,
+            amount=15.99,
+            currency="EUR",
+            billing_cycle="monthly",
+            category="streaming",
+            is_active=True,
+            is_confirmed=True,
+            extraction_method="ai",
+            confidence_score=0.95,
+            first_detected_at=datetime.now(timezone.utc),
+            last_confirmed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(sub)
+        db_session.commit()
+        db_session.refresh(sub)
+
+        db_session.execute(
+            text("""
+                INSERT INTO subscription_emails
+                  (id, subscription_id, email_id, extraction_role, extraction_data)
+                VALUES (:id, :sid, :eid, 'detection', '{}')
+            """),
+            {"id": str(uuid.uuid4()), "sid": str(sub.id), "eid": str(email.id)},
+        )
+        db_session.commit()
+        return sub
+
+    def test_processes_active_subscriptions(
+        self, client, db_session, test_mailbox, test_email, auth_headers
+    ):
+        """3 subs with emails → all 3 processed."""
+        from unittest.mock import patch
+        from datetime import datetime, timezone, timedelta
+
+        for provider in ("Netflix", "Spotify", "Disney+"):
+            self._make_sub_with_email(
+                db_session, test_mailbox, test_email, provider=provider
+            )
+
+        future = datetime.now(timezone.utc) + timedelta(days=15)
+
+        with patch(
+            "app.services.renewal_calculator.RenewalCalculator"
+        ) as MockCalc:
+            instance = MockCalc.return_value
+            instance.calculate_renewal_info.return_value = (
+                future, True, None, True,
+            )
+            instance.detect_reactivation.return_value = False
+
+            response = client.post(
+                "/api/subscriptions/update-renewal-status",
+                headers=auth_headers,
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["total_processed"] == 3
+        # All became active in our mock → total_activated counts deltas
+        assert "total_activated" in body
+        assert "total_deactivated" in body
+
+    def test_skips_subscriptions_without_emails(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """Sub with NO linked emails → skipped, not counted in total_processed."""
+        from datetime import datetime, timezone
+        from app.models.subscription import Subscription
+
+        # One sub with NO junction rows
+        orphan = Subscription(
+            user_id=test_mailbox.user_id,
+            mailbox_id=test_mailbox.id,
+            provider="Orphan",
+            amount=10.0,
+            currency="EUR",
+            billing_cycle="monthly",
+            category="other",
+            is_active=True,
+            is_confirmed=True,
+            extraction_method="ai",
+            confidence_score=0.95,
+            first_detected_at=datetime.now(timezone.utc),
+            last_confirmed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(orphan)
+        db_session.commit()
+
+        response = client.post(
+            "/api/subscriptions/update-renewal-status",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        # The orphan does not contribute to total_processed
+        assert body["total_processed"] == 0
+
+    def test_continues_on_per_subscription_exception(
+        self, client, db_session, test_mailbox, test_email, auth_headers
+    ):
+        """RenewalCalculator throws on one sub → error captured, other subs still processed."""
+        from unittest.mock import patch
+        from datetime import datetime, timezone, timedelta
+
+        sub_ok = self._make_sub_with_email(
+            db_session, test_mailbox, test_email, provider="Netflix"
+        )
+        sub_bad = self._make_sub_with_email(
+            db_session, test_mailbox, test_email, provider="BrokenProvider"
+        )
+
+        future = datetime.now(timezone.utc) + timedelta(days=15)
+
+        def calc_side_effect(*args, **kwargs):
+            # Route calls calculate_renewal_info with keyword args including 'provider'
+            provider = kwargs.get("provider", "")
+            if provider == "BrokenProvider":
+                raise ValueError("calculator failure")
+            return (future, True, None, True)
+
+        with patch(
+            "app.services.renewal_calculator.RenewalCalculator"
+        ) as MockCalc:
+            instance = MockCalc.return_value
+            instance.calculate_renewal_info.side_effect = calc_side_effect
+            instance.detect_reactivation.return_value = False
+
+            response = client.post(
+                "/api/subscriptions/update-renewal-status",
+                headers=auth_headers,
+            )
+
+        assert response.status_code == 200
+        body = response.json()
+        # The good sub still processed
+        assert body["total_processed"] >= 1
+        # The bad sub triggered an error
+        assert "errors" in body
+        assert len(body["errors"]) >= 1
+
+    def test_processes_all_mailboxes_for_user(
+        self, client, db_session, test_user, test_email, auth_headers
+    ):
+        """Without mailbox_id filter, all mailboxes' subs are processed."""
+        from unittest.mock import patch
+        from datetime import datetime, timezone, timedelta
+        from app.models.mailbox import Mailbox
+
+        mb1 = Mailbox(
+            user_id=test_user.id, email_address="a@fastmail.com",
+            provider_type="jmap", encrypted_credentials="x", is_active=True,
+        )
+        mb2 = Mailbox(
+            user_id=test_user.id, email_address="b@fastmail.com",
+            provider_type="jmap", encrypted_credentials="x", is_active=True,
+        )
+        db_session.add_all([mb1, mb2])
+        db_session.commit()
+        db_session.refresh(mb1)
+        db_session.refresh(mb2)
+
+        self._make_sub_with_email(db_session, mb1, test_email, provider="Netflix")
+        self._make_sub_with_email(db_session, mb2, test_email, provider="Spotify")
+
+        future = datetime.now(timezone.utc) + timedelta(days=15)
+
+        with patch("app.services.renewal_calculator.RenewalCalculator") as MockCalc:
+            inst = MockCalc.return_value
+            inst.calculate_renewal_info.return_value = (future, True, None, True)
+            inst.detect_reactivation.return_value = False
+
+            response = client.post(
+                "/api/subscriptions/update-renewal-status",
+                headers=auth_headers,
+            )
+
+        assert response.status_code == 200
+        # Both mb1 and mb2 subs processed (endpoint has no mailbox_id filter)
+        assert response.json()["total_processed"] == 2
