@@ -78,8 +78,8 @@ and one-sentence description. Aim for 3-8 distinct responsibilities.]
 
 ### Couplings (graph-derived)
 
-- **Imports entrants**: <N> modules import from this file. <Notable / surprising importers, or "_None observed._">
-- **Imports sortants**: this file imports from <N> modules. <Cross-layer imports flagged, or "_All within expected layer boundaries._">
+- **Inbound imports**: <N> modules import from this file. <Notable / surprising importers, or "_None observed._">
+- **Outbound imports**: this file imports from <N> modules. <Cross-layer imports flagged, or "_All within expected layer boundaries._">
 - **Centrality**: <god-node? hub of which graphify community? high betweenness? Specific evidence from `grep <module> graphify-out/GRAPH_REPORT.md` if available, or "_Not flagged in GRAPH_REPORT._">
 
 ### Test coverage
@@ -149,7 +149,7 @@ Create `docs/superpowers/audits/2026-04-25-backend-architecture-audit.md` with t
 
 ## Method
 
-This audit applies a fixed per-file template (Symptoms / Responsibilities identified / Couplages / Test coverage / Proposed split / Effort & dependencies) to the 5 largest backend Python files, then synthesises three cross-cutting sections:
+This audit applies a fixed per-file template (Symptoms / Responsibilities identified / Couplings / Test coverage / Proposed split / Effort & dependencies) to the 5 largest backend Python files, then synthesises three cross-cutting sections:
 
 - **§A — Cross-cutting findings** — duplication patterns, layer violations, circular imports affecting 2+ files.
 - **§B — Prioritised roadmap** — recommended execution order with justification.
@@ -295,7 +295,7 @@ awk '/^## §1 /,/^## §2 /' docs/superpowers/audits/2026-04-25-backend-architect
 grep -c 'Pending audit' docs/superpowers/audits/2026-04-25-backend-architecture-audit.md
 ```
 
-Expected: §1 contains all 6 sub-section headers (Symptoms, Responsibilities identified, Couplages, Test coverage, Proposed split, Effort & dependencies) and substantive content under each. `Pending audit` count should now be 4 (was 5; you populated §1).
+Expected: §1 contains all 6 sub-section headers (Symptoms, Responsibilities identified, Couplings, Test coverage, Proposed split, Effort & dependencies) and substantive content under each. `Pending audit` count should now be 4 (was 5; you populated §1).
 
 - [ ] **Step 6: Commit**
 
@@ -728,7 +728,7 @@ If the docs claim something the code no longer does (or vice versa), note it for
 Read docs/superpowers/audits/2026-04-25-backend-architecture-audit.md
 ```
 
-Scan for: same responsibility named in multiple files? Same dependency flagged in multiple §Couplages?
+Scan for: same responsibility named in multiple files? Same dependency flagged in multiple §Couplings?
 
 - [ ] **Step 5: Write §A**
 
@@ -1016,8 +1016,8 @@ Expected: each per-file section has at least 6 `### ` sub-headers.
 - [ ] **Step 2: Quality bar from spec §8**
 
 ```bash
-# Every Couplages section cites at least one specific module name (heuristic: contains a backtick `module.py` somewhere)
-awk '/^### Couplages/,/^### / {if (/`[a-z_/]+\.py`/) c++} END{print c}' docs/superpowers/audits/2026-04-25-backend-architecture-audit.md
+# Every Couplings section cites at least one specific module name (heuristic: contains a backtick `module.py` somewhere)
+awk '/^### Couplings/,/^### / {if (/`[a-z_/]+\.py`/) c++} END{print c}' docs/superpowers/audits/2026-04-25-backend-architecture-audit.md
 
 # Every Effort entry has a T-shirt size (S/M/L/XL)
 grep -E '\*\*Effort\*\*: (S|M|L|XL)' docs/superpowers/audits/2026-04-25-backend-architecture-audit.md | wc -l   # should be 5
@@ -1050,7 +1050,7 @@ gh pr create --title "docs(audit): C6 — backend architecture audit (5 god-file
 
 Targeted architecture audit of the 5 largest backend Python modules (~5,665 LoC total), produced under sub-project C6 of the broader code refactor (C). Output is a single Markdown document at `docs/superpowers/audits/2026-04-25-backend-architecture-audit.md` that becomes the proto-spec for sub-project C1 (god-files split).
 
-Per-file analyses (§1-§5) follow a fixed template (Symptoms / Responsibilities identified / Couplages / Test coverage / Proposed split / Effort & dependencies). Cross-cutting findings, prioritised roadmap, and out-of-scope items are surfaced in §A, §B, §C.
+Per-file analyses (§1-§5) follow a fixed template (Symptoms / Responsibilities identified / Couplings / Test coverage / Proposed split / Effort & dependencies). Cross-cutting findings, prioritised roadmap, and out-of-scope items are surfaced in §A, §B, §C.
 
 Spec: `docs/superpowers/specs/2026-04-25-c6-backend-architecture-audit-design.md`
 Plan: `docs/superpowers/plans/2026-04-25-c6-backend-architecture-audit.md`
