@@ -23,7 +23,10 @@ from app.config import settings
 from app.utils.config_helper import get_config_value
 from app.services.renewal_calculator import RenewalCalculator, get_subscription_emails
 from app.services.email_filter import should_process_email
-from app.services.price_history_recorder import record_price_change, record_initial_price
+from app.services.price_history_recorder import (
+    record_price_change,
+    record_initial_price,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -375,7 +378,8 @@ async def _sync_mailbox_async(
                                     existing_sub,
                                     old_amount=old_amount,
                                     new_amount=new_amount,
-                                    currency=subscription_data.get("currency") or existing_sub.currency,
+                                    currency=subscription_data.get("currency")
+                                    or existing_sub.currency,
                                     detected_from="email",
                                     notes=f"Price update detected by AI from email: {email.subject}",
                                 )
