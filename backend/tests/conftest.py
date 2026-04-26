@@ -424,13 +424,13 @@ def email_sync_harness(db_session: Session, test_user: User, test_mailbox: Mailb
       - `JMAPProvider`             → returns a MagicMock provider whose
                                      `fetch_messages()` yields the queued
                                      provider-side EmailMessage dataclasses
-      - `app.services.ai_classifier.classify_emails_batch`
+      - `app.tasks.email_sync.classify_emails_batch`
                                   → returns a list of classification dicts
                                     aligned with input order
-      - `app.services.subscription_extractor.extract_subscriptions_batch`
+      - `app.tasks.email_sync.extract_subscriptions_batch`
                                   → returns a list of extraction dicts
                                     aligned with input order
-      - `app.services.reference_extractor.get_reference_extractor`
+      - `app.tasks.email_sync.get_reference_extractor`
                                   → returns a MagicMock whose
                                     `can_match_subscription` defaults to False;
                                     tests can override via
@@ -454,6 +454,15 @@ def email_sync_harness(db_session: Session, test_user: User, test_mailbox: Mailb
         runs after the inner sync and queries subscriptions independently;
         the chartests do not assert on its output and SQLite tz quirks
         could cause flakiness).
+      - Phase 8a (interface seam) hoisted the AI imports to the module
+        level of `app.tasks.email_sync`. Since `_sync_mailbox_async` now
+        reads default values bound at import time of `email_sync`, patching
+        the source modules (`app.services.ai_classifier.*`) no longer
+        affects the function. We patch the names re-bound on
+        `app.tasks.email_sync` instead. Tests that prefer direct injection
+        can pass `classify_batch=`, `extract_batch=`,
+        `ref_extractor_factory=` to `_sync_mailbox_async` directly — see
+        `test_email_pipeline_seam.py`.
 
     Usage:
         def test_X(email_sync_harness):
@@ -741,9 +750,10 @@ def email_sync_harness(db_session: Session, test_user: User, test_mailbox: Mailb
     mock_gmail = stack.enter_context(patch("app.tasks.email_sync.GmailProvider"))
     mock_gmail.side_effect = make_mock_provider
 
-    # Patch the AI batch functions where they live (the inner pipeline imports
-    # them inside the function body via `from app.services.ai_classifier import
-    # classify_emails_batch`, so we patch the source modules).
+    # Patch the AI batch functions where they are referenced (Phase 8a hoisted
+    # the imports to the module level of `app.tasks.email_sync`, so patching
+    # the source modules no longer reaches the default parameter values
+    # captured at import time).
     async def mock_classify_emails_batch(emails, db=None, *args, **kwargs):
         results = []
         for em in emails:
@@ -776,24 +786,25 @@ def email_sync_harness(db_session: Session, test_user: User, test_mailbox: Mailb
 
     stack.enter_context(
         patch(
-            "app.services.ai_classifier.classify_emails_batch",
+            "app.tasks.email_sync.classify_emails_batch",
             new=mock_classify_emails_batch,
         )
     )
     stack.enter_context(
         patch(
-            "app.services.subscription_extractor.extract_subscriptions_batch",
+            "app.tasks.email_sync.extract_subscriptions_batch",
             new=mock_extract_subscriptions_batch,
         )
     )
 
-    # Patch get_reference_extractor — the inner pipeline imports it from
-    # `app.services.reference_extractor` inside the function body.
+    # Patch get_reference_extractor on `app.tasks.email_sync` (Phase 8a:
+    # the seam exposes the factory as a module-level symbol used as the
+    # default for the `ref_extractor_factory` parameter).
     mock_reference_extractor = MagicMock()
     mock_reference_extractor.can_match_subscription.return_value = False
     stack.enter_context(
         patch(
-            "app.services.reference_extractor.get_reference_extractor",
+            "app.tasks.email_sync.get_reference_extractor",
             return_value=mock_reference_extractor,
         )
     )
