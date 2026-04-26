@@ -912,3 +912,79 @@ class TestSyncInnerPipelineRenewalStep:
         # Both methods called at least once
         inst.calculate_renewal_info.assert_called()
         inst.detect_reactivation.assert_called()
+
+
+class TestSyncInnerPipelineCancellationStep:
+    """Chartests for cancellation-suggestion creation (lines 733-767)."""
+
+    def _ext(self, **overrides):
+        base = {
+            "provider": "Netflix",
+            "amount": 15.99,
+            "currency": "EUR",
+            "billing_cycle": "monthly",
+            "email_sender": "netflix@netflix.com",
+            "category": "streaming",
+            "is_subscription": True,
+            "is_price_update": False,
+            "extraction_metadata": {"service_references": {}},
+        }
+        base.update(overrides)
+        return base
+
+    def test_cancellation_email_creates_suggestion_when_none_pending(
+        self, email_sync_harness
+    ):
+        """Email classified as cancellation, sub has no pending suggestion → created."""
+        h = email_sync_harness
+        sub = h.add_existing_sub(provider="Netflix")
+        h.add_email(
+            category="cancellation",
+            reasoning="user clicked cancel",
+            extraction=self._ext(),
+        )
+
+        result = h.run_sync()
+        assert result["success"] is True
+        h.db.refresh(sub)
+        assert sub.suggested_cancellation_status == "cancelled"
+        assert sub.cancellation_suggestion_reason
+        assert sub.cancellation_suggestion_created_at is not None
+
+    def test_cancellation_skipped_when_suggestion_already_pending(
+        self, email_sync_harness
+    ):
+        """Sub already has pending suggestion → email-classified-cancellation skipped silently."""
+        from datetime import datetime, timezone
+
+        h = email_sync_harness
+        sub = h.add_existing_sub(
+            provider="Netflix",
+            suggested_cancellation_status="cancelled",
+            cancellation_suggestion_reason="prior reason",
+            cancellation_suggestion_created_at=datetime.now(timezone.utc),
+        )
+        h.add_email(
+            category="cancellation",
+            reasoning="another cancel email",
+            extraction=self._ext(),
+        )
+
+        result = h.run_sync()
+        assert result["success"] is True
+        h.db.refresh(sub)
+        # Original suggestion preserved
+        assert sub.cancellation_suggestion_reason == "prior reason"
+
+    def test_non_cancellation_email_does_not_create_suggestion(
+        self, email_sync_harness
+    ):
+        """Standard subscription email → no suggestion."""
+        h = email_sync_harness
+        sub = h.add_existing_sub(provider="Netflix")
+        h.add_email(category="subscription", extraction=self._ext())
+
+        result = h.run_sync()
+        assert result["success"] is True
+        h.db.refresh(sub)
+        assert sub.suggested_cancellation_status is None
