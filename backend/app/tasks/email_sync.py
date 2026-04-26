@@ -5,7 +5,7 @@ Celery tasks for email synchronization and subscription detection.
 from celery import Task
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 from uuid import UUID
 import logging
 import asyncio
@@ -26,6 +26,22 @@ from app.services.email_filter import should_process_email
 from app.services.price_history_recorder import (
     record_price_change,
     record_initial_price,
+)
+
+# AI pipeline collaborators — hoisted to module level via the interface seam
+# defined in `app.services.email_pipeline_protocol`. The Protocols decouple
+# this module's type contract from the concrete implementations, neutralising
+# the `api -> tasks -> services` import-DAG triangle (audit finding A.1).
+# Defaults are wired here; tests inject mocks via `_sync_mailbox_async`'s
+# parameters instead of monkeypatching attributes on the source modules.
+from app.services.ai_classifier import classify_emails_batch
+from app.services.subscription_extractor import extract_subscriptions_batch
+from app.services.reference_extractor import get_reference_extractor
+from app.services.dedup_strategy import find_best_match
+from app.services.email_pipeline_protocol import (
+    AIClassifier,
+    ReferenceExtractorFactory,
+    SubscriptionExtractor,
 )
 
 logger = logging.getLogger(__name__)
@@ -97,6 +113,9 @@ async def _sync_mailbox_async(
     resume_batch_num: int = 0,
     sync_start_time: datetime = None,
     history_entry: "SyncHistory" = None,
+    classify_batch: Optional[AIClassifier] = None,
+    extract_batch: Optional[SubscriptionExtractor] = None,
+    ref_extractor_factory: Optional[ReferenceExtractorFactory] = None,
 ) -> Dict[str, Any]:
     """
     Async implementation of email sync logic with resume capability.
@@ -110,7 +129,32 @@ async def _sync_mailbox_async(
         resume_batch_num: Batch number to resume from (for interrupted syncs)
         sync_start_time: Start time of the sync (for progress tracking)
         history_entry: Sync history entry to update on cancellation
+        classify_batch: Async callable used to classify emails. Defaults to
+            the module-level `classify_emails_batch` (resolved at call
+            time so monkeypatching the module attribute still works).
+            Tests inject mocks here to drive the inner pipeline without
+            monkeypatching.
+        extract_batch: Async callable used to extract subscription data
+            from emails. Defaults to the module-level
+            `extract_subscriptions_batch` (resolved at call time). Tests
+            inject mocks here to drive the inner pipeline without
+            monkeypatching.
+        ref_extractor_factory: Factory returning a service-reference
+            matcher compatible with `ReferenceExtractorProtocol`. Defaults
+            to the module-level `get_reference_extractor` (resolved at
+            call time). Tests inject mocks here to drive the dedup
+            strategy.
     """
+    # Resolve defaults at call time (not at function-definition time) so
+    # `unittest.mock.patch("app.tasks.email_sync.<name>")` is still effective
+    # — the conftest harness relies on this. Direct injection via the
+    # parameters takes precedence.
+    if classify_batch is None:
+        classify_batch = classify_emails_batch
+    if extract_batch is None:
+        extract_batch = extract_subscriptions_batch
+    if ref_extractor_factory is None:
+        ref_extractor_factory = get_reference_extractor
     try:
         # Decrypt credentials
         credentials = decrypt_credentials(mailbox.encrypted_credentials)
@@ -154,10 +198,6 @@ async def _sync_mailbox_async(
             # No filter - fetch all emails
             since_date = None
             logger.info("No date filter - fetching all emails")
-
-        # Import AI services here to avoid circular imports
-        from app.services.ai_classifier import classify_emails_batch
-        from app.services.subscription_extractor import extract_subscriptions_batch
 
         # Pagination loop - fetch and process emails in batches
         # Resume from last position if resuming an interrupted sync
@@ -241,9 +281,7 @@ async def _sync_mailbox_async(
                 logger.info(
                     f"Classifying {len(new_emails_to_classify)} emails in parallel..."
                 )
-                classifications = await classify_emails_batch(
-                    new_emails_to_classify, db
-                )
+                classifications = await classify_batch(new_emails_to_classify, db)
 
             # Save new emails to database with classification results
             email_records = []
@@ -326,7 +364,7 @@ async def _sync_mailbox_async(
                 logger.info(
                     f"Extracting {len(subscription_emails_to_extract)} subscription emails in parallel..."
                 )
-                subscription_data_list = await extract_subscriptions_batch(
+                subscription_data_list = await extract_batch(
                     subscription_emails_to_extract, db
                 )
 
@@ -445,18 +483,14 @@ async def _sync_mailbox_async(
                         # See app/services/dedup_strategy.py for the strategy ordering.
                         # Strategies: service-ref → single-match → payment-processor →
                         # email-sender → meaningful custom-label → fallback.
-
-                        # Lazy import: get_reference_extractor is a factory function;
-                        # kept lazy so the conftest patch target remains stable.
-                        from app.services.reference_extractor import (
-                            get_reference_extractor,
-                        )
-                        from app.services.dedup_strategy import find_best_match
-
+                        # The factory is injected via `ref_extractor_factory` so
+                        # tests can drive dedup with a mock matcher; the seam
+                        # closes the lazy-import workaround tracked under audit
+                        # finding A.1.
                         existing_sub = find_best_match(
                             subscription_data,
                             potential_matches,
-                            ref_extractor=get_reference_extractor(),
+                            ref_extractor=ref_extractor_factory(),
                         )
 
                         subscription_record = None
