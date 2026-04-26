@@ -1,12 +1,14 @@
-"""Snapshot tests for the 3 inline HTML templates in EmailService.
+"""Snapshot tests for the 3 inline HTML templates migrated from EmailService.
 
-These tests lock the current HTML output of the renewal_reminder, weekly_summary,
-and monthly_summary templates so the C1 Phase 5 migration to ``services/email/``
-can be verified to preserve the exact output.
+These tests lock the HTML output of the renewal_reminder, weekly_summary,
+and monthly_summary templates that were extracted from
+``services/email_service.py`` into ``services/email/templates/`` during
+C1 Phase 5.
 
-The tests do NOT touch Resend — they call the private ``_get_*_template`` methods
-directly so no DB session, network, or environment is required (besides the
-EmailService constructor's optional ``db`` parameter, which we leave as ``None``).
+The structural anchor + exact length-fingerprint values were captured against
+the PRE-migration code. Both pre- and post-migration outputs are byte-identical
+(verified during Commit 2 of the migration), so these fingerprints continue
+to lock the canonical output.
 
 Each test compares:
 1. A set of structural anchors (DOCTYPE, content blocks, key user-facing strings).
@@ -15,7 +17,7 @@ Each test compares:
 
 If the rendered HTML changes, both the structural anchors and the length will
 need to be updated. This is intentional — it forces a deliberate review of any
-template change (including the post-migration verification).
+template change.
 """
 
 from __future__ import annotations
@@ -23,18 +25,9 @@ from __future__ import annotations
 from datetime import datetime
 from unittest.mock import patch
 
-from app.services.email_service import EmailService
-
-
-def _build_service() -> EmailService:
-    """Construct an EmailService without touching admin settings/DB."""
-    # ``get_config_value`` will fall back to settings.RESEND_* which are fine
-    # even if unset — we never actually call ``send_email`` in these tests.
-    with patch(
-        "app.services.email_service.get_config_value",
-        side_effect=lambda key, default, db=None: default,
-    ):
-        return EmailService(db=None)
+from app.services.email.templates.monthly_summary import generate_monthly_summary
+from app.services.email.templates.renewal_reminder import generate_renewal_reminder
+from app.services.email.templates.weekly_summary import generate_weekly_summary
 
 
 # ---------------------------------------------------------------------------
@@ -43,13 +36,12 @@ def _build_service() -> EmailService:
 
 
 class TestRenewalReminderTemplateSnapshot:
-    """Snapshot for ``EmailService._get_renewal_reminder_template``."""
+    """Snapshot for ``app.services.email.templates.renewal_reminder.generate_renewal_reminder``."""
 
     FIXED_RENEWAL_DATE = datetime(2026, 5, 15, 12, 0, 0)
 
     def _render(self) -> str:
-        service = _build_service()
-        return service._get_renewal_reminder_template(
+        return generate_renewal_reminder(
             user_name="Alice",
             subscription_name="Netflix",
             renewal_date=self.FIXED_RENEWAL_DATE,
@@ -81,8 +73,7 @@ class TestRenewalReminderTemplateSnapshot:
     def test_length_fingerprint(self):
         """Exact length fingerprint — any whitespace/template change breaks this."""
         html = self._render()
-        # Lock the current output length. If this fails after a refactor,
-        # diff the rendered HTML against the pre-migration version.
+        # Lock the canonical output length (matches pre-migration EmailService).
         assert len(html) == 3721, f"Renewal reminder HTML length changed: {len(html)}"
 
 
@@ -92,7 +83,7 @@ class TestRenewalReminderTemplateSnapshot:
 
 
 class TestWeeklySummaryTemplateSnapshot:
-    """Snapshot for ``EmailService._get_weekly_summary_template``."""
+    """Snapshot for ``app.services.email.templates.weekly_summary.generate_weekly_summary``."""
 
     SUBSCRIPTIONS = [
         {"name": "Netflix", "amount": 15.99},
@@ -105,8 +96,7 @@ class TestWeeklySummaryTemplateSnapshot:
     ]
 
     def _render(self, *, with_renewals: bool = True) -> str:
-        service = _build_service()
-        return service._get_weekly_summary_template(
+        return generate_weekly_summary(
             user_name="Bob",
             total_spent=80.97,
             currency="USD",
@@ -166,7 +156,7 @@ class TestWeeklySummaryTemplateSnapshot:
 
 
 class TestMonthlySummaryTemplateSnapshot:
-    """Snapshot for ``EmailService._get_monthly_summary_template``."""
+    """Snapshot for ``app.services.email.templates.monthly_summary.generate_monthly_summary``."""
 
     SUBSCRIPTIONS = [
         {"name": "Netflix", "amount": 15.99},
@@ -181,12 +171,11 @@ class TestMonthlySummaryTemplateSnapshot:
     FIXED_NOW = datetime(2026, 4, 15, 9, 30, 0)
 
     def _render(self, *, with_comparison: bool = True) -> str:
-        service = _build_service()
-        with patch("app.services.email_service.datetime") as mock_dt:
+        with patch("app.services.email.templates.monthly_summary.datetime") as mock_dt:
             mock_dt.now.return_value = self.FIXED_NOW
             # Preserve other datetime uses (none here, but defensive)
             mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
-            return service._get_monthly_summary_template(
+            return generate_monthly_summary(
                 user_name="Carol",
                 total_spent=120.97,
                 currency="USD",

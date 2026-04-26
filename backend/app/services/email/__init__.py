@@ -16,5 +16,6 @@ Recommended imports:
 from __future__ import annotations
 
 from app.services.email.templates import EmailTemplates
+from app.services.email.transport import EmailService
 
-__all__ = ["EmailTemplates"]
+__all__ = ["EmailTemplates", "EmailService"]
