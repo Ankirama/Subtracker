@@ -351,3 +351,60 @@ def sample_trial_metadata():
         "trial_keywords": ["free trial", "trial period"],
         "detected_at": "2025-11-01T00:00:00Z",
     }
+
+
+@pytest.fixture(scope="function")
+def commit_rollback_counter(db_session: Session):
+    """
+    Wrap db_session.commit and db_session.rollback to count calls.
+
+    Yields a counter object with .commits and .rollbacks integer attributes,
+    plus a .reset() method. Used by chartests that assert transactional parity
+    (e.g., "the inner pipeline must commit once per email and once per batch").
+
+    The wrapping is reverted on teardown.
+    """
+    from types import SimpleNamespace
+
+    counter = SimpleNamespace(commits=0, rollbacks=0)
+
+    original_commit = db_session.commit
+    original_rollback = db_session.rollback
+
+    def counting_commit(*args, **kwargs):
+        counter.commits += 1
+        return original_commit(*args, **kwargs)
+
+    def counting_rollback(*args, **kwargs):
+        counter.rollbacks += 1
+        return original_rollback(*args, **kwargs)
+
+    def reset():
+        counter.commits = 0
+        counter.rollbacks = 0
+
+    counter.reset = reset
+
+    db_session.commit = counting_commit
+    db_session.rollback = counting_rollback
+
+    yield counter
+
+    db_session.commit = original_commit
+    db_session.rollback = original_rollback
+
+
+def test_commit_rollback_counter_smoke(commit_rollback_counter, db_session: Session, test_user):
+    """Smoke test for the commit_rollback_counter fixture."""
+    assert commit_rollback_counter.commits == 1  # test_user fixture committed
+    assert commit_rollback_counter.rollbacks == 0
+
+    db_session.commit()
+    assert commit_rollback_counter.commits == 2
+
+    db_session.rollback()
+    assert commit_rollback_counter.rollbacks == 1
+
+    commit_rollback_counter.reset()
+    assert commit_rollback_counter.commits == 0
+    assert commit_rollback_counter.rollbacks == 0
