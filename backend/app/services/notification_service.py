@@ -18,7 +18,8 @@ from app.models.notification import (
 )
 from app.models.user import User
 from app.models.subscription import Subscription
-from app.services.email_service import EmailService
+from app.services.email.templates import EmailTemplates
+from app.services.email.transport import EmailService
 
 logger = logging.getLogger(__name__)
 
@@ -115,14 +116,38 @@ class NotificationService:
 
                     if subscription:
                         metadata = notification.notification_metadata or {}
-                        success, error_message = EmailService(db).send_renewal_reminder(
-                            to_email=user.email,
-                            user_name=user.name or "there",
+                        days_until_renewal = metadata.get("days_until_renewal", 0)
+                        user_name = user.name or "there"
+                        subject = (
+                            f"Reminder: {subscription.name} renews in "
+                            f"{days_until_renewal} days"
+                        )
+                        html_content = EmailTemplates.generate_renewal_reminder(
+                            user_name=user_name,
                             subscription_name=subscription.name,
                             renewal_date=subscription.next_billing_date,
                             amount=subscription.amount,
                             currency=subscription.currency,
-                            days_until_renewal=metadata.get("days_until_renewal", 0),
+                            days_until_renewal=days_until_renewal,
+                        )
+                        plain_content = f"""
+Hi {user_name},
+
+This is a reminder that your {subscription.name} subscription will renew in {days_until_renewal} days.
+
+Renewal Date: {subscription.next_billing_date.strftime('%B %d, %Y')}
+Amount: {subscription.currency} {subscription.amount:.2f}
+
+If you wish to cancel or modify this subscription, please log in to your Subscription Tracker account.
+
+Best regards,
+Subscription Tracker Team
+        """.strip()
+                        success, error_message = EmailService(db).send_email(
+                            to_email=user.email,
+                            subject=subject,
+                            html_content=html_content,
+                            plain_content=plain_content,
                         )
 
             elif notification.type in [
@@ -133,23 +158,82 @@ class NotificationService:
                 metadata = notification.notification_metadata or {}
 
                 if notification.type == NotificationType.WEEKLY_SUMMARY:
-                    success, error_message = EmailService(db).send_weekly_summary(
+                    user_name = user.name or "there"
+                    total_spent = metadata.get("total_spent", 0.0)
+                    currency = metadata.get("currency", "USD")
+                    subscriptions = metadata.get("subscriptions", [])
+                    upcoming_renewals = metadata.get("upcoming_renewals", [])
+                    subject = (
+                        f"Your Weekly Subscription Summary - "
+                        f"{currency} {total_spent:.2f}"
+                    )
+                    html_content = EmailTemplates.generate_weekly_summary(
+                        user_name=user_name,
+                        total_spent=total_spent,
+                        currency=currency,
+                        subscriptions=subscriptions,
+                        upcoming_renewals=upcoming_renewals,
+                    )
+                    plain_content = f"""
+Hi {user_name},
+
+Here's your weekly subscription summary.
+
+Total Spent This Week: {currency} {total_spent:.2f}
+
+Active Subscriptions: {len(subscriptions)}
+
+Upcoming Renewals: {len(upcoming_renewals)}
+
+Log in to your Subscription Tracker account to view more details.
+
+Best regards,
+Subscription Tracker Team
+        """.strip()
+                    success, error_message = EmailService(db).send_email(
                         to_email=user.email,
-                        user_name=user.name or "there",
-                        total_spent=metadata.get("total_spent", 0.0),
-                        currency=metadata.get("currency", "USD"),
-                        subscriptions=metadata.get("subscriptions", []),
-                        upcoming_renewals=metadata.get("upcoming_renewals", []),
+                        subject=subject,
+                        html_content=html_content,
+                        plain_content=plain_content,
                     )
                 else:  # MONTHLY_SUMMARY
-                    success, error_message = EmailService(db).send_monthly_summary(
+                    user_name = user.name or "there"
+                    total_spent = metadata.get("total_spent", 0.0)
+                    currency = metadata.get("currency", "USD")
+                    subscriptions = metadata.get("subscriptions", [])
+                    spending_breakdown = metadata.get("spending_breakdown", {})
+                    comparison_last_month = metadata.get("comparison_last_month")
+                    subject = (
+                        f"Your Monthly Subscription Summary - "
+                        f"{currency} {total_spent:.2f}"
+                    )
+                    html_content = EmailTemplates.generate_monthly_summary(
+                        user_name=user_name,
+                        total_spent=total_spent,
+                        currency=currency,
+                        subscriptions=subscriptions,
+                        spending_breakdown=spending_breakdown,
+                        comparison_last_month=comparison_last_month,
+                    )
+                    plain_content = f"""
+Hi {user_name},
+
+Here's your monthly subscription summary.
+
+Total Spent This Month: {currency} {total_spent:.2f}
+
+Active Subscriptions: {len(subscriptions)}
+
+Log in to your Subscription Tracker account to view detailed analytics.
+
+Best regards,
+Subscription Tracker Team
+        """.strip()
+                    success, error_message = EmailService(db).send_email(
                         to_email=user.email,
-                        user_name=user.name or "there",
-                        total_spent=metadata.get("total_spent", 0.0),
-                        currency=metadata.get("currency", "USD"),
-                        subscriptions=metadata.get("subscriptions", []),
-                        spending_breakdown=metadata.get("spending_breakdown", {}),
-                        comparison_last_month=metadata.get("comparison_last_month"),
+                        subject=subject,
+                        html_content=html_content,
+                        plain_content=plain_content,
                     )
 
             # Update notification with email delivery status
