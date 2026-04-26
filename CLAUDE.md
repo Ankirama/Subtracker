@@ -69,6 +69,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 5. Create PR with summary and test plan
 6. Wait for user approval before merging
 
+## Language Policy (MANDATORY)
+
+**All written artefacts in this repository must be in English**, regardless of the language used in development conversations:
+
+- Documentation: `*.md` files (specs, plans, audits, guides, READMEs), inline comments, commit messages, PR titles and bodies.
+- Code: variable names, function names, class names, docstrings, code comments, error messages, log messages.
+- Diagrams: Mermaid labels, graphify node names, architecture annotations, ASCII diagrams.
+- Tooling: slash command files, hook scripts, shell scripts, CI/CD configs, JSON keys.
+- Tests: test names, fixtures, assertion messages.
+
+Conversational French (or any other language) between the user and Claude is fine — but the artefacts produced are always English. If a translation is needed mid-task, do it inline before committing; never ship mixed-language documents.
+
 ## Daily Commands
 
 ```bash
