@@ -45,8 +45,8 @@ docs/superpowers/audits/
 | Task 4 | §3 — `api/auth.py` | source + `test_auth.py` |
 | Task 5 | §4 — `services/email_templates.py` | source + `test_email_templates.py` |
 | Task 6 | §5 — `services/email_service.py` | source + grep for any `*email_service*` test |
-| Task 7 | §A — Constats transverses | all 5 sources, grep across them |
-| Task 8 | §B — Roadmap priorisée | the 5 sections + §A |
+| Task 7 | §A — Cross-cutting findings | all 5 sources, grep across them |
+| Task 8 | §B — Prioritised roadmap | the 5 sections + §A |
 | Task 9 | §C — Out-of-scope | re-read full doc |
 | Task 10 | Final review + push + PR | — |
 
@@ -61,13 +61,13 @@ Every per-file task uses this exact template, with placeholders replaced by actu
 ```markdown
 ## §<N> — `<relative path>` — <line count> lines
 
-### Symptômes
+### Symptoms
 
 [Why this file is god-y. Concrete signals: how many distinct responsibilities,
 heterogeneity of imports, depth of nesting, presence of section-comment
 "chapters", dispersion of concerns. 3-6 sentences max.]
 
-### Responsabilités identifiées
+### Responsibilities identified
 
 [Numbered list of "roles" mixed in the file. For each: approximate line range
 and one-sentence description. Aim for 3-8 distinct responsibilities.]
@@ -76,20 +76,20 @@ and one-sentence description. Aim for 3-8 distinct responsibilities.]
 2. <role 2> (lines Y-Z) — <one-sentence description>
 3. ...
 
-### Couplages (graph-derived)
+### Couplings (graph-derived)
 
 - **Imports entrants**: <N> modules import from this file. <Notable / surprising importers, or "_None observed._">
 - **Imports sortants**: this file imports from <N> modules. <Cross-layer imports flagged, or "_All within expected layer boundaries._">
 - **Centrality**: <god-node? hub of which graphify community? high betweenness? Specific evidence from `grep <module> graphify-out/GRAPH_REPORT.md` if available, or "_Not flagged in GRAPH_REPORT._">
 
-### Couverture tests
+### Test coverage
 
 - Test file(s) found: <list, or "_None found._">
 - Approximate coverage estimate: <percentage based on `grep "^def " source | wc -l` vs `grep "def test_" tests | wc -l` — rough only>
 - Refactor safety: **safe** | **risky** | **unknown**
 - Justification: <one sentence: why safe/risky/unknown>
 
-### Proposition de découpe
+### Proposed split
 
 \`\`\`
 backend/app/<target dir>/
@@ -101,14 +101,14 @@ backend/app/<target dir>/
 [2-4 sentence justification of why this split and not another.
 Specifically: why these boundaries are stable (won't drift back to god-status).]
 
-### Effort & dépendances
+### Effort & dependencies
 
 - **Effort**: S / M / L / XL
-- **Justification effort**: <one sentence>
-- **Bloqueurs**: <other refactors that must happen first, with reference to §N, or "_None._">
-- **Bloquant pour**: <other refactors that depend on this one, with reference to §N, or "_None._">
-- **Risque**: low / medium / high
-- **Justification risque**: <one sentence combining coverage + criticality>
+- **Effort justification**: <one sentence>
+- **Blockers**: <other refactors that must happen first, with reference to §N, or "_None._">
+- **Blocks**: <other refactors that depend on this one, with reference to §N, or "_None._">
+- **Risk**: low / medium / high
+- **Risk justification**: <one sentence combining coverage + criticality>
 ```
 
 T-shirt size definitions:
@@ -149,10 +149,10 @@ Create `docs/superpowers/audits/2026-04-25-backend-architecture-audit.md` with t
 
 ## Method
 
-This audit applies a fixed per-file template (Symptômes / Responsabilités identifiées / Couplages / Couverture tests / Proposition de découpe / Effort & dépendances) to the 5 largest backend Python files, then synthesises three cross-cutting sections:
+This audit applies a fixed per-file template (Symptoms / Responsibilities identified / Couplages / Test coverage / Proposed split / Effort & dependencies) to the 5 largest backend Python files, then synthesises three cross-cutting sections:
 
-- **§A — Constats transverses** — duplication patterns, layer violations, circular imports affecting 2+ files.
-- **§B — Roadmap priorisée** — recommended execution order with justification.
+- **§A — Cross-cutting findings** — duplication patterns, layer violations, circular imports affecting 2+ files.
+- **§B — Prioritised roadmap** — recommended execution order with justification.
 - **§C — Out-of-scope** — items noted but not addressed in this audit.
 
 Source data: the source files themselves, their associated test files (if any), and `graphify-out/GRAPH_REPORT.md`. T-shirt sizing (S/M/L/XL), not hour estimates.
@@ -177,11 +177,11 @@ _Pending audit._
 
 _Pending audit._
 
-## §A — Constats transverses
+## §A — Cross-cutting findings
 
 _Pending cross-cutting analysis._
 
-## §B — Roadmap priorisée
+## §B — Prioritised roadmap
 
 _Pending prioritisation._
 
@@ -273,9 +273,9 @@ Use Edit on `docs/superpowers/audits/2026-04-25-backend-architecture-audit.md`:
   _Pending audit._
   ```
 
-- `new_string`: a complete §1 section following the template at the top of this plan. Required sub-section headers: `### Symptômes`, `### Responsabilités identifiées`, `### Couplages (graph-derived)`, `### Couverture tests`, `### Proposition de découpe`, `### Effort & dépendances`.
+- `new_string`: a complete §1 section following the template at the top of this plan. Required sub-section headers: `### Symptoms`, `### Responsibilities identified`, `### Couplings (graph-derived)`, `### Test coverage`, `### Proposed split`, `### Effort & dependencies`.
 
-The "Proposition de découpe" should suggest a target like:
+The "Proposed split" should suggest a target like:
 
 ```
 backend/app/api/subscriptions/
@@ -295,7 +295,7 @@ awk '/^## §1 /,/^## §2 /' docs/superpowers/audits/2026-04-25-backend-architect
 grep -c 'Pending audit' docs/superpowers/audits/2026-04-25-backend-architecture-audit.md
 ```
 
-Expected: §1 contains all 6 sub-section headers (Symptômes, Responsabilités identifiées, Couplages, Couverture tests, Proposition de découpe, Effort & dépendances) and substantive content under each. `Pending audit` count should now be 4 (was 5; you populated §1).
+Expected: §1 contains all 6 sub-section headers (Symptoms, Responsibilities identified, Couplages, Test coverage, Proposed split, Effort & dependencies) and substantive content under each. `Pending audit` count should now be 4 (was 5; you populated §1).
 
 - [ ] **Step 6: Commit**
 
@@ -347,7 +347,7 @@ ls backend/tests/ | grep -i 'email_sync\|sync'
 find backend -name 'test_*sync*' -o -name '*sync*test*'
 ```
 
-If no direct test file: note `_None found._` in §Couverture tests — refactor safety = `unknown` or `risky`.
+If no direct test file: note `_None found._` in §Test coverage — refactor safety = `unknown` or `risky`.
 
 - [ ] **Step 3: Pull graph data**
 
@@ -368,7 +368,7 @@ Edit `docs/superpowers/audits/2026-04-25-backend-architecture-audit.md`:
 
 - `new_string`: full §2 with all 6 required sub-section headers.
 
-The "Proposition de découpe" should consider that this is a Celery tasks file. A typical split:
+The "Proposed split" should consider that this is a Celery tasks file. A typical split:
 
 ```
 backend/app/tasks/email_sync/
@@ -591,7 +591,7 @@ ls backend/tests/ | grep -i 'email_service\|email_svc'
 find backend -name 'test_email_service*'
 ```
 
-If no direct test file, mark coverage as `unknown` or `risky` and explain in §Couverture tests.
+If no direct test file, mark coverage as `unknown` or `risky` and explain in §Test coverage.
 
 - [ ] **Step 3: Pull graph data + check overlap with email_templates**
 
@@ -736,21 +736,21 @@ Edit `docs/superpowers/audits/2026-04-25-backend-architecture-audit.md`:
 
 - `old_string`:
   ```
-  ## §A — Constats transverses
+  ## §A — Cross-cutting findings
 
   _Pending cross-cutting analysis._
   ```
 
 - `new_string`:
   ```
-  ## §A — Constats transverses
+  ## §A — Cross-cutting findings
 
   Findings that affect 2+ of the audited files. <Brief intro sentence.>
 
   ### A.1 — <finding title>
 
-  - **Files concernés**: §<N>, §<M>, ...
-  - **Constat**: <2-3 sentence description with concrete evidence>
+  - **Affected files**: §<N>, §<M>, ...
+  - **Finding**: <2-3 sentence description with concrete evidence>
   - **Impact**: <1 sentence on why this matters for the refactor>
 
   ### A.2 — <finding title>
@@ -791,7 +791,7 @@ Replace `<N>` with the actual count before committing.
 
 ---
 
-### Task 8: Roadmap priorisée (§B)
+### Task 8: Prioritised roadmap (§B)
 
 **Files:**
 - Read: the 5 populated per-file sections + §A
@@ -827,14 +827,14 @@ Edit `docs/superpowers/audits/2026-04-25-backend-architecture-audit.md`:
 
 - `old_string`:
   ```
-  ## §B — Roadmap priorisée
+  ## §B — Prioritised roadmap
 
   _Pending prioritisation._
   ```
 
 - `new_string`:
   ```
-  ## §B — Roadmap priorisée
+  ## §B — Prioritised roadmap
 
   Recommended execution order for sub-project C1, derived from the
   per-file analyses (§1-§5) and cross-cutting findings (§A). Effort
@@ -1050,7 +1050,7 @@ gh pr create --title "docs(audit): C6 — backend architecture audit (5 god-file
 
 Targeted architecture audit of the 5 largest backend Python modules (~5,665 LoC total), produced under sub-project C6 of the broader code refactor (C). Output is a single Markdown document at `docs/superpowers/audits/2026-04-25-backend-architecture-audit.md` that becomes the proto-spec for sub-project C1 (god-files split).
 
-Per-file analyses (§1-§5) follow a fixed template (Symptômes / Responsabilités identifiées / Couplages / Couverture tests / Proposition de découpe / Effort & dépendances). Cross-cutting findings, prioritised roadmap, and out-of-scope items are surfaced in §A, §B, §C.
+Per-file analyses (§1-§5) follow a fixed template (Symptoms / Responsibilities identified / Couplages / Test coverage / Proposed split / Effort & dependencies). Cross-cutting findings, prioritised roadmap, and out-of-scope items are surfaced in §A, §B, §C.
 
 Spec: `docs/superpowers/specs/2026-04-25-c6-backend-architecture-audit-design.md`
 Plan: `docs/superpowers/plans/2026-04-25-c6-backend-architecture-audit.md`
