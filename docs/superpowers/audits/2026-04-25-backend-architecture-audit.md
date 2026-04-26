@@ -390,7 +390,109 @@ Cette section synthétise les patterns observés à travers §1-§5 qui touchent
 
 ## §B — Roadmap priorisée
 
-_Pending prioritisation._
+Cette section ordonne le sous-projet C1 en **5 phases** dérivées des §1-§5 (effort × risque × impact) et contraintes par §A. La **Phase 0** livre les pré-conditions (4 modules partagés + tests de caractérisation) qui débloquent toutes les phases suivantes ; la **Phase 1** traite §4+§5 ensemble (couplage imposé par A.4) ; les **Phases 2-4** traitent §1, §3, §2 dans cet ordre — §2 en dernier car c'est le seul XL+high-risk du lot et il bénéficie d'avoir `dedup_strategy.py` et `price_history_recorder.py` déjà éprouvés par les phases précédentes.
+
+> **Phase 0 débloque toutes les phases suivantes — ne pas la sauter.** Une exécution partielle (par ex. shipper les 4 modules sans les chartests, ou inversement) invalide le filet de sécurité et fige la duplication dans la nouvelle arborescence.
+
+### Phase 0 — Pre-conditions (modules partagés + tests de caractérisation)
+
+- **Fichiers affectés**: NOUVEAUX — `backend/app/services/cost_projection.py`, `backend/app/services/price_history_recorder.py`, `backend/app/services/dedup_strategy.py`, `backend/app/api/_email_dispatch.py`. Plus tests dans `backend/tests/` (chartests pour les 6 routes non testées de §1, l'inner-pipeline de §2, les 14 routes non testées de §3).
+- **Pourquoi en premier**: §A.2 (logique métier dupliquée) et §A.5 (chemins mutation non testés) **gatent toutes** les phases per-fichier. Sans Phase 0, chaque extraction soit (a) ship la duplication dans la nouvelle arborescence — annulant le gain DRY — soit (b) risque une régression silencieuse sur des chemins write-path non couverts (mutations `User`, `Subscription`, association-table, backup codes 2FA).
+- **Effort**: **M-L** — décomposé : `cost_projection.py` (S, ~40 lignes, extraction triplicate de §1:207-217, :229-236, :327-338) + `price_history_recorder.py` (M, ~90 lignes, consolidation des 3 paths de §2:374-394, :602-625, :647-661) + `dedup_strategy.py` (M, ~186 lignes consolidées de §1:436-507 + §2:441-576 incluant la liste `paypal/stripe/paddle/gumroad/fastspring`) + `_email_dispatch.py` (S, ~60 lignes, collapse les 4 sites de §3:184-198, :308-321, :821-836, :1173-1185) + chartests (M, principal coût). Estimation 8-12h.
+- **Risque**: **low** — toutes les modifications sont additives : nouveaux modules + nouveaux tests, aucun changement de contrat HTTP ni de signature publique. Les chartests *capturent* le comportement actuel sans le modifier.
+- **Dépendances**: _Aucune._ Cette phase est indépendante et peut démarrer immédiatement.
+- **Concrets**:
+  1. `cost_projection.py` (S) — fonction pure `project_monthly_cost(amount, billing_cycle)` + variantes yearly/weekly. Extraction mécanique des 3 sites de §1.
+  2. `price_history_recorder.py` (M) — exposera `record_price_update`, `record_initial_price`, `record_price_change` couvrant les 3 paths inline de §2. Sera réutilisé par `api/subscriptions/merge_split.py` (Phase 2).
+  3. `dedup_strategy.py` (M) — consolide la stratégie multi-niveau de §2 (service-reference → email_sender → custom_label → fallback) et le scoring heuristique de §1 (`find_duplicate_subscriptions`). Surface API : `score_duplicate_pair`, `find_best_match`. Devient le point d'injection naturel quand service-reference matching maturera.
+  4. `_email_dispatch.py` (S) — helper interne avec `build_verification_url`, `send_verification_email`, `send_2fa_otp` qui encapsulent `EmailService(db).send_*` + déballage `(success, error)` + `HTTPException(500)`. Élimine les 4 duplications de §3.
+  5. **Chartests** (M, le gros du coût) — séquence obligatoire avant Phases 2/3/4 :
+     - 6 chartests pour §1 : `merge_subscriptions`, `split_subscription`, `find_duplicate_subscriptions`, `update_subscription_renewal_status`, `accept_cancellation_suggestion`, `dismiss_cancellation_suggestion` (assertions sur side-effects DB + association-table).
+     - Chartests pour l'inner-pipeline de §2 : multi-strategy dedup, 3 paths price-history, renewal step, cancellation step, polling de cancellation, écritures `subscription_emails`. Inclure un fixture qui compte `db.commit()`/`db.rollback()` pour parité transactionnelle (cf. §2 «Mitigation»).
+     - Chartests pour §3 : les 7 endpoints 2FA (mutent `User.totp_secret`, `User.backup_codes`, `User.two_factor_enabled`), `verify_email` auto-login, `delete_account`, `change_password`, `update_preferences` — avec assertions sur les security-event logs.
+
+### Phase 1 — Refactor consolidé `services/email/` (§4 + §5)
+
+- **Fichiers affectés**: §4 (`services/email_templates.py`) + §5 (`services/email_service.py`).
+- **Pourquoi avant les API** : §A.4 impose le couplage §4↔§5 (les frontières rendering/delivery sont incohérentes : 3 templates externalisés dans §4 + 3 templates inline dans §5 + ~54 balises HTML dans 5 tâches Celery périphériques). Composite le plus élevé du lot (§4=7 low-risk, §5=6 medium-risk) avec le risque le plus faible une fois §4 terminé : §4 a une couverture de tests de **~90%** (28 tests behavior-based) et zéro fuite cross-layer. Shippé en premier, §4 valide le pattern de découpage par cas d'usage avant que les phases plus risquées n'attaquent §1/§2/§3.
+- **Effort**: **M+M = ~M-L** (~7-11h dont snapshot tests préalables sur les 3 templates inline de §5 + migration des 3 call-sites de `notification_service.py` + dissolution du singleton `email_service` per A.6).
+- **Risque**: **low → medium** — §4 est safe (tests behavior-based, aucun couplage cross-layer) ; §5 est medium (8 importateurs, singleton de module à désactiver, aucun test direct de `email_service.py`). Mitigation : snapshot tests HTML sur les 3 templates inline avant extraction.
+- **Dépendances**: Phase 0 (caractérisation tests pour les chemins concernés ne sont pas critiques ici, mais Phase 0 doit être complète pour ne pas bloquer la suite).
+- **Concrets**:
+  1. Restructurer `services/email_templates.py` en package `services/email/templates/` avec `_styles.py` (factorise CSS dupliquée 3×), `summary.py`, `otp_2fa.py`, `verification.py`. Façade `EmailTemplates` réexportée depuis `__init__.py` pour rétro-compat.
+  2. Extraire les 3 templates inline de `email_service.py:287-778` vers `services/email/templates/{renewal_reminder,weekly_summary,monthly_summary}.py`.
+  3. Réduire `email_service.py` à `services/email/transport.py` (~80 lignes : `send_email` + config Resend uniquement). Supprimer les 5 wrappers typés morts (`send_renewal_reminder`, `send_weekly_summary`, `send_monthly_summary`).
+  4. Migrer `notification_service.py:118, :136, :145` (seul caller des wrappers supprimés) vers le pattern `EmailTemplates.* + transport.send_email`.
+  5. **Dissoudre le singleton `email_service = EmailService()`** (per A.6) : soit supprimer et exiger `EmailService(db)` aux 8 sites, soit introduire un factory `get_email_service(db)`. Trancher dans ce PR.
+  6. **Hors-scope explicite mais flaggé pour §C** : les ~54 balises HTML inline dans `tasks/{budget_alerts,renewal_reminders,trial_reminders,system_announcements,price_change_monitor}.py` constituent une extension naturelle après Phase 1, à traiter en C2.
+
+### Phase 2 — Refactor `api/subscriptions/` (§1)
+
+- **Fichiers affectés**: §1 (`api/subscriptions.py` → `api/subscriptions/{router,crud,stats,analytics,duplicates,merge_split,status_reconcile,feedback,price_history,cancellation_suggestion}.py`).
+- **Pourquoi maintenant**: composite 7 (medium risk après chartests). §1 consomme **3 des 4 modules livrés en Phase 0** (`cost_projection`, `dedup_strategy`, `price_history_recorder` via merge), donc shipper §1 avant §2 valide ces modules sur la surface la plus testée (CRUD/stats/analytics ont déjà ~65% de couverture). §1 est aussi un leaf de l'import-DAG (seul `main.py` l'importe, §1 lignes 40, 195) : zéro risque de régression cross-module en dehors du sous-package lui-même.
+- **Effort**: **M** (~4-6h, conforme à §1) — 60% mécanique grâce à la couverture existante ; les 6 routes mutationnelles déjà couvertes par les chartests de Phase 0.
+- **Risque**: **medium** — les chemins merge/split mutent `subscription_emails` en SQL brut, mais sont désormais protégés par les chartests de Phase 0. Les helpers `cost_projection`, `dedup_strategy`, `price_history_recorder` étant testés indépendamment en Phase 0, leur intégration ici est mécanique.
+- **Dépendances**: **Phase 0 complète** (les 3 modules partagés + les 6 chartests sont obligatoires).
+- **Concrets**:
+  1. Scaffold `api/subscriptions/` selon découpe §1.
+  2. Déplacer les endpoints CRUD/stats/analytics/duplicates testés (~60% du LoC) — guarantie par `test_subscriptions_api.py:40 tests`.
+  3. Câbler `cost_projection.project_monthly_cost` dans `stats.py` et `analytics.py` (élimine les 3 duplications).
+  4. Câbler `dedup_strategy.score_duplicate_pair` dans `duplicates.py` (élimine les 71 lignes de scoring inline).
+  5. Câbler `price_history_recorder` dans `merge_split.py` (consistance avec §2 Phase 4).
+  6. Déplacer `merge_subscriptions` et `split_subscription` (chartests Phase 0 servent de filet).
+  7. Collapse les 2 imports paresseux de §1:783 (`update_subscription_statuses`) et §1:1045 (`RenewalCalculator`) en imports module-level dans `status_reconcile.py` — cycle non concerné, c'est un faux-positif (cf. A.1).
+
+### Phase 3 — Refactor `api/auth/` (§3)
+
+- **Fichiers affectés**: §3 (`api/auth.py` → `api/auth/{router,registration,login,two_factor,account,_email_dispatch}.py`).
+- **Pourquoi après §1**: composite 7, mais risque medium concentré sur des paths security-critical (2FA, password change, email verification auto-login) tous mutant le god-node `User` (1019 edges). §1 sert de répétition générale (split d'un router de taille comparable, leaf du DAG, helpers consommés depuis Phase 0). `_email_dispatch.py` étant déjà livré en Phase 0, il ne reste que la mécanique de découpage et la fermeture de la fuite d'abstraction `TwoFactorAuth` (per A.3).
+- **Effort**: **M** (~4-6h, conforme à §3).
+- **Risque**: **medium** — security-critical mais protégé par les 14 chartests endpoint de Phase 0 (notamment les 7 chartests 2FA + auto-login email-verification + delete_account + change_password). Mitigation supplémentaire : assertions sur les security-event logs dans chaque chartest pour parité side-effects.
+- **Dépendances**: **Phase 0 complète** (`_email_dispatch.py` + chartests endpoint 2FA/account/email-verification).
+- **Concrets**:
+  1. Scaffold `api/auth/` selon découpe §3.
+  2. Déplacer registration / login / refresh / me / logout (déjà couverts par les 35 tests existants).
+  3. Câbler `_email_dispatch.py` à 4 sites : `register`, `login` OTP, `2fa/setup`, `resend-verification` (collapse de 4 blocs identiques en 1 helper, gain ~50 lignes nettes).
+  4. Déplacer les 7 endpoints 2FA dans `two_factor.py` (chartests Phase 0 servent de filet).
+  5. **Fermer la fuite d'abstraction `TwoFactorAuth`** (per A.3) : `two_factor.py` doit importer **uniquement** `TwoFactorAuth` depuis `app.security.two_factor`, pas les 3 managers séparés (`TOTPManager`, `EmailOTPManager`, `BackupCodesManager`). Sans cette étape, le découpage n'apporte aucun gain de couplage.
+  6. Supprimer le duplicat mort `from app.security.password import verify_password` à §3:672 (déjà importé en haut, ligne 35).
+  7. La double système de préférences "language" (§3 lignes 562-652 : JSONB `settings` + colonne dédiée `preferred_language`) est notée pour §C — pas tranchée dans cette phase.
+
+### Phase 4 — Refactor `tasks/email_sync/` (§2)
+
+- **Fichiers affectés**: §2 (`tasks/email_sync.py` → `tasks/email_sync/{celery_tasks,orchestrator,stages/*,dedup_strategy,price_history,renewal_step,cancellation_step,progress_tracker,filters,status_reconciler}.py`).
+- **Pourquoi en dernier**: composite 6 — seul L+high-risk du lot. Doit absorber les 4 contraintes les plus lourdes de §A simultanément : (A.1) introduire l'interface seam pour briser le triangle `api ↔ tasks ↔ services` ; (A.2) consommer `dedup_strategy.py` + `price_history_recorder.py` (livrés Phase 0, validés Phase 2) ; (A.3) réifier les 3 stages déjà commentés dans le code mais jamais modulés ; (A.5) survivre à 600 lignes de business logic non testée *même après* les chartests de Phase 0 (qui couvrent les chemins critiques mais pas les 100%). Faire §2 en dernier maximise le ROI des phases précédentes : `dedup_strategy.py` aura traversé deux refactors avant d'arriver ici, donc aura absorbé les corner-cases.
+- **Effort**: **L** (~12-16h, conforme à §2) — dont 4h pour les chartests *additionnels* sur les paths les plus exotiques (commit boundaries, `db.refresh(mailbox)` cancellation polling, association-table writes) qui ne sont pas tous couverts par Phase 0.
+- **Risque**: **high** — code on the data-write path pour les 4 entités les plus connectées du graphe (`Subscription` 816 edges, `Mailbox` 305, `PriceHistory` 148, `EmailMessage` 136). Le 5-level-deep `try/except` + commits per-email implicites veulent dire qu'**hisser un commit hors de la per-email scope batch-corromp les semantics rollback**. Mitigation : chartests Phase 0 + fixture qui compte commits/rollbacks + tests de cancellation end-to-end (envoyer un cancellation request mid-batch et asserter que les subs déjà persistés survivent et que les en-cours sont rollbackés).
+- **Dépendances**: **Phase 0 complète** + **Phase 2** (valide que `dedup_strategy.py` et `price_history_recorder.py` fonctionnent dans un contexte de production).
+- **Concrets**:
+  1. **Introduire l'interface seam** (résout A.1) : créer `app/services/email_pipeline_protocol.py` qui définit les Protocols pour `AIClassifier`, `SubscriptionExtractor`, `ReferenceExtractor`. `_sync_mailbox_async` accepte ces protocols **par injection** au lieu de les importer paresseusement à §2:156-157, :487. Bénéfice secondaire : la pipeline interne devient mockable, débloquant les tests des 600 lignes non couvertes.
+  2. Scaffold `tasks/email_sync/` selon découpe §2, avec `__init__.py` qui réexporte `sync_mailbox_emails`, `check_scheduled_syncs`, `update_subscription_statuses`, `parse_date_filter` pour rétro-compat des 3 callers (`api/mailboxes.py`, `api/subscriptions.py`, `tests/test_email_sync.py`).
+  3. Déplacer les helpers testés en premier : `parse_date_filter`, `update_subscription_statuses`, `DatabaseTask`, `filter_subscription_data`.
+  4. Câbler `dedup_strategy.py` (Phase 0) dans `stages/persistence.py` — élimine les 115 lignes de §2:441-576.
+  5. Câbler `price_history_recorder.py` (Phase 0) dans `price_history.py` — collapse les 3 paths inline en un appel par chemin.
+  6. Extraire `progress_tracker.py` — la portion la plus délicate car elle touche les commit boundaries. Vérifier en boucle le compteur commits/rollbacks du fixture.
+  7. Extraire les `stages/{classification,extraction,persistence}.py` — chaque stage devient indépendamment mockable grâce aux Protocols introduits à l'étape 1.
+  8. Collapse les 3 imports paresseux de §2:156, :157, :487 en imports module-level dans `stages/classification.py` et `stages/extraction.py` (l'interface seam les neutralise).
+
+### Total estimated effort
+
+- Phase 0 : **~M-L** (8-12h) — 4 modules partagés + chartests préalables.
+- Phase 1 : **~M-L** (7-11h) — §4+§5 couplés, dissolution singleton.
+- Phase 2 : **M** (4-6h) — §1, helpers Phase 0 cablés.
+- Phase 3 : **M** (4-6h) — §3, fermeture fuite `TwoFactorAuth`.
+- Phase 4 : **L** (12-16h) — §2, interface seam A.1 + 600 lignes risquées.
+
+**Total : ~35-51 heures de refactor focalisé** (≈ 1-1.5 semaines de développement plein-temps, à étaler sur 2-3 sprints en pratique pour maintenir la qualité de revue et laisser tourner les tests d'intégration en pré-prod entre phases).
+
+### Caveats
+
+- **Phase 0 doit être 100% complète avant Phase 1.** Une Phase 0 partielle (par ex. modules livrés sans chartests, ou chartests partiels) invalide le filet de sécurité et fige la duplication dans la nouvelle arborescence — annulant le ROI de l'audit. Si l'effort Phase 0 dépasse les estimations, **réduire le scope C1 à Phases 0-2 plutôt que sacrifier la Phase 0**.
+- **Phases 1 (§4+§5) ne peuvent pas être splittées.** Per A.4, shipper §4 sans §5 ou inversement laisserait le code dans un état *encore plus* fragmenté (3 templates externalisés + 3 inline + singleton intact) que l'état actuel. Les deux fichiers doivent atterrir dans le même PR ou dans une chaîne de PRs sans interruption.
+- **L'interface seam de Phase 4 (A.1) est un investissement architectural à isoler.** Si Phase 4 dépasse 16h, splitter en deux PRs : (4a) interface seam seule, validée par re-routing des imports paresseux vers les Protocols sans déplacer le code ; (4b) découpage en sous-modules. (4a) est shippable indépendamment et améliore la testabilité même si (4b) est différé.
+- **Phase 2 et Phase 3 peuvent être shippées en parallèle** si la capacité d'équipe le permet : elles touchent des fichiers indépendants (api/subscriptions.py vs api/auth.py), consomment des modules Phase 0 différents, et n'ont aucune dépendance bidirectionnelle. La séquence linéaire proposée est défensive — favorise la validation incrémentale des helpers Phase 0 sur §1 avant de les engager sur §3.
+- **Les ~54 balises HTML dans les 5 tâches Celery périphériques** (`tasks/{budget_alerts,renewal_reminders,trial_reminders,system_announcements,price_change_monitor}.py`) ne sont **pas dans C1**. C'est un travail naturel de continuation après Phase 1 (consolidation `services/email/templates/`), à scoper en C2 avec sa propre roadmap.
+- **La double système de préférences "language" de §3** (JSONB `settings` + colonne `preferred_language`) n'est pas tranchée par le découpage : c'est un débat de schéma à mener séparément (cf. §C).
 
 ## §C — Out-of-scope
 
