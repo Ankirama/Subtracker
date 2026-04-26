@@ -988,3 +988,89 @@ class TestSyncInnerPipelineCancellationStep:
         assert result["success"] is True
         h.db.refresh(sub)
         assert sub.suggested_cancellation_status is None
+
+
+class TestSyncInnerPipelineCommitBoundariesAndPolling:
+    """
+    Chartests for transactional parity (commit/rollback per email + per batch)
+    and the cancellation-polling early-exit.
+    """
+
+    def _ext(self, **overrides):
+        base = {
+            "provider": "Netflix",
+            "amount": 15.99,
+            "currency": "EUR",
+            "billing_cycle": "monthly",
+            "email_sender": "netflix@netflix.com",
+            "category": "streaming",
+            "is_subscription": True,
+            "is_price_update": False,
+            "extraction_metadata": {"service_references": {}},
+        }
+        base.update(overrides)
+        return base
+
+    def test_per_email_commit_increments_counter(
+        self, email_sync_harness, commit_rollback_counter
+    ):
+        """Each email processed → at least 1 db.commit() per email + 1 batch commit."""
+        h = email_sync_harness
+        commit_rollback_counter.reset()
+
+        h.add_email(message_id="email-1", extraction=self._ext())
+        h.add_email(message_id="email-2", extraction=self._ext(provider="Spotify"))
+        h.add_email(message_id="email-3", extraction=self._ext(provider="Disney+"))
+
+        result = h.run_sync()
+        assert result["success"] is True
+
+        # 3 emails × at least 1 commit each + final batch/mailbox commit ≥ 4 total
+        assert commit_rollback_counter.commits >= 4
+
+    def test_subscription_emails_junction_inserted_per_email(
+        self, email_sync_harness
+    ):
+        """Each new email creates a subscription_emails row for the matched sub."""
+        h = email_sync_harness
+        em = h.add_email(extraction=self._ext())
+
+        result = h.run_sync()
+        assert result["success"] is True
+
+        sub = h.get_sub(provider="Netflix")
+        assert sub is not None
+        assert h.email_links_for(sub.id)
+
+    def test_cancellation_polling_exits_early_when_flag_set_pre_sync(
+        self, email_sync_harness
+    ):
+        """Cancellation flag set before sync → flag is checked after the batch completes.
+
+        Plan adjustment: the cancellation polling fires AFTER each batch (post-commit),
+        not at the start of the sync or between per-email commits. With a single-email
+        batch, the email IS processed and the subscription IS created before the check
+        fires. The cancellation then resets the flag and exits. Additionally, on SQLite
+        (test DB), the datetime subtraction in the cancellation path raises a TypeError
+        (offset-naive vs offset-aware), causing the sync to return success=False.
+        This is a pre-existing bug; we lock the observable behavior:
+        - Sync terminates (returns a result dict — does not hang)
+        - The cancellation flag is cleared (reset to False after detection)
+        - At most 1 subscription created (the batch that was already processing)
+        """
+        h = email_sync_harness
+        h.mailbox.sync_cancellation_requested = True
+        h.db.commit()
+
+        h.add_email(extraction=self._ext())
+        result = h.run_sync()
+
+        # Sync terminates and returns a result (does not hang or raise unhandled)
+        assert isinstance(result, dict)
+
+        # Cancellation flag is cleared after detection
+        h.db.refresh(h.mailbox)
+        assert not h.mailbox.sync_cancellation_requested
+
+        # At most 1 sub created (the single email that was in the batch)
+        assert h.count_subs(provider="Netflix") <= 1
