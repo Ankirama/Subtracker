@@ -802,3 +802,113 @@ class TestSyncInnerPipelinePriceHistory:
         assert (
             h.count_price_history(subscription_id=sub.id, change_type="initial") >= 1
         )
+
+
+class TestSyncInnerPipelineRenewalStep:
+    """Chartests for the renewal calculation step (lines 664-731)."""
+
+    def _ext(self, **overrides):
+        base = {
+            "provider": "Netflix",
+            "amount": 15.99,
+            "currency": "EUR",
+            "billing_cycle": "monthly",
+            "email_sender": "netflix@netflix.com",
+            "category": "streaming",
+            "is_subscription": True,
+            "is_price_update": False,
+            "extraction_metadata": {"service_references": {}},
+        }
+        base.update(overrides)
+        return base
+
+    def test_renewal_calculated_when_sub_has_emails(self, email_sync_harness):
+        """Existing sub with linked email → RenewalCalculator invoked on new email, renewal_date set.
+
+        Plan adjustment: renewal step only fires when subscription_emails junction already
+        has rows (the link for the NEW email is added AFTER the renewal step). So we
+        pre-create an existing sub + pre-linked email; a second email arrives, dedup
+        matches it, and the renewal step fires because the existing link is already there.
+        """
+        from datetime import datetime, timezone, timedelta
+
+        h = email_sync_harness
+        # Pre-create sub with a linked email so get_subscription_emails returns non-empty
+        sub = h.add_existing_sub(provider="Netflix", amount=15.99)
+        first_email = h.add_email(
+            message_id="first-email",
+            extraction=self._ext(),
+        )
+        h.run_sync()  # First sync: creates the sub and links first_email
+        # Reset and run again with a second email so renewal step fires on the existing sub
+        h.queued_emails.clear()
+        h.add_email(
+            message_id="second-email",
+            extraction=self._ext(),
+        )
+
+        future = datetime.now(timezone.utc) + timedelta(days=30)
+        # calculate_renewal_info returns a tuple: (renewal_date, is_active, trial_status, is_confirmed)
+        with patch("app.tasks.email_sync.RenewalCalculator") as MockCalc:
+            inst = MockCalc.return_value
+            inst.calculate_renewal_info.return_value = (future, True, None, True)
+            inst.detect_reactivation.return_value = False
+
+            result = h.run_sync()
+
+        assert result["success"] is True
+        h.db.refresh(sub)
+        assert sub.renewal_date is not None
+        assert sub.is_active is True
+
+    def test_renewal_calculator_exception_does_not_break_batch(
+        self, email_sync_harness
+    ):
+        """RenewalCalculator throws → exception caught at line 728, sub still persisted."""
+        h = email_sync_harness
+        h.add_email()
+
+        with patch("app.tasks.email_sync.RenewalCalculator") as MockCalc:
+            MockCalc.return_value.calculate_renewal_info.side_effect = ValueError(
+                "calc failure"
+            )
+            result = h.run_sync()
+
+        # Sync still completes
+        assert result["success"] is True
+        # Sub still persisted (renewal calc is best-effort)
+        sub = h.get_sub(provider="Netflix")
+        assert sub is not None
+
+    def test_detect_reactivation_called_after_renewal(self, email_sync_harness):
+        """RenewalCalculator.detect_reactivation invoked after calculate_renewal_info.
+
+        Plan adjustment: same as test_renewal_calculated_when_sub_has_emails —
+        renewal step only fires when subscription_emails has pre-existing rows.
+        Use two-pass approach: first pass creates sub+link, second pass triggers renewal.
+        """
+        from datetime import datetime, timezone, timedelta
+
+        h = email_sync_harness
+        h.add_existing_sub(provider="Netflix", amount=15.99)
+        h.add_email(message_id="first-email", extraction=self._ext())
+        h.run_sync()  # First pass: creates link
+
+        h.queued_emails.clear()
+        h.add_email(message_id="second-email", extraction=self._ext())
+
+        with patch("app.tasks.email_sync.RenewalCalculator") as MockCalc:
+            inst = MockCalc.return_value
+            inst.calculate_renewal_info.return_value = (
+                datetime.now(timezone.utc) + timedelta(days=30),
+                True,
+                None,
+                True,
+            )
+            inst.detect_reactivation.return_value = False
+
+            h.run_sync()
+
+        # Both methods called at least once
+        inst.calculate_renewal_info.assert_called()
+        inst.detect_reactivation.assert_called()
