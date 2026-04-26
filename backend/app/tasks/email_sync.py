@@ -15,7 +15,6 @@ from app.database import SessionLocal
 from app.models.mailbox import Mailbox
 from app.models.subscription import Subscription
 from app.models.email_message import EmailMessage, subscription_emails
-from app.models.price_history import PriceHistory
 from app.models.sync_history import SyncHistory
 from app.email_providers import JMAPProvider, GmailProvider
 from app.email_providers.gmail import GmailAuthError
@@ -24,6 +23,10 @@ from app.config import settings
 from app.utils.config_helper import get_config_value
 from app.services.renewal_calculator import RenewalCalculator, get_subscription_emails
 from app.services.email_filter import should_process_email
+from app.services.price_history_recorder import (
+    record_price_change,
+    record_initial_price,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -370,32 +373,16 @@ async def _sync_mailbox_async(
                                 existing_sub.updated_at = datetime.now(timezone.utc)
 
                                 # Create price history record
-                                if old_amount is not None and new_amount is not None:
-                                    change_percentage = (
-                                        (float(new_amount) - float(old_amount))
-                                        / float(old_amount)
-                                    ) * 100
-                                    change_type = (
-                                        "increase"
-                                        if float(new_amount) > float(old_amount)
-                                        else "decrease"
-                                    )
-
-                                    price_history_record = PriceHistory(
-                                        subscription_id=existing_sub.id,
-                                        old_amount=old_amount,
-                                        new_amount=new_amount,
-                                        currency=subscription_data.get("currency")
-                                        or existing_sub.currency,
-                                        change_type=change_type,
-                                        change_percentage=round(change_percentage, 2),
-                                        detected_from="email",
-                                        notes=f"Price update detected by AI from email: {email.subject}",
-                                    )
-                                    db.add(price_history_record)
-                                    logger.info(
-                                        f"AI-detected price {change_type} for {existing_sub.provider}: {old_amount} -> {new_amount} ({change_type} of {abs(change_percentage):.1f}%)"
-                                    )
+                                record_price_change(
+                                    db,
+                                    existing_sub,
+                                    old_amount=old_amount,
+                                    new_amount=new_amount,
+                                    currency=subscription_data.get("currency")
+                                    or existing_sub.currency,
+                                    detected_from="email",
+                                    notes=f"Price update detected by AI from email: {email.subject}",
+                                )
 
                                 # Link email to existing subscription
                                 relationship_exists = db.execute(
@@ -497,29 +484,14 @@ async def _sync_mailbox_async(
 
                             # Create price history record if price changed
                             if price_changed:
-                                change_percentage = (
-                                    (float(new_amount) - float(old_amount))
-                                    / float(old_amount)
-                                ) * 100
-                                change_type = (
-                                    "increase"
-                                    if float(new_amount) > float(old_amount)
-                                    else "decrease"
-                                )
-
-                                price_history_record = PriceHistory(
-                                    subscription_id=existing_sub.id,
+                                record_price_change(
+                                    db,
+                                    existing_sub,
                                     old_amount=old_amount,
                                     new_amount=new_amount,
                                     currency=subscription_data.get("currency", "EUR"),
-                                    change_type=change_type,
-                                    change_percentage=round(change_percentage, 2),
                                     detected_from="email",
                                     notes=f"Price change detected from email: {email.subject}",
-                                )
-                                db.add(price_history_record)
-                                logger.info(
-                                    f"Price change detected for {subscription_data['provider']}: €{old_amount} -> €{new_amount} ({change_type} of {abs(change_percentage):.1f}%)"
                                 )
                             else:
                                 logger.info(
@@ -542,21 +514,14 @@ async def _sync_mailbox_async(
                             )
 
                             # Create initial price history record
-                            if subscription_data.get("amount") is not None:
-                                initial_price_history = PriceHistory(
-                                    subscription_id=new_subscription.id,
-                                    old_amount=None,  # No previous price for initial record
-                                    new_amount=subscription_data["amount"],
-                                    currency=subscription_data.get("currency", "EUR"),
-                                    change_type="initial",
-                                    change_percentage=None,  # No percentage for initial record
-                                    detected_from="email",
-                                    notes=f"Initial price detected from email: {email.subject}",
-                                )
-                                db.add(initial_price_history)
-                                logger.info(
-                                    f"Created initial price history for {subscription_data['provider']}: €{subscription_data['amount']}"
-                                )
+                            record_initial_price(
+                                db,
+                                new_subscription,
+                                amount=subscription_data.get("amount"),
+                                currency=subscription_data.get("currency", "EUR"),
+                                detected_from="email",
+                                notes=f"Initial price detected from email: {email.subject}",
+                            )
 
                         # Calculate accurate renewal date and active status
                         if subscription_record:
