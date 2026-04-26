@@ -668,3 +668,137 @@ class TestSyncInnerPipelineDedup:
         assert result["success"] is True
         # New sub created (because service refs present and no match)
         assert h.count_subs(provider="OVH") == 2
+
+
+class TestSyncInnerPipelinePriceHistory:
+    """Chartests for the 3 price-history paths in _sync_mailbox_async."""
+
+    def _ext(self, **overrides):
+        base = {
+            "provider": "Netflix",
+            "amount": 15.99,
+            "currency": "EUR",
+            "billing_cycle": "monthly",
+            "email_sender": "netflix@netflix.com",
+            "category": "streaming",
+            "is_subscription": True,
+            "is_price_update": False,
+            "extraction_metadata": {"service_references": {}},
+        }
+        base.update(overrides)
+        return base
+
+    def test_path1_ai_price_update_creates_increase_history(
+        self, email_sync_harness
+    ):
+        """is_price_update=True, existing amount=15.99, new=18.99 → 'increase'.
+
+        Plan adjustment: the code reads 'old_amount'/'new_amount' (not 'amount')
+        from the extraction for path 1. We provide both keys. Also, amount is
+        stored as Decimal in SQLite, so we compare via float().
+        """
+        h = email_sync_harness
+        sub = h.add_existing_sub(provider="Netflix", amount=15.99)
+        h.add_email(
+            extraction=self._ext(
+                is_price_update=True, old_amount=15.99, new_amount=18.99
+            ),
+        )
+
+        result = h.run_sync()
+        assert result["success"] is True
+        # Sub amount updated to new_amount
+        h.db.refresh(sub)
+        assert float(sub.amount) == 18.99
+        # Increase history record
+        assert (
+            h.count_price_history(subscription_id=sub.id, change_type="increase") >= 1
+        )
+
+    def test_path1_ai_price_update_creates_decrease_history(
+        self, email_sync_harness
+    ):
+        """is_price_update=True, old=20, new=15 → 'decrease'.
+
+        Plan adjustment: same as above — use old_amount/new_amount keys and
+        compare via float() for Decimal compatibility.
+        """
+        h = email_sync_harness
+        sub = h.add_existing_sub(provider="Netflix", amount=20.0)
+        h.add_email(
+            extraction=self._ext(
+                is_price_update=True, old_amount=20.0, new_amount=15.0
+            )
+        )
+
+        result = h.run_sync()
+        assert result["success"] is True
+        h.db.refresh(sub)
+        assert float(sub.amount) == 15.0
+        assert (
+            h.count_price_history(subscription_id=sub.id, change_type="decrease") >= 1
+        )
+
+    def test_path2_existing_sub_amount_diff_creates_history(
+        self, email_sync_harness
+    ):
+        """Match found via dedup, amount differs → batch-committed PriceHistory."""
+        h = email_sync_harness
+        sub = h.add_existing_sub(provider="Netflix", amount=15.99)
+        h.add_email(extraction=self._ext(amount=17.99, is_price_update=False))
+
+        result = h.run_sync()
+        assert result["success"] is True
+        # No new sub
+        assert h.count_subs(provider="Netflix") == 1
+        # PriceHistory created
+        assert h.count_price_history(subscription_id=sub.id) >= 1
+
+    def test_path3_new_subscription_with_amount_creates_initial_history(
+        self, email_sync_harness
+    ):
+        """New sub created with amount=12.99 → PriceHistory(change_type='initial')."""
+        h = email_sync_harness
+        h.add_email(extraction=self._ext(amount=12.99))
+
+        result = h.run_sync()
+        assert result["success"] is True
+        sub = h.get_sub(provider="Netflix")
+        assert sub is not None
+        assert (
+            h.count_price_history(subscription_id=sub.id, change_type="initial") >= 1
+        )
+
+    def test_path3_new_subscription_without_amount_skips_history(
+        self, email_sync_harness
+    ):
+        """New sub with amount=None → no PriceHistory."""
+        h = email_sync_harness
+        h.add_email(extraction=self._ext(amount=None))
+
+        result = h.run_sync()
+        assert result["success"] is True
+        sub = h.get_sub(provider="Netflix")
+        assert sub is not None
+        assert h.count_price_history(subscription_id=sub.id) == 0
+
+    def test_anomaly_price_update_with_no_existing_sub_falls_through(
+        self, email_sync_harness
+    ):
+        """is_price_update=True but no existing sub → creates new sub + initial history.
+        Locks the documented research anomaly.
+
+        Plan adjustment: sub.amount is Decimal in SQLite; compare via float().
+        """
+        h = email_sync_harness
+        h.add_email(extraction=self._ext(amount=12.99, is_price_update=True))
+
+        result = h.run_sync()
+        assert result["success"] is True
+        sub = h.get_sub(provider="Netflix")
+        assert sub is not None
+        assert float(sub.amount) == 12.99
+        # Initial price history (not increase/decrease)
+        assert (
+            h.count_price_history(subscription_id=sub.id, change_type="initial") >= 1
+        )
