@@ -1507,3 +1507,82 @@ class TestAcceptSuggestionEndpoint:
         assert body["provider"] == "Netflix"
         assert body["amount"] == 15.99
         assert "mailbox_id" in body
+
+
+class TestDismissSuggestionEndpoint:
+    """
+    Chartests for POST /api/subscriptions/{id}/dismiss-suggestion.
+    """
+
+    def _make_sub_with_suggestion(self, db_session, mailbox):
+        from datetime import datetime, timezone
+        from app.models.subscription import Subscription
+
+        sub = Subscription(
+            user_id=mailbox.user_id,
+            mailbox_id=mailbox.id,
+            provider="Netflix",
+            amount=15.99,
+            currency="EUR",
+            billing_cycle="monthly",
+            category="streaming",
+            is_active=True,
+            is_confirmed=True,
+            extraction_method="ai",
+            confidence_score=0.95,
+            first_detected_at=datetime.now(timezone.utc),
+            last_confirmed_at=datetime.now(timezone.utc),
+            suggested_cancellation_status="cancelled",
+            cancellation_suggestion_reason="reason",
+            cancellation_suggestion_created_at=datetime.now(timezone.utc),
+        )
+        db_session.add(sub)
+        db_session.commit()
+        db_session.refresh(sub)
+        return sub
+
+    def test_returns_404_when_subscription_not_found(
+        self, client, db_session, auth_headers
+    ):
+        import uuid
+        response = client.post(
+            f"/api/subscriptions/{uuid.uuid4()}/dismiss-suggestion",
+            headers=auth_headers,
+        )
+        assert response.status_code == 404
+
+    def test_returns_400_when_no_pending_suggestion(
+        self, client, test_subscription, auth_headers
+    ):
+        response = client.post(
+            f"/api/subscriptions/{test_subscription.id}/dismiss-suggestion",
+            headers=auth_headers,
+        )
+        assert response.status_code == 400
+
+    def test_clears_suggestion_fields_only(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        sub = self._make_sub_with_suggestion(db_session, test_mailbox)
+        # Capture pre-existing state we want to verify is preserved
+        was_active = sub.is_active
+        original_cancellation_status = sub.cancellation_status
+
+        response = client.post(
+            f"/api/subscriptions/{sub.id}/dismiss-suggestion",
+            headers=auth_headers,
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+
+        db_session.expire(sub)
+        db_session.refresh(sub)
+
+        # Suggestion fields cleared
+        assert sub.suggested_cancellation_status is None
+        assert sub.cancellation_suggestion_reason is None
+        assert sub.cancellation_suggestion_created_at is None
+        # Other fields untouched
+        assert sub.is_active == was_active
+        assert sub.cancellation_status == original_cancellation_status
