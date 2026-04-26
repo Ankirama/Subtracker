@@ -496,4 +496,52 @@ Cette section ordonne le sous-projet C1 en **5 phases** dérivées des §1-§5 (
 
 ## §C — Out-of-scope
 
-_Pending listing._
+The following items were observed during the C6 audit but are explicitly NOT addressed in C1's roadmap. Each entry explains why it was deferred and names the specific follow-up that should own it.
+
+### C.1 — `docs/architecture/auth.md` doc/code drift + stale reconcile marker
+
+- **Description**: The auth architecture doc lists 5 endpoints; `api/auth.py` exposes 19 (6 2FA endpoints, 6 account-management endpoints, 2 email-verification endpoints, and the base 5). The response shape for `POST /register` also diverges from the documented contract. A pre-existing `<!-- duplicates the above; reconcile manually -->` marker at `auth.md:99` (left from a prior doc-refactor session) compounds the drift.
+- **Why deferred**: This is a documentation PR, not a code change — it carries zero production risk and zero dependency on C1's phase ordering. Conflating it with Phase 3 (the `api/auth/` code split) would create an oversized PR with two unrelated concerns.
+- **Suggested follow-up**: A standalone "doc reconciliation" PR, ideally opened immediately after Phase 3 ships (the code will be in its final shape then). Candidate sub-project label: **C7-doc-audit**. Scope: regenerate the endpoint table from the router, update the register response schema, and delete the stale marker.
+
+### C.2 — Dual language-preference system in `api/auth.py`
+
+- **Description**: `api/auth.py` lines 562-652 expose two parallel mechanisms for storing user language preference — a dedicated `preferred_language` column and a JSONB `settings` blob — suggesting an incomplete migration that was never resolved. The two tracks are independently readable and writable.
+- **Why deferred**: Resolving this requires a schema decision (keep column, deprecate JSONB key, or vice-versa) and a data migration, neither of which can be done mechanically during a code-split refactor. Introducing it into Phase 3 would conflate structural refactoring with schema evolution and balloon the PR scope.
+- **Suggested follow-up**: A dedicated cleanup ticket/mini-audit after Phase 3 lands. If the Phase 3 PR reviewer determines the resolution is straightforward (e.g., JSONB key is already unused), it can be absorbed into Phase 3's PR as a trailing commit; otherwise it becomes a separate "language-pref migration" PR with an Alembic migration.
+
+### C.3 — Dead duplicate import `verify_password` at `api/auth.py:672`
+
+- **Description**: `verify_password` is imported from `app.security.password` at the module top (line 35) and re-imported identically at line 672 inside a function body. The second import is dead code and has no effect at runtime.
+- **Why deferred**: It is a one-line removal with zero risk, but touching `api/auth.py` before Phase 3 creates a spurious diff that pollutes `git blame`. Phase 3 already targets this exact file for a full split.
+- **Suggested follow-up**: Remove in Phase 3, Step 6 (already noted in the Phase 3 concrets list at §A Phase 3.6). No separate ticket needed — it is tracked there.
+
+### C.4 — Peripheral inline HTML in 5 Celery task files
+
+- **Description**: Approximately 54 HTML tags are scattered inline across `tasks/{budget_alerts,renewal_reminders,trial_reminders,system_announcements,price_change_monitor}.py`. These files were not among the audited top-5 god-files but share the same rendering/delivery boundary inconsistency documented in §A.4.
+- **Why deferred**: Phase 1 (C1) consolidates the rendering split for the audited god-files (`email_templates.py` + `email_service.py`) and establishes the `services/email/templates/` package pattern. Migrating the Celery task files before that package exists would produce a second intermediate state worse than the current one.
+- **Suggested follow-up**: A **C2 sub-project** (or "C1-extension" ticket) opened once Phase 1 ships. Scope: migrate the 5 task files' inline HTML into the `services/email/templates/` package using the pattern established by Phase 1. Estimated size: S-M.
+
+### C.5 — `notification_service.py` as redundant indirection
+
+- **Description**: `notification_service.py` is the sole caller of the three typed wrappers (`send_renewal_reminder`, `send_weekly_summary`, `send_monthly_summary`) in `email_service.py`, while `summary_tasks.py` bypasses those wrappers entirely and calls `email_service.send_email` directly. The file therefore acts as a thin, partially-redundant dispatch layer with no clear contract of its own.
+- **Why deferred**: Phase 1 already removes the three typed wrappers from `email_service.py` and migrates their three call-sites in `notification_service.py` to the new `EmailTemplates + transport.send_email` pattern (Phase 1 concret 4). After that migration, whether `notification_service.py` itself should survive as a module or be dissolved is a separate architectural question that requires observing the post-Phase-1 shape.
+- **Suggested follow-up**: A mini-audit of `notification_service.py` immediately after Phase 1 ships, before C2 starts. If it reduces to fewer than ~20 lines of glue with no independent logic, dissolve it; otherwise document its contract and keep it. Decision should be recorded in the C2 sub-project spec.
+
+### C.6 — Stale `.pyc` for deleted test (`test_email_service.cpython-311-pytest-7.4.4.pyc`)
+
+- **Description**: `backend/tests/__pycache__/test_email_service.cpython-311-pytest-7.4.4.pyc` exists with no corresponding `.py` source file, indicating the test was deleted without cleaning its bytecode artefact. No `.gitignore` rule currently excludes `__pycache__/` from the `tests/` directory.
+- **Why deferred**: Deleting a stale `.pyc` is a one-command cleanup with no code impact, but it belongs in a broader workspace-hygiene pass rather than in an audit PR focused on architecture.
+- **Suggested follow-up**: Add `tests/__pycache__/` to `.gitignore` (or verify the root `__pycache__` rule covers it) and delete the stale file in a **hygiene sweep commit** — suitable as a "good first issue" or bundled with the pre-commit hook audit (see C.7).
+
+### C.7 — Graphify false dependency edge (Python → frontend service-worker bundle)
+
+- **Description**: The GRAPH_REPORT contains the edge `_sync_mailbox_async() → isInstance()` resolved to `frontend/dev-dist/workbox-52f2a342.js` — a clearly incorrect cross-language link from a Python async function to a Workbox service-worker bundle in the frontend build artefact directory.
+- **Why deferred**: This is a tooling/configuration issue in the graphify analyser, not a code defect. Fixing it requires excluding `frontend/dev-dist/` (and potentially `frontend/dist/`) from the graphify analysis scope, which is outside the C6 audit mandate.
+- **Suggested follow-up**: Open a **graphify tooling improvement** ticket: add `frontend/dev-dist/` and `frontend/dist/` to the graphify exclusion list (`.graphifyignore` or equivalent config). Verify by re-running `graphify update .` and confirming the false edge disappears from `graphify-out/GRAPH_REPORT.md`.
+
+### C.8 — Large files outside the top-5 audit scope
+
+- **Description**: Seven backend files exceeded 450 lines but were not audited in C6 because they did not rank in the top-5 by composite god-file score: `api/mailboxes.py` (743 lines), `api/oauth.py` (547), `services/cancellation_research.py` (465), `services/review_suggestions.py` (457), `services/ai_optimizer.py` (455), `tasks/notifications.py` (453), `tasks/price_change_monitor.py` (452). Their architectural health is unknown.
+- **Why deferred**: The C6 audit was scoped to the top-5 highest-composite god-files to keep the roadmap actionable. Auditing seven additional files in the same pass would have produced a plan too large to execute in a single sub-project.
+- **Suggested follow-up**: A **C6-bis audit pass** once C1 lands, using the same per-file scoring template. `api/mailboxes.py` (743 lines) should be prioritised first given its size. Frontend audit remains blocked on C3 (testing baseline) and is deferred to a **C6-bis-frontend** pass after C3 completes.
