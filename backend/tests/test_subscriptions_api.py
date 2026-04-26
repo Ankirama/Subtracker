@@ -897,3 +897,140 @@ class TestPriceStatisticsEndpoint:
         )
 
         assert response.status_code == 403
+
+
+class TestDuplicatesEndpoint:
+    """
+    Chartests for GET /api/subscriptions/duplicates.
+    Locks in current grouping behaviour for the C1 refactor safety net.
+    """
+
+    def _make_subscription(self, db_session, mailbox, *, provider, amount,
+                           billing_cycle="monthly", custom_label=""):
+        """Helper to create a subscription with sensible defaults."""
+        from datetime import datetime, timezone
+        from app.models.subscription import Subscription
+
+        sub = Subscription(
+            user_id=mailbox.user_id,
+            mailbox_id=mailbox.id,
+            provider=provider,
+            amount=amount,
+            currency="EUR",
+            billing_cycle=billing_cycle,
+            custom_label=custom_label,
+            category="streaming",
+            is_active=True,
+            is_confirmed=True,
+            extraction_method="ai",
+            confidence_score=0.95,
+            first_detected_at=datetime.now(timezone.utc),
+            last_confirmed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(sub)
+        db_session.commit()
+        db_session.refresh(sub)
+        return sub
+
+    def test_returns_groups_for_duplicate_provider(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """3 Netflix subs with similar amounts → 1 group, count=3, similar_amounts=true."""
+        for amount in (15.99, 16.49, 15.49):
+            self._make_subscription(db_session, test_mailbox,
+                                    provider="Netflix", amount=amount)
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+
+        groups = response.json()
+        assert len(groups) == 1
+        group = groups[0]
+        assert group["provider"] == "Netflix"
+        assert group["count"] == 3
+        assert group["similar_amounts"] is True
+        assert len(group["subscriptions"]) == 3
+        # email_count is computed via raw SQL; should be 0 with no linked emails
+        for sub in group["subscriptions"]:
+            assert sub["email_count"] == 0
+
+    def test_similar_amounts_false_when_variance_above_threshold(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """Netflix at 15.99 and 25.99 → variance > 20%, similar_amounts=false."""
+        self._make_subscription(db_session, test_mailbox,
+                                provider="Netflix", amount=15.99)
+        self._make_subscription(db_session, test_mailbox,
+                                provider="Netflix", amount=25.99)
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+
+        groups = response.json()
+        assert len(groups) == 1
+        assert groups[0]["similar_amounts"] is False
+
+    def test_no_duplicates_returns_empty_list(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """Distinct providers → no groups."""
+        self._make_subscription(db_session, test_mailbox,
+                                provider="Netflix", amount=15.99)
+        self._make_subscription(db_session, test_mailbox,
+                                provider="Spotify", amount=9.99)
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_handles_null_amount_and_same_billing_cycle(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """Subscriptions with NULL amount but same provider/billing_cycle still group."""
+        # billing_cycle is NOT NULL in the schema so we use a valid value;
+        # but amount IS nullable — two OVH with NULL amount should still group.
+        self._make_subscription(db_session, test_mailbox,
+                                provider="OVH", amount=None, billing_cycle="monthly")
+        self._make_subscription(db_session, test_mailbox,
+                                provider="OVH", amount=None, billing_cycle="monthly")
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+        # Two NULL-amount OVH should still group (count=2)
+        groups = response.json()
+        assert len(groups) == 1
+        assert groups[0]["count"] == 2
+
+    def test_email_count_reflects_subscription_emails_junction(
+        self, client, db_session, test_mailbox, test_email, auth_headers
+    ):
+        """email_count comes from raw SQL on subscription_emails junction."""
+        import uuid
+        from sqlalchemy import text
+
+        sub_a = self._make_subscription(db_session, test_mailbox,
+                                        provider="Netflix", amount=15.99)
+        sub_b = self._make_subscription(db_session, test_mailbox,
+                                        provider="Netflix", amount=15.99)
+
+        # Link test_email to sub_a only (id must be supplied; Python default
+        # uuid.uuid4 does not apply to raw SQL in SQLite)
+        db_session.execute(
+            text("""
+                INSERT INTO subscription_emails
+                  (id, subscription_id, email_id, extraction_role, extraction_data)
+                VALUES (:id, :sid, :eid, 'detection', '{}')
+            """),
+            {"id": str(uuid.uuid4()), "sid": str(sub_a.id), "eid": str(test_email.id)},
+        )
+        db_session.commit()
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+
+        groups = response.json()
+        assert len(groups) == 1
+        # Map by id to avoid ordering assumption
+        by_id = {s["id"]: s for s in groups[0]["subscriptions"]}
+        assert by_id[str(sub_a.id)]["email_count"] == 1
+        assert by_id[str(sub_b.id)]["email_count"] == 0
