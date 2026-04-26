@@ -418,23 +418,32 @@ def email_sync_harness(db_session: Session, test_user: User, test_mailbox: Mailb
     Test harness driving the inner pipeline of `_sync_mailbox_async` via the
     public `sync_mailbox_emails` Celery task.
 
-    Patches the module-level collaborators of `app.tasks.email_sync`:
-      - `SessionLocal`            → returns the test `db_session`
-      - `decrypt_credentials`      → returns a stub credentials dict
-      - `JMAPProvider`             → returns a MagicMock provider whose
-                                     `fetch_messages()` yields the queued
-                                     provider-side EmailMessage dataclasses
-      - `app.tasks.email_sync.classify_emails_batch`
+    Patches the module-level collaborators of the email-sync sub-package
+    (Phase 8b layout):
+      - `app.tasks.email_sync.celery_tasks.SessionLocal`
+                                  → returns the test `db_session`
+      - `app.tasks.email_sync.orchestrator.decrypt_credentials`
+                                  → returns a stub credentials dict
+      - `app.tasks.email_sync.orchestrator.JMAPProvider`
+                                  → returns a MagicMock provider whose
+                                    `fetch_messages()` yields the queued
+                                    provider-side EmailMessage dataclasses
+      - `app.tasks.email_sync.orchestrator.GmailProvider`
+                                  → same MagicMock side effect (covers
+                                    Gmail mailboxes too).
+      - `app.tasks.email_sync.orchestrator.classify_emails_batch`
                                   → returns a list of classification dicts
                                     aligned with input order
-      - `app.tasks.email_sync.extract_subscriptions_batch`
+      - `app.tasks.email_sync.orchestrator.extract_subscriptions_batch`
                                   → returns a list of extraction dicts
                                     aligned with input order
-      - `app.tasks.email_sync.get_reference_extractor`
+      - `app.tasks.email_sync.orchestrator.get_reference_extractor`
                                   → returns a MagicMock whose
                                     `can_match_subscription` defaults to False;
                                     tests can override via
                                     `state.mock_reference_extractor`.
+      - `app.tasks.email_sync.celery_tasks.update_subscription_statuses`
+                                  → passthrough no-op (post-sync hook).
 
     Critically does NOT patch `asyncio.run` — the inner coroutine actually
     executes and operates on the same SQLAlchemy session as the test.
@@ -455,14 +464,16 @@ def email_sync_harness(db_session: Session, test_user: User, test_mailbox: Mailb
         the chartests do not assert on its output and SQLite tz quirks
         could cause flakiness).
       - Phase 8a (interface seam) hoisted the AI imports to the module
-        level of `app.tasks.email_sync`. Since `_sync_mailbox_async` now
-        reads default values bound at import time of `email_sync`, patching
-        the source modules (`app.services.ai_classifier.*`) no longer
-        affects the function. We patch the names re-bound on
-        `app.tasks.email_sync` instead. Tests that prefer direct injection
-        can pass `classify_batch=`, `extract_batch=`,
-        `ref_extractor_factory=` to `_sync_mailbox_async` directly — see
-        `test_email_pipeline_seam.py`.
+        level. Phase 8b moved them into
+        `app.tasks.email_sync.orchestrator` (where `_sync_mailbox_async`
+        now lives). The patch targets here point at the new module
+        locations: `app.tasks.email_sync.orchestrator.<name>` for the AI
+        collaborators and the provider/credential layer, and
+        `app.tasks.email_sync.celery_tasks.<name>` for the Celery-task
+        side (``SessionLocal``, ``update_subscription_statuses``).
+        Tests that prefer direct injection can pass `classify_batch=`,
+        `extract_batch=`, `ref_extractor_factory=` to
+        `_sync_mailbox_async` directly — see `test_email_pipeline_seam.py`.
 
     Usage:
         def test_X(email_sync_harness):
@@ -711,12 +722,14 @@ def email_sync_harness(db_session: Session, test_user: User, test_mailbox: Mailb
     state.db.close = lambda: None
     stack.callback(setattr, state.db, "close", original_close)
 
-    mock_session_local = stack.enter_context(patch("app.tasks.email_sync.SessionLocal"))
+    mock_session_local = stack.enter_context(
+        patch("app.tasks.email_sync.celery_tasks.SessionLocal")
+    )
     mock_session_local.return_value = state.db
 
     # Patch credential decryption (the test mailbox has a placeholder string).
     mock_decrypt = stack.enter_context(
-        patch("app.tasks.email_sync.decrypt_credentials")
+        patch("app.tasks.email_sync.orchestrator.decrypt_credentials")
     )
     mock_decrypt.return_value = {"username": "test", "password": "test"}
 
@@ -744,16 +757,21 @@ def email_sync_harness(db_session: Session, test_user: User, test_mailbox: Mailb
         provider.fetch_messages = mock_fetch_messages
         return provider
 
-    mock_jmap = stack.enter_context(patch("app.tasks.email_sync.JMAPProvider"))
+    mock_jmap = stack.enter_context(
+        patch("app.tasks.email_sync.orchestrator.JMAPProvider")
+    )
     mock_jmap.side_effect = make_mock_provider
 
-    mock_gmail = stack.enter_context(patch("app.tasks.email_sync.GmailProvider"))
+    mock_gmail = stack.enter_context(
+        patch("app.tasks.email_sync.orchestrator.GmailProvider")
+    )
     mock_gmail.side_effect = make_mock_provider
 
-    # Patch the AI batch functions where they are referenced (Phase 8a hoisted
-    # the imports to the module level of `app.tasks.email_sync`, so patching
-    # the source modules no longer reaches the default parameter values
-    # captured at import time).
+    # Patch the AI batch functions where they are referenced. Phase 8a
+    # hoisted the imports to module level; Phase 8b moved them into
+    # `app.tasks.email_sync.orchestrator` (where `_sync_mailbox_async` is
+    # defined). Patching at the orchestrator module is what reaches the
+    # default parameter values captured there at import time.
     async def mock_classify_emails_batch(emails, db=None, *args, **kwargs):
         results = []
         for em in emails:
@@ -786,25 +804,25 @@ def email_sync_harness(db_session: Session, test_user: User, test_mailbox: Mailb
 
     stack.enter_context(
         patch(
-            "app.tasks.email_sync.classify_emails_batch",
+            "app.tasks.email_sync.orchestrator.classify_emails_batch",
             new=mock_classify_emails_batch,
         )
     )
     stack.enter_context(
         patch(
-            "app.tasks.email_sync.extract_subscriptions_batch",
+            "app.tasks.email_sync.orchestrator.extract_subscriptions_batch",
             new=mock_extract_subscriptions_batch,
         )
     )
 
-    # Patch get_reference_extractor on `app.tasks.email_sync` (Phase 8a:
+    # Patch get_reference_extractor on the orchestrator module (Phase 8b:
     # the seam exposes the factory as a module-level symbol used as the
     # default for the `ref_extractor_factory` parameter).
     mock_reference_extractor = MagicMock()
     mock_reference_extractor.can_match_subscription.return_value = False
     stack.enter_context(
         patch(
-            "app.tasks.email_sync.get_reference_extractor",
+            "app.tasks.email_sync.orchestrator.get_reference_extractor",
             return_value=mock_reference_extractor,
         )
     )
@@ -812,10 +830,12 @@ def email_sync_harness(db_session: Session, test_user: User, test_mailbox: Mailb
 
     # Patch update_subscription_statuses — runs post-sync and queries
     # subscriptions; chartests do not assert on its output. Passthrough no-op
-    # to avoid SQLite tz quirks.
+    # to avoid SQLite tz quirks. Phase 8b moved this hook into
+    # `app.tasks.email_sync.celery_tasks` (the wrapper Celery task lives
+    # there and consumes the symbol).
     stack.enter_context(
         patch(
-            "app.tasks.email_sync.update_subscription_statuses",
+            "app.tasks.email_sync.celery_tasks.update_subscription_statuses",
             return_value={"activated": 0, "deactivated": 0},
         )
     )
