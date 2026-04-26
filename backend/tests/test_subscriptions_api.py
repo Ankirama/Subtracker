@@ -1586,3 +1586,178 @@ class TestDismissSuggestionEndpoint:
         # Other fields untouched
         assert sub.is_active == was_active
         assert sub.cancellation_status == original_cancellation_status
+
+
+class TestSplitEndpoint:
+    """
+    Chartests for POST /api/subscriptions/{id}/split.
+    Critical: like merge, this mutates subscription_emails via raw SQL.
+
+    Note: the route signature is `email_groups: List[dict]` — the request
+    body is a JSON array, NOT a dict with an "email_groups" key.
+    """
+
+    def _make_sub_with_3_emails(self, db_session, test_mailbox):
+        """Create a subscription with 3 linked emails. Returns (sub, [email1, email2, email3])."""
+        import uuid as uuid_mod
+        from datetime import datetime, timezone
+        from sqlalchemy import text
+        from app.models.subscription import Subscription
+        from app.models.email_message import EmailMessage
+
+        sub = Subscription(
+            user_id=test_mailbox.user_id,
+            mailbox_id=test_mailbox.id,
+            provider="Twitch",
+            amount=24.99,
+            currency="EUR",
+            billing_cycle="monthly",
+            category="streaming",
+            is_active=True,
+            is_confirmed=True,
+            extraction_method="ai",
+            confidence_score=0.95,
+            first_detected_at=datetime.now(timezone.utc),
+            last_confirmed_at=datetime.now(timezone.utc),
+        )
+        db_session.add(sub)
+        db_session.commit()
+        db_session.refresh(sub)
+
+        emails = []
+        for i in range(3):
+            e = EmailMessage(
+                mailbox_id=test_mailbox.id,
+                message_id=f"split-test-{i}",
+                subject=f"Twitch sub {i}",
+                sender="twitch@twitch.tv",
+                recipient=test_mailbox.email_address,
+                date=datetime.now(timezone.utc),
+                body_text=f"streamer-{i}",
+                is_subscription=True,
+                classification_confidence=0.9,
+            )
+            db_session.add(e)
+            db_session.commit()
+            db_session.refresh(e)
+            db_session.execute(
+                text("""
+                    INSERT INTO subscription_emails
+                      (id, subscription_id, email_id, extraction_role, extraction_data)
+                    VALUES (:id, :sid, :eid, 'detection', '{}')
+                """),
+                {"id": str(uuid_mod.uuid4()), "sid": str(sub.id), "eid": str(e.id)},
+            )
+            db_session.commit()
+            emails.append(e)
+
+        return sub, emails
+
+    def test_returns_400_when_fewer_than_2_groups(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        sub, emails = self._make_sub_with_3_emails(db_session, test_mailbox)
+        # Body is a list, not a dict — route signature: email_groups: List[dict]
+        body = [{"email_ids": [str(e.id) for e in emails]}]
+        response = client.post(
+            f"/api/subscriptions/{sub.id}/split",
+            headers=auth_headers,
+            json=body,
+        )
+        assert response.status_code == 400
+
+    def test_returns_400_when_emails_not_fully_assigned(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        sub, emails = self._make_sub_with_3_emails(db_session, test_mailbox)
+        # Only assign 2 of 3 emails
+        body = [
+            {"email_ids": [str(emails[0].id)], "custom_label": "g1"},
+            {"email_ids": [str(emails[1].id)], "custom_label": "g2"},
+        ]
+        response = client.post(
+            f"/api/subscriptions/{sub.id}/split",
+            headers=auth_headers,
+            json=body,
+        )
+        assert response.status_code == 400
+
+    def test_split_into_3_groups_creates_2_new_subscriptions(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        sub, emails = self._make_sub_with_3_emails(db_session, test_mailbox)
+        body = [
+            {"email_ids": [str(emails[0].id)], "custom_label": "streamerA"},
+            {"email_ids": [str(emails[1].id)], "custom_label": "streamerB"},
+            {"email_ids": [str(emails[2].id)], "custom_label": "streamerC"},
+        ]
+        response = client.post(
+            f"/api/subscriptions/{sub.id}/split",
+            headers=auth_headers,
+            json=body,
+        )
+        assert response.status_code in (200, 201)
+        result = response.json()
+        assert result["success"] is True
+        assert len(result["subscriptions"]) == 3
+
+        # Verify in DB
+        from app.models.subscription import Subscription
+        all_subs = (
+            db_session.query(Subscription)
+            .filter(Subscription.provider == "Twitch")
+            .all()
+        )
+        assert len(all_subs) == 3
+        # New subs have manual_split + confidence 1.0
+        new_subs = [s for s in all_subs if s.id != sub.id]
+        assert len(new_subs) == 2
+        for ns in new_subs:
+            assert ns.extraction_method == "manual_split"
+            assert ns.confidence_score == 1.0
+
+    def test_emails_reassigned_to_correct_subscriptions(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        from sqlalchemy import text
+        sub, emails = self._make_sub_with_3_emails(db_session, test_mailbox)
+        body = [
+            {"email_ids": [str(emails[0].id)], "custom_label": "g1"},
+            {"email_ids": [str(emails[1].id), str(emails[2].id)], "custom_label": "g2"},
+        ]
+        response = client.post(
+            f"/api/subscriptions/{sub.id}/split",
+            headers=auth_headers,
+            json=body,
+        )
+        assert response.status_code in (200, 201)
+
+        # Original sub still exists with email[0]; new sub has email[1] and email[2]
+        rows = db_session.execute(
+            text("SELECT subscription_id, email_id FROM subscription_emails")
+        ).fetchall()
+        assert len(rows) == 3
+        # email[0] still on original
+        original_assignments = [
+            r for r in rows if str(r[1]) == str(emails[0].id)
+        ]
+        assert len(original_assignments) == 1
+        assert str(original_assignments[0][0]) == str(sub.id)
+
+    def test_first_group_keeps_original_subscription_id(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        sub, emails = self._make_sub_with_3_emails(db_session, test_mailbox)
+        body = [
+            {"email_ids": [str(emails[0].id)], "custom_label": "kept"},
+            {"email_ids": [str(emails[1].id), str(emails[2].id)], "custom_label": "new"},
+        ]
+        response = client.post(
+            f"/api/subscriptions/{sub.id}/split",
+            headers=auth_headers,
+            json=body,
+        )
+        result = response.json()
+        # The subscription with the original ID is in the response
+        ids = {s["id"] for s in result["subscriptions"]}
+        assert str(sub.id) in ids
