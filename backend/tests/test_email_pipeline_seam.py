@@ -55,7 +55,7 @@ def _patch_provider_layer(stack, mailbox: Mailbox, provider_emails):
     tests inject those via parameters.
     """
     decrypt_patch = stack.enter_context(
-        patch("app.tasks.email_sync.decrypt_credentials")
+        patch("app.tasks.email_sync.orchestrator.decrypt_credentials")
     )
     decrypt_patch.return_value = {"username": "u", "password": "p"}
 
@@ -79,7 +79,9 @@ def _patch_provider_layer(stack, mailbox: Mailbox, provider_emails):
         provider.fetch_messages = fake_fetch_messages
         return provider
 
-    jmap_patch = stack.enter_context(patch("app.tasks.email_sync.JMAPProvider"))
+    jmap_patch = stack.enter_context(
+        patch("app.tasks.email_sync.orchestrator.JMAPProvider")
+    )
     jmap_patch.side_effect = make_mock_provider
 
 
@@ -192,7 +194,7 @@ def test_inject_extract_batch_calls_mock_when_emails_are_subscriptions(seam_stat
         # in the public Celery task; not exercised by this direct call).
         stack.enter_context(
             patch(
-                "app.tasks.email_sync.update_subscription_statuses",
+                "app.tasks.email_sync.celery_tasks.update_subscription_statuses",
                 return_value={"activated": 0, "deactivated": 0},
             )
         )
@@ -333,7 +335,7 @@ def test_inject_ref_extractor_factory_drives_dedup_strategy(seam_state):
         _patch_provider_layer(stack, mailbox, [provider_email])
         stack.enter_context(
             patch(
-                "app.tasks.email_sync.update_subscription_statuses",
+                "app.tasks.email_sync.celery_tasks.update_subscription_statuses",
                 return_value={"activated": 0, "deactivated": 0},
             )
         )

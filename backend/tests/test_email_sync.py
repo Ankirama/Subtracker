@@ -75,7 +75,7 @@ class TestParseDateFilter:
 
         assert abs((result - expected).total_seconds()) < 1
 
-    @patch("app.tasks.email_sync.get_config_value")
+    @patch("app.tasks.email_sync.filters.get_config_value")
     def test_uses_default_for_unknown_format(self, mock_config, db_session: Session):
         """Should use default config value for unknown formats."""
         mock_config.return_value = 90  # Default 90 days
@@ -216,8 +216,8 @@ class TestUpdateSubscriptionStatuses:
 class TestSyncMailboxEmails:
     """Tests for sync_mailbox_emails Celery task."""
 
-    @patch("app.tasks.email_sync.asyncio.run")
-    @patch("app.tasks.email_sync.SessionLocal")
+    @patch("app.tasks.email_sync.celery_tasks.asyncio.run")
+    @patch("app.tasks.email_sync.celery_tasks.SessionLocal")
     def test_returns_error_for_nonexistent_mailbox(
         self, mock_session_local, mock_run, db_session: Session
     ):
@@ -232,8 +232,8 @@ class TestSyncMailboxEmails:
         assert result["success"] is False
         assert "not found" in result["error"].lower()
 
-    @patch("app.tasks.email_sync.asyncio.run")
-    @patch("app.tasks.email_sync.SessionLocal")
+    @patch("app.tasks.email_sync.celery_tasks.asyncio.run")
+    @patch("app.tasks.email_sync.celery_tasks.SessionLocal")
     def test_returns_error_for_inactive_mailbox(
         self, mock_session_local, mock_run, db_session: Session, test_user: User
     ):
@@ -261,9 +261,9 @@ class TestSyncMailboxEmails:
         assert result["success"] is False
         assert "not active" in result["error"].lower()
 
-    @patch("app.tasks.email_sync.asyncio.run")
-    @patch("app.tasks.email_sync.SessionLocal")
-    @patch("app.tasks.email_sync.update_subscription_statuses")
+    @patch("app.tasks.email_sync.celery_tasks.asyncio.run")
+    @patch("app.tasks.email_sync.celery_tasks.SessionLocal")
+    @patch("app.tasks.email_sync.celery_tasks.update_subscription_statuses")
     def test_successful_sync(
         self,
         mock_update_statuses,
@@ -311,8 +311,8 @@ class TestSyncMailboxEmails:
         assert updated_mailbox.last_sync_at is not None
         assert updated_mailbox.last_sync_emails_processed == 50
 
-    @patch("app.tasks.email_sync.asyncio.run")
-    @patch("app.tasks.email_sync.SessionLocal")
+    @patch("app.tasks.email_sync.celery_tasks.asyncio.run")
+    @patch("app.tasks.email_sync.celery_tasks.SessionLocal")
     def test_handles_sync_exception(
         self, mock_session_local, mock_run, db_session: Session, test_mailbox: Mailbox
     ):
@@ -342,9 +342,9 @@ class TestSyncMailboxEmails:
         assert updated_mailbox.last_sync_status == "failed"
         assert updated_mailbox.last_sync_error_message == "Sync failed"
 
-    @patch("app.tasks.email_sync.asyncio.run")
-    @patch("app.tasks.email_sync.SessionLocal")
-    @patch("app.tasks.email_sync.update_subscription_statuses")
+    @patch("app.tasks.email_sync.celery_tasks.asyncio.run")
+    @patch("app.tasks.email_sync.celery_tasks.SessionLocal")
+    @patch("app.tasks.email_sync.celery_tasks.update_subscription_statuses")
     def test_resumes_from_cancelled_sync(
         self,
         mock_update_statuses,
@@ -387,9 +387,9 @@ class TestSyncMailboxEmails:
         # Verify resume was attempted by checking asyncio.run was called
         assert mock_run.called
 
-    @patch("app.tasks.email_sync.asyncio.run")
-    @patch("app.tasks.email_sync.SessionLocal")
-    @patch("app.tasks.email_sync.update_subscription_statuses")
+    @patch("app.tasks.email_sync.celery_tasks.asyncio.run")
+    @patch("app.tasks.email_sync.celery_tasks.SessionLocal")
+    @patch("app.tasks.email_sync.celery_tasks.update_subscription_statuses")
     def test_force_full_sync_ignores_last_sync(
         self,
         mock_update_statuses,
@@ -427,9 +427,9 @@ class TestSyncMailboxEmails:
         # Verify force_full_sync was passed
         assert mock_run.called
 
-    @patch("app.tasks.email_sync.asyncio.run")
-    @patch("app.tasks.email_sync.SessionLocal")
-    @patch("app.tasks.email_sync.update_subscription_statuses")
+    @patch("app.tasks.email_sync.celery_tasks.asyncio.run")
+    @patch("app.tasks.email_sync.celery_tasks.SessionLocal")
+    @patch("app.tasks.email_sync.celery_tasks.update_subscription_statuses")
     def test_uses_custom_date_filter(
         self,
         mock_update_statuses,
@@ -468,9 +468,9 @@ class TestSyncMailboxEmails:
         # Verify date_filter was passed to async function
         assert mock_run.called
 
-    @patch("app.tasks.email_sync.asyncio.run")
-    @patch("app.tasks.email_sync.SessionLocal")
-    @patch("app.tasks.email_sync.update_subscription_statuses")
+    @patch("app.tasks.email_sync.celery_tasks.asyncio.run")
+    @patch("app.tasks.email_sync.celery_tasks.SessionLocal")
+    @patch("app.tasks.email_sync.celery_tasks.update_subscription_statuses")
     def test_clears_progress_tracking_on_completion(
         self,
         mock_update_statuses,
@@ -835,7 +835,7 @@ class TestSyncInnerPipelineRenewalStep:
 
         future = datetime.now(timezone.utc) + timedelta(days=30)
         # calculate_renewal_info returns a tuple: (renewal_date, is_active, trial_status, is_confirmed)
-        with patch("app.tasks.email_sync.RenewalCalculator") as MockCalc:
+        with patch("app.tasks.email_sync.renewal_step.RenewalCalculator") as MockCalc:
             inst = MockCalc.return_value
             inst.calculate_renewal_info.return_value = (future, True, None, True)
             inst.detect_reactivation.return_value = False
@@ -854,7 +854,7 @@ class TestSyncInnerPipelineRenewalStep:
         h = email_sync_harness
         h.add_email()
 
-        with patch("app.tasks.email_sync.RenewalCalculator") as MockCalc:
+        with patch("app.tasks.email_sync.renewal_step.RenewalCalculator") as MockCalc:
             MockCalc.return_value.calculate_renewal_info.side_effect = ValueError(
                 "calc failure"
             )
@@ -883,7 +883,7 @@ class TestSyncInnerPipelineRenewalStep:
         h.queued_emails.clear()
         h.add_email(message_id="second-email", extraction=self._ext())
 
-        with patch("app.tasks.email_sync.RenewalCalculator") as MockCalc:
+        with patch("app.tasks.email_sync.renewal_step.RenewalCalculator") as MockCalc:
             inst = MockCalc.return_value
             inst.calculate_renewal_info.return_value = (
                 datetime.now(timezone.utc) + timedelta(days=30),
