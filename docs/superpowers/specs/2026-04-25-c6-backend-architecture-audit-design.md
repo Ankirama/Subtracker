@@ -79,8 +79,8 @@ and one-sentence description.]
 
 ### Couplings (graph-derived)
 
-- **Imports entrants**: N modules import from this file. List notable / surprising importers.
-- **Imports sortants**: this file imports from N modules. Flag any cross-layer imports (e.g., a service importing from `api/`, a model importing from `tasks/`).
+- **Inbound imports**: N modules import from this file. List notable / surprising importers.
+- **Outbound imports**: this file imports from N modules. Flag any cross-layer imports (e.g., a service importing from `api/`, a model importing from `tasks/`).
 - **Centrality**: god-node? hub of which graphify community? high betweenness?
 
 ### Test coverage
@@ -113,7 +113,7 @@ Specifically: why these boundaries are stable (won't drift back to god-status).]
 - **Risk**: low / medium / high (combines coverage + criticality of the file in production).
 ```
 
-The template is a **fixed contract**. The auditor does not freelance section names. If a section genuinely doesn't apply (e.g., "Couplages" is empty for a file that imports nothing surprising), the section header still appears with content like `_None observed._`.
+The template is a **fixed contract**. The auditor does not freelance section names. If a section genuinely doesn't apply (e.g., "Couplings" is empty for a file that imports nothing surprising), the section header still appears with content like `_None observed._`.
 
 ## 5. Cross-Cutting Sections
 
@@ -151,7 +151,7 @@ Format:
 
 Phases can group multiple files if they share a refactor (e.g., merging `email_service.py` into `email_templates.py` plus splitting the result might be one phase).
 
-### §C — Out-of-scope explicites
+### §C — Out-of-scope
 
 Things noticed during the audit that are NOT addressed in C1:
 
@@ -236,7 +236,7 @@ The document follows this top-level structure:
 For the audit to be considered complete:
 
 - All 5 files have a fully populated per-file section (no empty sub-sections without an `_N/A_` justification).
-- Every "Couplages" sub-section cites at least one specific module name (i.e., it is grounded in actual graph data, not generic prose).
+- Every "Couplings" sub-section cites at least one specific module name (i.e., it is grounded in actual graph data, not generic prose).
 - Every "Proposed split" includes a concrete directory tree with line-count estimates.
 - Every "Effort" entry has both a T-shirt size AND a one-sentence justification of why that size.
 - §A has at least one finding OR explicitly states "_no transverse pattern detected — refactors can proceed independently_".
