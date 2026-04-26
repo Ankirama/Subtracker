@@ -357,6 +357,72 @@ class TwoFactorAuth:
         db.commit()
 
     @staticmethod
+    def create_email_otp(db: Session, user_id: str) -> str:
+        """
+        Generate and persist a fresh email OTP for the given user.
+
+        Thin facade around :class:`EmailOTPManager` so that the API layer
+        does not need to import the lower-level manager directly.
+
+        Args:
+            db: Database session
+            user_id: User ID (string form)
+
+        Returns:
+            The generated 6-digit OTP code (plain).
+        """
+        return EmailOTPManager.create_otp(db, user_id)
+
+    @staticmethod
+    def verify_setup_code(
+        db: Session,
+        user: User,
+        method: str,
+        code: str,
+        secret: Optional[str] = None,
+    ) -> bool:
+        """
+        Verify a code submitted to the 2FA setup-confirmation endpoint.
+
+        Dispatches to the appropriate inner manager based on ``method``
+        without exposing those managers to the API layer.
+
+        Args:
+            db: Database session
+            user: User performing the setup confirmation
+            method: '2FA method ('totp' or 'email')
+            code: 6-digit code submitted by the user
+            secret: TOTP secret (required for 'totp' method)
+
+        Returns:
+            True if the code is valid, False otherwise.
+        """
+        if method == "totp":
+            if not secret:
+                return False
+            return TOTPManager.verify_code(secret, code)
+        if method == "email":
+            return EmailOTPManager.verify_code(db, str(user.id), code)
+        return False
+
+    @staticmethod
+    def regenerate_backup_codes(db: Session, user: User) -> List[str]:
+        """
+        Replace the user's backup codes with a fresh set.
+
+        Args:
+            db: Database session
+            user: User whose backup codes are being regenerated
+
+        Returns:
+            The new plain backup codes (only shown to the user once).
+        """
+        new_codes = BackupCodesManager.generate_codes()
+        user.backup_codes = BackupCodesManager.hash_codes(new_codes)
+        db.commit()
+        return new_codes
+
+    @staticmethod
     def verify_two_factor(
         db: Session, user: User, code: str, is_backup_code: bool = False
     ) -> bool:

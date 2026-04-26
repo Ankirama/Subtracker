@@ -1,30 +1,36 @@
 """
-Private API-layer helpers for dispatching transactional emails.
+Private API-layer helpers for dispatching transactional emails from the
+``app.api.auth`` package.
 
-These helpers encapsulate the four (success, error) dispatch patterns that were
-previously inlined in api/auth.py:
-  - lines ~183-198  (register: send_email_verification)
-  - lines ~309-321  (login: send_2fa_otp_email)
-  - lines ~822-836  (2fa/setup: send_2fa_otp_email)
-  - lines ~1173-1185 (resend-verification: send_email_verification)
+These helpers encapsulate the duplicated dispatch patterns that were
+previously inlined in the monolithic ``api/auth.py``:
 
-Each function instantiates ``EmailService(db)`` internally, calls the typed
-send method, and raises ``HTTPException(500)`` on failure — matching the
-existing inline contract.
+  - ``register``:                  send_verification_email
+  - ``login`` (2FA email branch):  send_2fa_otp
+  - ``2fa/setup`` (email method):  send_2fa_otp
+  - ``resend-verification``:       send_verification_email
 
-These are intentionally prefixed with ``_`` to signal they are private to
-the ``api`` package and not intended as FastAPI dependencies.
+Each helper instantiates ``EmailService(db)`` internally, calls the
+typed send method, and raises ``HTTPException(500)`` on failure —
+matching the inline contract that previously existed.
+
+Naming uses a leading underscore to signal these are private to the
+``app.api.auth`` package and not intended as FastAPI dependencies.
+
+Moved from ``app/api/_email_dispatch.py`` (Phase 4) into the auth
+sub-package as part of C1 Phase 7, because ``api/auth/`` is the only
+consumer.
 """
 
 from __future__ import annotations
+
+import logging
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.services.email_service import EmailService
-
-import logging
 
 logger = logging.getLogger(__name__)
 

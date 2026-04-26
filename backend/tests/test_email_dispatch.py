@@ -1,7 +1,11 @@
 """
-Unit tests for app.api._email_dispatch.
+Unit tests for app.api.auth._email_dispatch.
 
 Uses unittest.mock.patch to avoid real EmailService calls.
+
+The helper module was relocated from ``app.api._email_dispatch`` into
+``app.api.auth._email_dispatch`` as part of C1 Phase 7, since
+``api/auth`` is its only consumer.
 """
 
 from unittest.mock import MagicMock, patch
@@ -9,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from app.api._email_dispatch import (
+from app.api.auth._email_dispatch import (
     build_verification_url,
     send_2fa_otp,
     send_verification_email,
@@ -60,7 +64,7 @@ class TestSendVerificationEmail:
         user = _make_user()
         db = MagicMock()
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_email_verification.return_value = (True, None)
             # Should not raise
             send_verification_email(db, user, "tok", "http://localhost:5173")
@@ -72,7 +76,7 @@ class TestSendVerificationEmail:
         user = _make_user()
         db = MagicMock()
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_email_verification.return_value = (
                 False,
                 "SMTP error",
@@ -87,7 +91,7 @@ class TestSendVerificationEmail:
         db = MagicMock()
         custom_msg = "Custom failure message"
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_email_verification.return_value = (
                 False,
                 "err",
@@ -103,7 +107,7 @@ class TestSendVerificationEmail:
         user = _make_user()
         db = MagicMock()
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_email_verification.return_value = (True, None)
             send_verification_email(db, user, "mytoken", "https://frontend.example.com")
 
@@ -114,7 +118,7 @@ class TestSendVerificationEmail:
         user = _make_user(email="john@example.com", display_name=None)
         db = MagicMock()
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_email_verification.return_value = (True, None)
             send_verification_email(db, user, "tok", "http://localhost")
 
@@ -125,7 +129,7 @@ class TestSendVerificationEmail:
         user = _make_user(email="john@example.com", display_name=None)
         db = MagicMock()
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_email_verification.return_value = (True, None)
             send_verification_email(
                 db, user, "tok", "http://localhost", display_name="Johnny"
@@ -145,7 +149,7 @@ class TestSend2faOtp:
         user = _make_user()
         db = MagicMock()
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_2fa_otp_email.return_value = (True, None)
             # Should not raise
             send_2fa_otp(db, user, "123456")
@@ -157,7 +161,7 @@ class TestSend2faOtp:
         user = _make_user()
         db = MagicMock()
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_2fa_otp_email.return_value = (False, "err")
             with pytest.raises(HTTPException) as exc_info:
                 send_2fa_otp(db, user, "123456")
@@ -168,7 +172,7 @@ class TestSend2faOtp:
         user = _make_user()
         db = MagicMock()
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_2fa_otp_email.return_value = (False, "err")
             with pytest.raises(HTTPException) as exc_info:
                 send_2fa_otp(db, user, "123456", failure_detail="Custom OTP failure")
@@ -179,7 +183,7 @@ class TestSend2faOtp:
         user = _make_user()
         db = MagicMock()
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_2fa_otp_email.return_value = (True, None)
             send_2fa_otp(db, user, "654321")
 
@@ -190,7 +194,7 @@ class TestSend2faOtp:
         user = _make_user(email="alice@example.com")
         db = MagicMock()
 
-        with patch("app.api._email_dispatch.EmailService") as MockService:
+        with patch("app.api.auth._email_dispatch.EmailService") as MockService:
             MockService.return_value.send_2fa_otp_email.return_value = (True, None)
             send_2fa_otp(db, user, "000000")
 
