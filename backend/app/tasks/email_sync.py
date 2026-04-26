@@ -445,20 +445,6 @@ async def _sync_mailbox_async(
                         # - Different billing_cycle values in emails
                         # - AI-generated description variations
 
-                        # Check if email is from a payment processor (PayPal, Stripe, etc.)
-                        # These should update existing subscriptions, not create new ones
-                        email_sender = subscription_data.get("email_sender", "")
-                        is_payment_processor_email = any(
-                            processor in email_sender.lower()
-                            for processor in [
-                                "paypal",
-                                "stripe",
-                                "paddle",
-                                "gumroad",
-                                "fastspring",
-                            ]
-                        )
-
                         # Primary match: Just provider + mailbox (most forgiving)
                         base_query = db.query(Subscription).filter(
                             Subscription.mailbox_id == mailbox.id,
@@ -468,112 +454,23 @@ async def _sync_mailbox_async(
                         # Get all potential matches for this provider
                         potential_matches = base_query.all()
 
-                        existing_sub = None
-                        custom_label = subscription_data.get("custom_label")
+                        # NORMAL PROCESSING: Check if subscription already exists
+                        # See app/services/dedup_strategy.py for the strategy ordering.
+                        # Strategies: service-ref → single-match → payment-processor →
+                        # email-sender → meaningful custom-label → fallback.
 
-                        # NEW: Try service reference matching first (most reliable)
-                        extraction_metadata = subscription_data.get(
-                            "extraction_metadata", {}
+                        # Lazy import: get_reference_extractor is a factory function;
+                        # kept lazy so the conftest patch target remains stable.
+                        from app.services.reference_extractor import (
+                            get_reference_extractor,
                         )
-                        service_references = extraction_metadata.get(
-                            "service_references", {}
+                        from app.services.dedup_strategy import find_best_match
+
+                        existing_sub = find_best_match(
+                            subscription_data,
+                            potential_matches,
+                            ref_extractor=get_reference_extractor(),
                         )
-
-                        # CRITICAL FIX: Check service references for ALL potential matches,
-                        # not just when there are multiple. This prevents incorrectly merging
-                        # different services from the same provider (e.g., different OVH services)
-                        if service_references and len(potential_matches) > 0:
-                            # Try to find a match based on service references
-                            from app.services.reference_extractor import (
-                                get_reference_extractor,
-                            )
-
-                            extractor = get_reference_extractor()
-
-                            for match in potential_matches:
-                                match_metadata = match.extraction_metadata or {}
-                                if extractor.can_match_subscription(
-                                    service_references, match_metadata
-                                ):
-                                    existing_sub = match
-                                    logger.info(
-                                        f"Found service reference match for {subscription_data['provider']}: {service_references}"
-                                    )
-                                    break
-
-                            # If we have service references but no match found, this is a NEW service
-                            # Don't fall back to single-match assumption - create new subscription
-                            if not existing_sub:
-                                logger.info(
-                                    f"Service references present but no match found for {subscription_data['provider']}: {service_references}. Creating new subscription."
-                                )
-
-                        # Only fall back to single-match assumption if NO service references exist
-                        if (
-                            not existing_sub
-                            and not service_references
-                            and len(potential_matches) == 1
-                        ):
-                            # Only one subscription for this provider and no service references to check - use it
-                            existing_sub = potential_matches[0]
-                            logger.debug(
-                                f"Found single match for {subscription_data['provider']} (no service references to verify)"
-                            )
-                        elif not existing_sub and len(potential_matches) > 1:
-                            # Multiple subscriptions for this provider - try to disambiguate
-                            # Priority: 1) email_sender match, 2) billing_cycle match, 3) meaningful custom_label
-
-                            # If from payment processor, match ANY existing (payment processors don't disambiguate)
-                            if is_payment_processor_email:
-                                existing_sub = potential_matches[
-                                    0
-                                ]  # Take the first/oldest
-                                logger.debug(
-                                    f"Payment processor email - using first existing subscription for {subscription_data['provider']}"
-                                )
-                            else:
-                                # Try exact email_sender match
-                                for match in potential_matches:
-                                    if match.email_sender == email_sender:
-                                        existing_sub = match
-                                        logger.debug(
-                                            f"Found email_sender match for {subscription_data['provider']}"
-                                        )
-                                        break
-
-                                # If no email match, check for meaningful custom_label
-                                if not existing_sub and custom_label:
-                                    meaningful_keywords = [
-                                        "tier",
-                                        "channel",
-                                        "plan",
-                                        "premium",
-                                        "basic",
-                                        "pro",
-                                        "plus",
-                                        "family",
-                                        "individual",
-                                        "student",
-                                    ]
-                                    is_meaningful = any(
-                                        keyword in custom_label.lower()
-                                        for keyword in meaningful_keywords
-                                    )
-                                    if is_meaningful:
-                                        for match in potential_matches:
-                                            if match.custom_label == custom_label:
-                                                existing_sub = match
-                                                logger.debug(
-                                                    f"Found custom_label match for {subscription_data['provider']}"
-                                                )
-                                                break
-
-                                # If still no match, use the first one (avoid creating duplicates)
-                                if not existing_sub:
-                                    existing_sub = potential_matches[0]
-                                    logger.debug(
-                                        f"No specific match - using first existing subscription for {subscription_data['provider']}"
-                                    )
 
                         subscription_record = None
                         if existing_sub:
@@ -626,7 +523,7 @@ async def _sync_mailbox_async(
                                 )
                             else:
                                 logger.info(
-                                    f"Updated subscription: {subscription_data['provider']} - {custom_label or 'No label'}"
+                                    f"Updated subscription: {subscription_data['provider']} - {subscription_data.get('custom_label') or 'No label'}"
                                 )
                         else:
                             # Create new subscription (filter out metadata fields like is_price_update)
@@ -641,7 +538,7 @@ async def _sync_mailbox_async(
                             subscription_record = new_subscription
                             subscriptions_found += 1
                             logger.info(
-                                f"Created new subscription: {subscription_data['provider']} - {custom_label or 'No label'}"
+                                f"Created new subscription: {subscription_data['provider']} - {subscription_data.get('custom_label') or 'No label'}"
                             )
 
                             # Create initial price history record
