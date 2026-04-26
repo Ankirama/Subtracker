@@ -204,7 +204,7 @@ class TestSetup2FA:
         self, client, test_user, auth_headers, db_session
     ):
         """Email setup creates an EmailOTP row and returns an instructional message."""
-        with patch("app.api.auth.send_2fa_otp"):  # avoid Resend network call
+        with patch("app.api.auth.two_factor.send_2fa_otp"):  # avoid Resend network call
             response = client.post(
                 "/api/auth/2fa/setup",
                 json={"method": "email"},
@@ -556,7 +556,7 @@ class TestResendVerification:
         db_session.commit()
         db_session.refresh(user)
 
-        with patch("app.api.auth.send_verification_email"):
+        with patch("app.api.auth.registration.send_verification_email"):
             response = client.post(
                 "/api/auth/resend-verification",
                 json={"email": user.email},
@@ -572,7 +572,7 @@ class TestResendVerification:
 
     def test_resend_for_verified_user_returns_400(self, client, test_user):
         """Resending for an already-verified email returns 400."""
-        with patch("app.api.auth.send_verification_email"):
+        with patch("app.api.auth.registration.send_verification_email"):
             response = client.post(
                 "/api/auth/resend-verification",
                 json={"email": test_user.email},
