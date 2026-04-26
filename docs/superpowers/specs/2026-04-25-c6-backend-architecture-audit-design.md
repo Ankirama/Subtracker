@@ -62,13 +62,13 @@ Every audited file is analysed using this exact template. Consistency across the
 ```markdown
 ## `<relative path>` — `<line count>` lines
 
-### Symptômes
+### Symptoms
 
 [Why this file is god-y. Concrete signals: how many distinct responsibilities,
 heterogeneity of imports, depth of nesting, presence of section-comment
 "chapters", etc. 3-6 sentences max.]
 
-### Responsabilités identifiées
+### Responsibilities identified
 
 [Numbered list of "roles" mixed in the file. For each: approximate line range
 and one-sentence description.]
@@ -77,19 +77,19 @@ and one-sentence description.]
 2. <role 2> (lines Y-Z)
 3. ...
 
-### Couplages (graph-derived)
+### Couplings (graph-derived)
 
 - **Imports entrants**: N modules import from this file. List notable / surprising importers.
 - **Imports sortants**: this file imports from N modules. Flag any cross-layer imports (e.g., a service importing from `api/`, a model importing from `tasks/`).
 - **Centrality**: god-node? hub of which graphify community? high betweenness?
 
-### Couverture tests
+### Test coverage
 
 - Test file(s) found: ...
 - Approximate coverage estimate (functions defined vs functions touched in tests, by grep).
 - Refactor safety: **safe** (good coverage, deterministic) / **risky** (sparse coverage or heavy I/O) / **unknown** (could not measure).
 
-### Proposition de découpe
+### Proposed split
 
 ```
 backend/app/<target dir>/
@@ -101,16 +101,16 @@ backend/app/<target dir>/
 [2-4 sentence justification of why this split and not another.
 Specifically: why these boundaries are stable (won't drift back to god-status).]
 
-### Effort & dépendances
+### Effort & dependencies
 
 - **Effort**: S / M / L / XL
   - S: < 2h (mechanical extraction, tests already cover)
   - M: 2-6h (some refactor in callers needed)
   - L: 6-16h (multi-file restructure, possibly schema/contract changes)
   - XL: > 16h (architectural shift; reconsider scope)
-- **Bloqueurs**: other refactors that must happen first (with reference).
-- **Bloquant pour**: other refactors that depend on this one.
-- **Risque**: low / medium / high (combines coverage + criticality of the file in production).
+- **Blockers**: other refactors that must happen first (with reference).
+- **Blocks**: other refactors that depend on this one.
+- **Risk**: low / medium / high (combines coverage + criticality of the file in production).
 ```
 
 The template is a **fixed contract**. The auditor does not freelance section names. If a section genuinely doesn't apply (e.g., "Couplages" is empty for a file that imports nothing surprising), the section header still appears with content like `_None observed._`.
@@ -119,7 +119,7 @@ The template is a **fixed contract**. The auditor does not freelance section nam
 
 Beyond the 5 per-file analyses, the document contains 3 transverse sections:
 
-### §A — Constats transverses
+### §A — Cross-cutting findings
 
 Patterns and findings that affect 2+ of the audited files. Examples to look for:
 
@@ -131,7 +131,7 @@ Patterns and findings that affect 2+ of the audited files. Examples to look for:
 
 Target length: 1 page max. If more than ~5 transverse findings emerge, the audit was too narrow and we should reconsider scope (escalate, do not just write longer).
 
-### §B — Roadmap priorisée
+### §B — Prioritised roadmap
 
 The actionable output. Lists the 5 refactors in recommended execution order, with justification.
 
@@ -224,9 +224,9 @@ The document follows this top-level structure:
 ## §5 — `services/email_service.py` — 782 lines
 [per-file template]
 
-## §A — Constats transverses
+## §A — Cross-cutting findings
 
-## §B — Roadmap priorisée
+## §B — Prioritised roadmap
 
 ## §C — Out-of-scope
 ```
@@ -237,7 +237,7 @@ For the audit to be considered complete:
 
 - All 5 files have a fully populated per-file section (no empty sub-sections without an `_N/A_` justification).
 - Every "Couplages" sub-section cites at least one specific module name (i.e., it is grounded in actual graph data, not generic prose).
-- Every "Proposition de découpe" includes a concrete directory tree with line-count estimates.
+- Every "Proposed split" includes a concrete directory tree with line-count estimates.
 - Every "Effort" entry has both a T-shirt size AND a one-sentence justification of why that size.
 - §A has at least one finding OR explicitly states "_no transverse pattern detected — refactors can proceed independently_".
 - §B presents the 5 refactors in a recommended order with justification.
@@ -250,8 +250,8 @@ For the audit to be considered complete:
 **Risks**:
 
 - **Cognitive overload**: reading 5 large files in one session degrades quality of analysis. Mitigation: per-file commits (1 file = 1 commit) so the work can pause/resume cleanly.
-- **Premature splitting recommendations**: the audit might propose splits that look clean but break under real refactor (e.g., shared helpers that aren't visible from the file alone). Mitigation: every "Proposition de découpe" is justified in 2-4 sentences and is **explicitly a recommendation, not a decision** — C1 brainstorming will revisit each split before implementation.
-- **Test coverage estimation is rough**: grep-based coverage is approximate. Mitigation: surface this honestly in each "Couverture tests" sub-section as `safe / risky / unknown` and document the method.
+- **Premature splitting recommendations**: the audit might propose splits that look clean but break under real refactor (e.g., shared helpers that aren't visible from the file alone). Mitigation: every "Proposed split" is justified in 2-4 sentences and is **explicitly a recommendation, not a decision** — C1 brainstorming will revisit each split before implementation.
+- **Test coverage estimation is rough**: grep-based coverage is approximate. Mitigation: surface this honestly in each "Test coverage" sub-section as `safe / risky / unknown` and document the method.
 
 ## 10. Out of Scope (deferred sub-projects, for traceability)
 
