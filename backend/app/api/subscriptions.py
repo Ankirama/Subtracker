@@ -34,6 +34,7 @@ from app.schemas.subscription import (
 )
 from app.schemas.price_history import PriceHistoryResponse, PriceStatisticsResponse
 from app.services.price_history_service import PriceHistoryService
+from app.services.cost_projection import project_monthly_cost, project_yearly_cost
 from app.security.dependencies import get_current_user
 import logging
 
@@ -205,17 +206,8 @@ async def get_subscription_stats(
     yearly_cost = 0.0
 
     for sub in subscriptions:
-        if sub.amount and sub.billing_cycle:
-            amount = float(sub.amount)
-            if sub.billing_cycle == "monthly":
-                monthly_cost += amount
-                yearly_cost += amount * 12
-            elif sub.billing_cycle == "yearly":
-                yearly_cost += amount
-                monthly_cost += amount / 12
-            elif sub.billing_cycle == "weekly":
-                monthly_cost += amount * 4.33  # Average weeks per month
-                yearly_cost += amount * 52
+        monthly_cost += project_monthly_cost(sub.amount, sub.billing_cycle)
+        yearly_cost += project_yearly_cost(sub.amount, sub.billing_cycle)
 
     # Category breakdown
     by_category = {}
@@ -227,14 +219,9 @@ async def get_subscription_stats(
         by_category[category]["count"] += 1
 
         # Calculate monthly cost for this subscription
-        if sub.amount and sub.billing_cycle:
-            amount = float(sub.amount)
-            if sub.billing_cycle == "monthly":
-                by_category[category]["total"] += amount
-            elif sub.billing_cycle == "yearly":
-                by_category[category]["total"] += amount / 12
-            elif sub.billing_cycle == "weekly":
-                by_category[category]["total"] += amount * 4.33
+        by_category[category]["total"] += project_monthly_cost(
+            sub.amount, sub.billing_cycle
+        )
 
     # Billing cycle breakdown
     by_billing_cycle = {}
@@ -324,19 +311,7 @@ async def get_analytics_trends(
             continue
 
         # Calculate monthly cost for this subscription
-        monthly_cost = 0.0
-        if sub.amount and sub.billing_cycle:
-            amount = float(sub.amount)
-            if sub.billing_cycle == "monthly":
-                monthly_cost = amount
-            elif sub.billing_cycle == "yearly":
-                monthly_cost = amount / 12
-            elif sub.billing_cycle == "weekly":
-                monthly_cost = amount * 4.33
-            elif sub.billing_cycle == "quarterly":
-                monthly_cost = amount / 3
-            elif sub.billing_cycle == "biannual":
-                monthly_cost = amount / 6
+        monthly_cost = project_monthly_cost(sub.amount, sub.billing_cycle)
 
         # Track subscription across months it was active
         sub_start = max(first_detected.replace(day=1), start_date.replace(day=1))
