@@ -46,13 +46,13 @@ from app.security.two_factor import (
     EmailOTPManager,
     BackupCodesManager,
 )
-from app.services.email_service import EmailService
 from app.security.email_verification import (
     EmailVerificationManager,
     VerificationRateLimiter,
 )
 from app.config import settings
 from app.utils.config_helper import get_config_value
+from app.api._email_dispatch import send_verification_email, send_2fa_otp
 from datetime import datetime
 import logging
 
@@ -175,27 +175,17 @@ async def register(
 
     logger.info(f"New user registered (unverified): {new_user.email}")
 
-    # Build verification URL
-    frontend_url = get_config_value("frontend.url", settings.FRONTEND_URL, db)
-    verification_url = f"{frontend_url}/verify-email/{verification_token}"
-
     # Send verification email
-    email_service = EmailService(db)
+    frontend_url = get_config_value("frontend.url", settings.FRONTEND_URL, db)
     display_name = user_data.display_name or user_data.email.split("@")[0]
-    success, error = email_service.send_email_verification(
-        to_email=new_user.email,
-        user_name=display_name,
-        verification_url=verification_url,
+    send_verification_email(
+        db,
+        new_user,
+        verification_token,
+        frontend_url,
+        display_name=display_name,
+        failure_detail="Account created but failed to send verification email. Please try resending.",
     )
-
-    if not success:
-        logger.error(f"Failed to send verification email to {new_user.email}: {error}")
-        # Don't fail registration, user can request resend
-        # But log the issue
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Account created but failed to send verification email. Please try resending.",
-        )
 
     return EmailVerificationResponse(
         message="Registration successful! Please check your email to verify your account.",
@@ -305,20 +295,7 @@ async def login(user_data: UserLogin, request: Request, db: Session = Depends(ge
         if user.two_factor_method == "email":
             otp_code = EmailOTPManager.create_otp(db, str(user.id))
 
-            # Send email
-            email_service = EmailService(db)
-            success, error = email_service.send_2fa_otp_email(
-                to_email=user.email,
-                user_name=user.email.split("@")[0],
-                otp_code=otp_code,
-            )
-
-            if not success:
-                logger.error(f"Failed to send 2FA OTP email to {user.email}: {error}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to send verification email",
-                )
+            send_2fa_otp(db, user, otp_code)
 
             return TwoFactorRequiredResponse(
                 requires_2fa=True,
@@ -818,22 +795,7 @@ async def setup_2fa(
         # Generate and send email OTP
         otp_code = EmailOTPManager.create_otp(db, str(current_user.id))
 
-        # Send email
-        email_service = EmailService(db)
-        success, error = email_service.send_2fa_otp_email(
-            to_email=current_user.email,
-            user_name=current_user.email.split("@")[0],
-            otp_code=otp_code,
-        )
-
-        if not success:
-            logger.error(
-                f"Failed to send 2FA OTP email to {current_user.email}: {error}"
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to send verification email",
-            )
+        send_2fa_otp(db, current_user, otp_code)
 
         logger.info(f"Email OTP sent for 2FA setup to: {current_user.email}")
 
@@ -1166,23 +1128,17 @@ async def resend_verification(
     user.email_verification_sent_at = datetime.utcnow()
     db.commit()
 
-    # Build verification URL
-    frontend_url = get_config_value("frontend.url", settings.FRONTEND_URL, db)
-    verification_url = f"{frontend_url}/verify-email/{new_token}"
-
     # Send verification email
-    email_service = EmailService(db)
+    frontend_url = get_config_value("frontend.url", settings.FRONTEND_URL, db)
     display_name = user.display_name or user.email.split("@")[0]
-    success, error = email_service.send_email_verification(
-        to_email=user.email, user_name=display_name, verification_url=verification_url
+    send_verification_email(
+        db,
+        user,
+        new_token,
+        frontend_url,
+        display_name=display_name,
+        failure_detail="Failed to send verification email. Please try again later.",
     )
-
-    if not success:
-        logger.error(f"Failed to resend verification email to {user.email}: {error}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send verification email. Please try again later.",
-        )
 
     logger.info(f"Verification email resent to: {user.email}")
 
