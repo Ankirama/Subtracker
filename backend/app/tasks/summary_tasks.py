@@ -91,7 +91,7 @@ def send_weekly_summaries():
                             summary_data, frontend_url
                         )
 
-                        email_service = EmailService()
+                        email_service = EmailService(db)
                         email_service.send_email(
                             to_email=user.email,
                             subject=f"📊 Your Weekly Subscription Summary - €{summary_data['total_monthly_cost']:.2f}/mo",
@@ -199,7 +199,7 @@ def send_monthly_summaries():
                             summary_data, frontend_url
                         )
 
-                        email_service = EmailService()
+                        email_service = EmailService(db)
                         email_service.send_email(
                             to_email=user.email,
                             subject=f"📈 Your Monthly Subscription Summary - €{summary_data['total_monthly_cost']:.2f}/mo",

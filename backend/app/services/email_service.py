@@ -776,7 +776,3 @@ Subscription Tracker Team
 </body>
 </html>
         """
-
-
-# Singleton instance
-email_service = EmailService()
