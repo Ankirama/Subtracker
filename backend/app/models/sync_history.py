@@ -83,6 +83,10 @@ class SyncHistory(Base):
 
     # Relationships
     mailbox = relationship("Mailbox", back_populates="sync_history")
+    errors = relationship("EmailSyncError", back_populates="sync_history")
 
     def __repr__(self):
-        return f"<SyncHistory(id={self.id}, mailbox_id={self.mailbox_id}, status={self.status}, started={self.started_at})>"
+        return (
+            f"<SyncHistory(id={self.id}, mailbox_id={self.mailbox_id}, "
+            f"status={self.status}, started={self.started_at})>"
+        )

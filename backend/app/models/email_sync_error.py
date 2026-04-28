@@ -13,6 +13,7 @@ from sqlalchemy import (
     Integer,
     DateTime,
     ForeignKey,
+    Index,
 )
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
@@ -23,6 +24,12 @@ from app.database import Base
 
 
 class EmailSyncError(Base):
+    """Structured record of a single email that failed during sync pipeline processing.
+
+    Created by SyncErrorRecorder after the per-email try/except catches any exception.
+    Status lifecycle: pending → retried | resolved | ignored | auto_recovered.
+    """
+
     __tablename__ = "email_sync_errors"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -69,8 +76,14 @@ class EmailSyncError(Base):
         nullable=False,
     )
 
-    mailbox = relationship("Mailbox", backref="sync_errors")
-    sync_history = relationship("SyncHistory", backref="errors")
+    __table_args__ = (
+        Index("ix_email_sync_errors_mailbox_status", "mailbox_id", "status"),
+        Index("ix_email_sync_errors_type_created", "error_type", "created_at"),
+        Index("ix_email_sync_errors_created_at", "created_at"),
+    )
+
+    mailbox = relationship("Mailbox", back_populates="sync_errors")
+    sync_history = relationship("SyncHistory", back_populates="errors")
     resolved_by = relationship("User", foreign_keys=[resolved_by_id])
 
     def __repr__(self):
