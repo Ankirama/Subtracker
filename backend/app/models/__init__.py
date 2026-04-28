@@ -16,6 +16,7 @@ from app.models.push_subscription import PushSubscription
 from app.models.two_factor import EmailOTP
 from app.models.category import Category, DEFAULT_CATEGORIES
 from app.models.waitlist import Waitlist
+from app.models.email_sync_error import EmailSyncError
 
 __all__ = [
     "User",
@@ -38,4 +39,5 @@ __all__ = [
     "Category",
     "DEFAULT_CATEGORIES",
     "Waitlist",
+    "EmailSyncError",
 ]
