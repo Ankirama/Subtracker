@@ -112,8 +112,25 @@ def record_sync_error(
 def auto_recover_pending(
     db: Session, mailbox_id: uuid.UUID, provider_message_id: str
 ) -> int:
-    """Mark all pending errors for this email as auto_recovered. Returns affected row count."""
+    """Mark all pending errors for this email as auto_recovered. Returns affected row count.
+
+    Fast-paths via a SELECT when no pending row exists (the common case)
+    so a healthy email doesn't pay an UPDATE round-trip. When a pending
+    row IS found, the function commits the resolution itself — callers
+    rely on this (see ``test_auto_recover_pending_marks_resolved``).
+    """
     if not provider_message_id:
+        return 0
+    has_pending = (
+        db.query(EmailSyncError.id)
+        .filter(
+            EmailSyncError.mailbox_id == mailbox_id,
+            EmailSyncError.provider_message_id == provider_message_id,
+            EmailSyncError.status == "pending",
+        )
+        .first()
+    )
+    if has_pending is None:
         return 0
     now = datetime.now(timezone.utc)
     result = db.execute(

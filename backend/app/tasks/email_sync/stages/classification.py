@@ -17,9 +17,15 @@ cannot crash the whole batch. Failures are classified, recorded as
 ``unexpected`` errors trip a circuit breaker (raises
 ``SyncCircuitBreakerError``) so the orchestrator aborts the sync.
 
-Mirrors lines 250-316 of pre-Phase-8b ``_sync_mailbox_async``. Does NOT
-commit (the orchestrator owns commit boundaries); does call
-``db.flush()`` per row to obtain primary keys.
+Mirrors lines 250-316 of pre-Phase-8b ``_sync_mailbox_async``. Commits
+per row inside the try block: this is what gives the batch its
+failure-isolation property — when an exception is raised on a later
+email, the ``db.rollback()`` in the except branch only discards the
+failing row's pending state, not the previously-committed good rows.
+``db.flush()`` is still called before the commit to obtain primary
+keys. The orchestrator's per-batch ``db.commit()`` (orchestrator.py)
+remains as a safety net for any post-classification state but is now
+effectively a no-op for emails persisted here.
 """
 
 import logging
@@ -115,6 +121,9 @@ async def classify_new_emails(
 
     # Per-email persistence with isolation
     email_records = []
+    # Counter is reset only on success; non-unexpected failures (schema, db_constraint,
+    # extraction) are transparent to the breaker so a poisoned-email storm still trips
+    # at the Nth unexpected error.
     consecutive_unexpected = 0
 
     for email, classification in zip(new_emails, classifications):
@@ -148,6 +157,12 @@ async def classify_new_emails(
             # Auto-recovery: a previously-pending error for this same
             # provider_message_id is now flagged resolved.
             auto_recover_pending(db, mailbox.id, message_id)
+
+            # Per-email commit: provides failure isolation for the
+            # subsequent emails in this batch. Without it, a later
+            # rollback() in the except branch would discard good rows
+            # alongside the failing one's flushed-but-uncommitted state.
+            db.commit()
 
             consecutive_unexpected = 0
             logger.info(
