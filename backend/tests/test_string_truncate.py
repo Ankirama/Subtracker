@@ -19,15 +19,22 @@ def test_truncate_long_ascii_caps_at_max_minus_marker():
 
 
 def test_truncate_multibyte_does_not_split_codepoint():
-    # 'é' is 2 bytes in UTF-8. 50 of them = 100 bytes.
+    # 'é' is 2 bytes in UTF-8. With max_bytes=21, the budget cuts inside
+    # the 11th 'é' (after byte 21 = 0xc3, the leading byte of a 2-byte
+    # sequence). errors='ignore' must drop the dangling byte, producing
+    # 20 bytes (10 complete 'é' chars).
     s = "é" * 50
-    out = truncate_to_bytes(s, max_bytes=20, marker="")
-    # Ensure we did not produce invalid UTF-8 (i.e. cut mid-codepoint)
+    out = truncate_to_bytes(s, max_bytes=21, marker="")
+    assert len(out.encode("utf-8")) <= 21
+    # Each 'é' is 2 bytes; if any codepoint were split the total would
+    # be odd. Verify it's even (clean codepoint boundaries only).
+    assert len(out.encode("utf-8")) % 2 == 0
+    # Round-trip is now meaningful: if errors='ignore' weren't applied,
+    # encoded[:21].decode() would have raised at the dangling 0xc3.
     out.encode("utf-8").decode("utf-8")
-    assert len(out.encode("utf-8")) <= 20
 
 
-def test_truncate_marker_fits_in_max_bytes():
+def test_truncate_marker_dropped_when_exceeds_budget():
     s = "x" * 100
     out = truncate_to_bytes(s, max_bytes=10, marker="[truncated]")
     # marker is 11 bytes which exceeds max — implementation must fall back
