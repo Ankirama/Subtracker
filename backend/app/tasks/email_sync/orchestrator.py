@@ -211,6 +211,7 @@ async def _sync_mailbox_async(
                 emails,
                 batch_num,
                 classify_batch=classify_batch,
+                sync_history=history_entry,
             )
 
             # STAGE 2: Parallel Extraction for subscription emails
