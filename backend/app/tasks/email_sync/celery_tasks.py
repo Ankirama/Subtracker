@@ -357,6 +357,9 @@ def sync_mailbox_emails(
                 mailbox_fresh.last_sync_status = "failed"
                 mailbox_fresh.last_sync_at = exception_time
                 mailbox_fresh.last_sync_error_message = str(e)
+                # If a cancellation was in-flight when the sync exploded, ack
+                # it: the sync is over, the flag should not linger as True.
+                mailbox_fresh.sync_cancellation_requested = False
 
                 history_fresh = (
                     db.query(SyncHistory)
