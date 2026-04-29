@@ -100,7 +100,11 @@ def record_sync_error(
     db.commit()
 
     if error_type == "unexpected":
-        _mirror_to_application_logs(db, err, exc)
+        try:
+            _mirror_to_application_logs(db, err, exc)
+        except Exception:
+            logger.exception("Failed to mirror sync error to application_logs")
+            db.rollback()
 
     return err
 
@@ -149,13 +153,14 @@ def _build_payload(raw_email: Dict[str, Any]) -> Dict[str, Any]:
     serialised = json.dumps(payload, default=str)
     if len(serialised) <= _RAW_PAYLOAD_MAX_BYTES:
         return payload
-    while serialised and len(serialised) > _RAW_PAYLOAD_MAX_BYTES:
-        if not payload:
-            break
+    truncated_any = False
+    while payload and len(serialised) > _RAW_PAYLOAD_MAX_BYTES:
         biggest = max(payload, key=lambda k: len(str(payload[k])))
         payload[biggest] = "[truncated]"
+        truncated_any = True
         serialised = json.dumps(payload, default=str)
-    payload["_truncated"] = True
+    if truncated_any:
+        payload["_truncated"] = True
     return payload
 
 
