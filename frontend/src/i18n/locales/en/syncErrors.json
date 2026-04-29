@@ -1,0 +1,42 @@
+{
+  "page_title": "Skipped emails",
+  "back_to_mailbox": "Back to mailbox",
+  "filters": {
+    "status": "Status",
+    "error_type": "Error type",
+    "all": "All"
+  },
+  "table": {
+    "date": "Date",
+    "sender": "Sender",
+    "subject": "Subject",
+    "error": "Error",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "actions": {
+    "retry_all": "Retry all pending",
+    "ignore_all": "Ignore all pending",
+    "ignore": "Ignore",
+    "ignore_confirm": "Mark this email as ignored? It will not be retried."
+  },
+  "status": {
+    "pending": "Pending",
+    "retried": "Retried",
+    "resolved": "Resolved",
+    "ignored": "Ignored",
+    "auto_recovered": "Auto-recovered"
+  },
+  "error_types": {
+    "schema_too_long": "Email too large for current storage format. The team has been notified; retry once a fix is deployed.",
+    "encoding_error": "Email contains invalid character encoding. Retry rarely succeeds; you can safely ignore.",
+    "extraction_failed": "Subscription extraction failed for this email. Usually safe to retry.",
+    "db_constraint": "Database constraint violation. Retry once a fix is deployed.",
+    "unexpected": "An unexpected error occurred. The team has been notified."
+  },
+  "badge_one": "{{count}} email skipped",
+  "badge_other": "{{count}} emails skipped",
+  "empty": "No skipped emails — your sync is clean.",
+  "retry_started": "Retry queued. Refresh in a few seconds.",
+  "ignored_toast": "Marked as ignored."
+}

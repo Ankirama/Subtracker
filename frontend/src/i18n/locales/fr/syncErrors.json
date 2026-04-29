@@ -1,0 +1,42 @@
+{
+  "page_title": "Emails ignorés",
+  "back_to_mailbox": "Retour à la boîte mail",
+  "filters": {
+    "status": "Statut",
+    "error_type": "Type d'erreur",
+    "all": "Tous"
+  },
+  "table": {
+    "date": "Date",
+    "sender": "Expéditeur",
+    "subject": "Objet",
+    "error": "Erreur",
+    "status": "Statut",
+    "actions": "Actions"
+  },
+  "actions": {
+    "retry_all": "Tout réessayer",
+    "ignore_all": "Tout ignorer",
+    "ignore": "Ignorer",
+    "ignore_confirm": "Marquer cet email comme ignoré ? Il ne sera pas réessayé."
+  },
+  "status": {
+    "pending": "En attente",
+    "retried": "Réessayé",
+    "resolved": "Résolu",
+    "ignored": "Ignoré",
+    "auto_recovered": "Auto-résolu"
+  },
+  "error_types": {
+    "schema_too_long": "Email trop volumineux pour le format de stockage actuel. L'équipe a été notifiée ; réessayez une fois le correctif déployé.",
+    "encoding_error": "Email avec un encodage de caractères invalide. Le réessai a peu de chances d'aboutir ; vous pouvez l'ignorer.",
+    "extraction_failed": "L'extraction d'abonnement a échoué. Le réessai est généralement sans risque.",
+    "db_constraint": "Violation d'une contrainte de base de données. Réessayez une fois le correctif déployé.",
+    "unexpected": "Une erreur inattendue est survenue. L'équipe a été notifiée."
+  },
+  "badge_one": "{{count}} email ignoré",
+  "badge_other": "{{count}} emails ignorés",
+  "empty": "Aucun email ignoré — votre synchronisation est propre.",
+  "retry_started": "Réessai en file d'attente. Actualisez dans quelques secondes.",
+  "ignored_toast": "Marqué comme ignoré."
+}
