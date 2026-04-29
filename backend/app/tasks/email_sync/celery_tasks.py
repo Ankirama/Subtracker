@@ -332,12 +332,14 @@ def sync_mailbox_emails(
         history_entry.total_emails_processed = mailbox.last_sync_emails_processed or 0
         history_entry.subscriptions_found = mailbox.last_sync_subscriptions_found or 0
         history_entry.batches_processed = mailbox.last_sync_batch_num or 0
+        # Symmetric with the outer except: any sync end clears the cancellation flag.
+        mailbox.sync_cancellation_requested = False
         db.commit()
         # Early return prevents Celery's autoretry_for=(Exception,) kicking in.
         return {"success": False, "error": str(e), "error_type": "circuit_breaker"}
 
     except Exception as e:
-        logger.error(f"Email sync failed for mailbox {mailbox_id}: {str(e)}")
+        logger.exception(f"Email sync failed for mailbox {mailbox_id}: {str(e)}")
         exception_time = datetime.now(timezone.utc)
         # Reset the session: any inner failure may have left it in
         # PendingRollback. We MUST update mailbox state regardless so the
@@ -391,7 +393,9 @@ def sync_mailbox_emails(
 
                 db.commit()
         except Exception as commit_exc:
-            logger.error(
+            # Double-fault: log with traceback so on-call can diagnose why the
+            # resilience escape hatch itself failed.
+            logger.exception(
                 f"Failed to mark mailbox failed after sync error: {commit_exc}"
             )
 
