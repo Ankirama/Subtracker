@@ -392,10 +392,7 @@ def sync_mailbox_emails(
                 f"Failed to mark mailbox failed after sync error: {commit_exc}"
             )
 
-        # Re-raise so Celery's autoretry_for kicks in for transient errors.
-        # Once retries are exhausted Celery will give up; mailbox already
-        # in `failed` state from the commit above.
-        raise
+        return {"success": False, "error": str(e)}
 
 
 @celery_app.task(
