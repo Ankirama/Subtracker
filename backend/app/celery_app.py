@@ -23,6 +23,7 @@ celery_app = Celery(
         "app.tasks.system_announcements",  # System announcements
         "app.tasks.email_verification",  # Email verification cleanup tasks
         "app.tasks.budget_alerts",  # Budget alert monitoring
+        "app.tasks.sync_error_retry",  # Sync error retry batch task
     ],
 )
 
