@@ -34,6 +34,8 @@ class NotificationType(str, enum.Enum):
     PRICE_CHANGE = "PRICE_CHANGE"
     BUDGET_ALERT = "BUDGET_ALERT"
     SYSTEM_ANNOUNCEMENT = "SYSTEM_ANNOUNCEMENT"
+    SYNC_SKIPPED_MANY = "SYNC_SKIPPED_MANY"
+    SYNC_CIRCUIT_BREAKER = "SYNC_CIRCUIT_BREAKER"
 
 
 class NotificationPriority(str, enum.Enum):
