@@ -96,6 +96,8 @@ class MailboxResponse(BaseModel):
     needs_reconnect: bool = False
     auth_error_at: Optional[datetime] = None
     auth_error_message: Optional[str] = None
+    # Pending sync errors awaiting user action (retry/ignore).
+    pending_sync_errors_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 
