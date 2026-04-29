@@ -31,11 +31,23 @@ from app.database import SessionLocal
 from app.email_providers import GmailProvider, JMAPProvider
 from app.models.email_sync_error import EmailSyncError
 from app.models.mailbox import Mailbox
+from app.models.sync_history import SyncHistory
 from app.security.encryption import decrypt_credentials
 from app.services.ai_classifier import classify_emails_batch
 from app.tasks.email_sync.stages.classification import classify_new_emails
 
 logger = logging.getLogger(__name__)
+
+
+# Providers whose ``get_message_by_id`` is fully implemented. JMAP currently
+# returns a stub (see ``app/email_providers/jmap.py:434``), so single-message
+# refetch is not yet supported there. Add "jmap" here once the conversion
+# logic lands.
+_RETRY_SUPPORTED_PROVIDERS = {"gmail"}
+
+
+class _RetryNotSupported(Exception):
+    """Raised when the mailbox's provider can't yet refetch a single message."""
 
 
 class _RetryDatabaseTask(Task):
@@ -132,6 +144,17 @@ def retry_skipped_emails(
         provider_message_id = err.provider_message_id
         err_id = err.id
 
+        # Re-attach the original SyncHistory (if any) so the inner recorder's
+        # idempotency key — (mailbox_id, provider_message_id, sync_history_id,
+        # error_type) — matches the existing row on retry-failure paths.
+        # Without this, the inner recorder would see ``sync_history_id=None``
+        # and insert a sibling row instead of updating ``err`` in place.
+        original_history = (
+            db.query(SyncHistory).filter(SyncHistory.id == err.sync_history_id).first()
+            if err.sync_history_id
+            else None
+        )
+
         try:
             refetched = _refetch_email(mb, provider_message_id)
             if refetched is None:
@@ -140,7 +163,9 @@ def retry_skipped_emails(
                 still_failing += 1
                 continue
 
-            ok = _process_single_email_attempt(db, mb, refetched)
+            ok = _process_single_email_attempt(
+                db, mb, refetched, sync_history=original_history
+            )
             if ok:
                 # ``classify_new_emails`` already called ``auto_recover_pending``
                 # which updated this row to ``status="auto_recovered"`` via a
@@ -159,6 +184,14 @@ def retry_skipped_emails(
                 # error_message. We deliberately do NOT touch those fields
                 # here to avoid a double-write race.
                 still_failing += 1
+        except _RetryNotSupported as exc:
+            # Provider's per-message refetch isn't implemented yet (JMAP today).
+            # Surface a clearer message than the generic "no longer returns"
+            # one so users don't think their email was deleted.
+            err.error_message = str(exc)
+            db.commit()
+            still_failing += 1
+            continue
         except Exception as exc:  # noqa: BLE001 — defensive belt-and-suspenders
             # Hard exception escaped the resilient wrapper (e.g. OperationalError
             # raised by the wrapping commit). Roll back the session, re-fetch
@@ -188,8 +221,13 @@ def _refetch_email(mailbox: Mailbox, provider_message_id: str):
     email.
 
     Returns the provider-side ``EmailMessage`` dataclass, or ``None`` if
-    the provider type is unsupported / the message has been deleted.
+    the message has been deleted. Raises ``_RetryNotSupported`` if the
+    mailbox's provider doesn't yet implement single-message refetch.
     """
+    if mailbox.provider_type not in _RETRY_SUPPORTED_PROVIDERS:
+        raise _RetryNotSupported(
+            f"retry not yet supported for provider {mailbox.provider_type}"
+        )
 
     async def _run():
         creds = decrypt_credentials(mailbox.encrypted_credentials)
@@ -210,13 +248,23 @@ def _refetch_email(mailbox: Mailbox, provider_message_id: str):
     return asyncio.run(_run())
 
 
-def _process_single_email_attempt(db: Session, mailbox: Mailbox, email_obj) -> bool:
+def _process_single_email_attempt(
+    db: Session,
+    mailbox: Mailbox,
+    email_obj,
+    *,
+    sync_history: Optional[SyncHistory] = None,
+) -> bool:
     """Run the resilient classifier on a single re-fetched email.
 
     Returns ``True`` when the email landed in ``EmailMessage`` (i.e. the
     persistence path succeeded), ``False`` otherwise. The resilient
     wrapper already records the new ``EmailSyncError`` (idempotent
     update) on failure paths.
+
+    ``sync_history`` is forwarded to ``classify_new_emails`` so the inner
+    recorder's idempotency key matches the original error row on retry-
+    failure paths (avoiding sibling-row inserts).
     """
 
     async def _run():
@@ -226,6 +274,7 @@ def _process_single_email_attempt(db: Session, mailbox: Mailbox, email_obj) -> b
             [email_obj],
             batch_num=0,
             classify_batch=classify_emails_batch,
+            sync_history=sync_history,
         )
 
     try:

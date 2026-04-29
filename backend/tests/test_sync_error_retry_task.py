@@ -202,3 +202,45 @@ def test_retry_unknown_mailbox_returns_zero(
     assert result["succeeded"] == 0
     assert result["still_failing"] == 0
     assert "not found" in result.get("error", "").lower()
+
+
+@patch("app.tasks.sync_error_retry.SessionLocal")
+def test_retry_jmap_mailbox_writes_unsupported_message(
+    mock_session_local,
+    db_session,
+    test_mailbox,
+):
+    """JMAP refetch is a stub — retry must surface a clearer "not supported"
+    error_message instead of the misleading "no longer returns" one.
+
+    This test deliberately does NOT mock ``_refetch_email`` so the new
+    ``_RETRY_SUPPORTED_PROVIDERS`` guard is exercised end-to-end.
+    """
+    # ``test_mailbox`` defaults to provider_type="jmap" (see conftest).
+    assert test_mailbox.provider_type == "jmap"
+
+    mock_session_local.return_value = db_session
+    db_session.close = lambda: None
+
+    err = EmailSyncError(
+        mailbox_id=test_mailbox.id,
+        provider_message_id="m-jmap",
+        error_type="schema_too_long",
+        error_message="x",
+        status="pending",
+    )
+    db_session.add(err)
+    db_session.commit()
+
+    result = retry_skipped_emails.apply(args=[str(test_mailbox.id)]).get()
+
+    db_session.refresh(err)
+    assert err.status == "pending"
+    assert err.retry_count == 1
+    assert err.error_message is not None
+    msg = err.error_message.lower()
+    assert "not yet supported" in msg
+    assert "no longer" not in msg
+    assert result["retried"] == 1
+    assert result["still_failing"] == 1
+    assert result["succeeded"] == 0
