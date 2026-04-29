@@ -230,6 +230,23 @@ def sync_mailbox_emails(
             logger.info(
                 f"Subscription status update: {status_update['activated']} activated, {status_update['deactivated']} deactivated"
             )
+
+            # Notification: many skipped emails during this sync.
+            from app.models.email_sync_error import EmailSyncError
+            from app.services.sync_notification_service import (
+                notify_sync_skipped_many,
+            )
+
+            skipped_count = (
+                db.query(EmailSyncError)
+                .filter(EmailSyncError.sync_history_id == history_entry.id)
+                .count()
+            )
+            if skipped_count > 0:
+                history_entry.error_message = (
+                    f"Completed with {skipped_count} skipped emails"
+                )
+            notify_sync_skipped_many(db, mailbox, skipped_count)
         else:
             # Store error message on failure
             error_msg = result.get("error", "Unknown error")
@@ -335,6 +352,18 @@ def sync_mailbox_emails(
         # Symmetric with the outer except: any sync end clears the cancellation flag.
         mailbox.sync_cancellation_requested = False
         db.commit()
+
+        # Notify the user about the circuit breaker (HIGH severity).
+        from app.services.sync_notification_service import (
+            notify_sync_circuit_breaker,
+        )
+
+        try:
+            notify_sync_circuit_breaker(db, mailbox, e.error_count)
+        except Exception:
+            # Notification failure must not crash the sync handler.
+            logger.exception("Failed to send circuit-breaker notification")
+
         # Early return prevents Celery's autoretry_for=(Exception,) kicking in.
         return {"success": False, "error": str(e), "error_type": "circuit_breaker"}
 
