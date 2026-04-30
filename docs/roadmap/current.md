@@ -36,6 +36,25 @@ When a sync completes and creates new subscriptions, surface them in a modal/pan
 
 ---
 
+### Sync Date Range Visibility 📅
+
+**Priority:** Medium
+**Estimated Effort:** Small
+
+After a sync run, surface the oldest and newest email dates that were processed, so the user can confirm the expected window was covered — especially after changing `import_date_filter`, after a force-resync, or when investigating "did we miss old emails?".
+
+**Features:**
+- [ ] Track `oldest_email_date` and `newest_email_date` on each sync run (computed during the per-batch persistence stage from the `email_messages` rows produced/updated by that run)
+- [ ] Display on the mailbox card next to the "last synced at" line: "covers `<oldest>` → `<newest>`"
+- [ ] Display on the sync history detail row (per-run breakdown) when that view exists
+
+**Technical Requirements:**
+- Backend: two nullable `TIMESTAMPTZ` columns on `sync_history` (Alembic migration, defaults null), populated during the persistence stage; expose them in `MailboxResponse.last_sync_*` (mirroring the existing `last_sync_emails_processed` pattern)
+- Frontend: small surface change on `MailboxesPage` / `MailboxCard` and any future sync history detail view; locale strings for both en + fr
+- No migration risk: existing rows stay null, new rows backfill naturally
+
+---
+
 ### Fastmail OAuth Integration 📨
 
 **Priority:** Medium
@@ -283,4 +302,4 @@ See detailed plan: `backend/claudedocs/cancellation_workflows_implementation_pla
 
 ---
 
-*Last Updated: 2026-04-30 (added: post-sync subscription preview, Fastmail OAuth, AddMailbox test-connection bug)*
+*Last Updated: 2026-04-30 (added: sync date range visibility)*
