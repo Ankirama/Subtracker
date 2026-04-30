@@ -7,12 +7,14 @@ import enAuth from './locales/en/auth.json'
 import enDashboard from './locales/en/dashboard.json'
 import enSettings from './locales/en/settings.json'
 import enSyncErrors from './locales/en/syncErrors.json'
+import enAdminSyncErrors from './locales/en/adminSyncErrors.json'
 
 import frCommon from './locales/fr/common.json'
 import frAuth from './locales/fr/auth.json'
 import frDashboard from './locales/fr/dashboard.json'
 import frSettings from './locales/fr/settings.json'
 import frSyncErrors from './locales/fr/syncErrors.json'
+import frAdminSyncErrors from './locales/fr/adminSyncErrors.json'
 
 const resources = {
   en: {
@@ -21,6 +23,7 @@ const resources = {
     dashboard: enDashboard,
     settings: enSettings,
     syncErrors: enSyncErrors,
+    adminSyncErrors: enAdminSyncErrors,
   },
   fr: {
     common: frCommon,
@@ -28,6 +31,7 @@ const resources = {
     dashboard: frDashboard,
     settings: frSettings,
     syncErrors: frSyncErrors,
+    adminSyncErrors: frAdminSyncErrors,
   },
 }
 
@@ -38,7 +42,7 @@ i18n
     resources,
     fallbackLng: 'en',
     defaultNS: 'common',
-    ns: ['common', 'auth', 'dashboard', 'settings', 'syncErrors'],
+    ns: ['common', 'auth', 'dashboard', 'settings', 'syncErrors', 'adminSyncErrors'],
 
     interpolation: {
       escapeValue: false, // React already escapes values

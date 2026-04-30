@@ -23,6 +23,7 @@ import {
   FiUsers,
   FiActivity,
   FiAlertTriangle,
+  FiAlertCircle,
   FiLogOut,
   FiUser,
   FiHome,
@@ -45,6 +46,7 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   { labelKey: 'common:admin.invites', icon: FiUserPlus, path: '/admin/invites' },
   { labelKey: 'common:admin.logs', icon: FiActivity, path: '/admin/logs' },
   { labelKey: 'common:admin.securityEvents', icon: FiAlertTriangle, path: '/admin/security' },
+  { labelKey: 'common:admin.syncErrors', icon: FiAlertCircle, path: '/admin/sync-errors' },
   { labelKey: 'common:admin.ipWhitelist', icon: FiShield, path: '/admin/ip-whitelist' },
   { labelKey: 'common:admin.feedbackMetrics', icon: FiMessageCircle, path: '/admin/feedback-metrics' },
 ]

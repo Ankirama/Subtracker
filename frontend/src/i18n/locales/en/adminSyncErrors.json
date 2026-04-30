@@ -1,0 +1,36 @@
+{
+  "page_title": "Sync errors (all users)",
+  "filters": {
+    "status": "Status",
+    "severity": "Severity",
+    "error_type": "Error type",
+    "all": "All"
+  },
+  "severity": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High"
+  },
+  "table": {
+    "date": "Date",
+    "mailbox": "Mailbox",
+    "sender": "Sender",
+    "subject": "Subject",
+    "error": "Error",
+    "status": "Status",
+    "severity": "Severity",
+    "actions": "Actions"
+  },
+  "drawer": {
+    "title": "Sync error detail",
+    "summary": "Summary",
+    "stack_trace": "Stack trace",
+    "raw_payload": "Raw payload",
+    "resolved_at": "Resolved at",
+    "resolved_by": "Resolved by",
+    "mark_resolved": "Mark resolved",
+    "resolved_toast": "Sync error marked as resolved."
+  },
+  "total": "{{count}} errors total",
+  "empty": "No sync errors match the current filters."
+}

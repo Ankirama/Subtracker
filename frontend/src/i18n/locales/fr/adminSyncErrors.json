@@ -1,0 +1,36 @@
+{
+  "page_title": "Erreurs de synchronisation (tous utilisateurs)",
+  "filters": {
+    "status": "Statut",
+    "severity": "Sévérité",
+    "error_type": "Type d'erreur",
+    "all": "Tous"
+  },
+  "severity": {
+    "low": "Faible",
+    "medium": "Moyenne",
+    "high": "Élevée"
+  },
+  "table": {
+    "date": "Date",
+    "mailbox": "Boîte mail",
+    "sender": "Expéditeur",
+    "subject": "Objet",
+    "error": "Erreur",
+    "status": "Statut",
+    "severity": "Sévérité",
+    "actions": "Actions"
+  },
+  "drawer": {
+    "title": "Détail de l'erreur de synchronisation",
+    "summary": "Résumé",
+    "stack_trace": "Trace de la pile",
+    "raw_payload": "Charge utile brute",
+    "resolved_at": "Résolu le",
+    "resolved_by": "Résolu par",
+    "mark_resolved": "Marquer comme résolu",
+    "resolved_toast": "Erreur de synchronisation marquée comme résolue."
+  },
+  "total": "{{count}} erreurs au total",
+  "empty": "Aucune erreur de synchronisation ne correspond aux filtres actuels."
+}

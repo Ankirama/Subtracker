@@ -47,6 +47,7 @@ const AdminSecurityEventsPage = lazy(() => import('./components/admin/AdminSecur
 const AdminIPWhitelistPage = lazy(() => import('./components/admin/AdminIPWhitelistPage').then(m => ({ default: m.AdminIPWhitelistPage })))
 const AdminFeedbackMetricsPage = lazy(() => import('./components/admin/AdminFeedbackMetricsPage').then(m => ({ default: m.AdminFeedbackMetricsPage })))
 const AdminInvitesPage = lazy(() => import('./components/admin/AdminInvitesPage').then(m => ({ default: m.AdminInvitesPage })))
+const AdminSyncErrorsPage = lazy(() => import('./components/admin/AdminSyncErrorsPage').then(m => ({ default: m.AdminSyncErrorsPage })))
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -110,6 +111,7 @@ function App() {
                   <Route path="ip-whitelist" element={<AdminIPWhitelistPage />} />
                   <Route path="feedback-metrics" element={<AdminFeedbackMetricsPage />} />
                   <Route path="invites" element={<AdminInvitesPage />} />
+                  <Route path="sync-errors" element={<AdminSyncErrorsPage />} />
                 </Route>
 
                 {/* Landing page for unauthenticated users, dashboard for authenticated */}
