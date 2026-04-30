@@ -19,6 +19,10 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 
+class ExtractionError(Exception):
+    """Raised when AI-powered subscription extraction fails."""
+
+
 def get_openai_client(db: Optional[Session] = None) -> AsyncOpenAI:
     """
     Get OpenAI client with API key from admin settings or environment.

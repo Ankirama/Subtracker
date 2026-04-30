@@ -25,6 +25,7 @@
     "invites": "Invites",
     "logs": "Logs",
     "securityEvents": "Security Events",
+    "syncErrors": "Sync Errors",
     "ipWhitelist": "IP Whitelist",
     "feedbackMetrics": "Feedback Metrics",
     "administrator": "Administrator",

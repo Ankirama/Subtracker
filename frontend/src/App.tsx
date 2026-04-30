@@ -24,6 +24,7 @@ const DuplicatesPage = lazy(() => import('./components/subscriptions/DuplicatesP
 
 // Lazy loaded feature pages
 const MailboxesPage = lazy(() => import('./components/mailboxes/MailboxesPage').then(m => ({ default: m.MailboxesPage })))
+const SyncErrorsPage = lazy(() => import('./components/mailboxes/SyncErrorsPage').then(m => ({ default: m.SyncErrorsPage })))
 const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })))
 const AISandboxPage = lazy(() => import('./components/ai-sandbox/AISandboxPage').then(m => ({ default: m.AISandboxPage })))
 const NotificationSettingsPage = lazy(() => import('./components/notifications/NotificationSettingsPage').then(m => ({ default: m.NotificationSettingsPage })))
@@ -46,6 +47,7 @@ const AdminSecurityEventsPage = lazy(() => import('./components/admin/AdminSecur
 const AdminIPWhitelistPage = lazy(() => import('./components/admin/AdminIPWhitelistPage').then(m => ({ default: m.AdminIPWhitelistPage })))
 const AdminFeedbackMetricsPage = lazy(() => import('./components/admin/AdminFeedbackMetricsPage').then(m => ({ default: m.AdminFeedbackMetricsPage })))
 const AdminInvitesPage = lazy(() => import('./components/admin/AdminInvitesPage').then(m => ({ default: m.AdminInvitesPage })))
+const AdminSyncErrorsPage = lazy(() => import('./components/admin/AdminSyncErrorsPage').then(m => ({ default: m.AdminSyncErrorsPage })))
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -87,6 +89,7 @@ function App() {
                     <Route path="/reviews" element={<ReviewDashboardPage />} />
                     <Route path="/categories" element={<CategoriesPage />} />
                     <Route path="/mailboxes" element={<MailboxesPage />} />
+                    <Route path="/mailboxes/:mailboxId/sync-errors" element={<SyncErrorsPage />} />
                     <Route path="/budgets" element={<BudgetsPage />} />
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/optimize" element={<OptimizePage />} />
@@ -108,6 +111,7 @@ function App() {
                   <Route path="ip-whitelist" element={<AdminIPWhitelistPage />} />
                   <Route path="feedback-metrics" element={<AdminFeedbackMetricsPage />} />
                   <Route path="invites" element={<AdminInvitesPage />} />
+                  <Route path="sync-errors" element={<AdminSyncErrorsPage />} />
                 </Route>
 
                 {/* Landing page for unauthenticated users, dashboard for authenticated */}

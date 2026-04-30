@@ -307,6 +307,8 @@ export interface Mailbox {
   needs_reconnect: boolean
   auth_error_at: string | null
   auth_error_message: string | null
+  // Pending sync errors awaiting user action (retry/ignore)
+  pending_sync_errors_count: number
 }
 
 export interface MailboxCreate {

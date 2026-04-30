@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models.user import User
 from app.models.mailbox import Mailbox
 from app.models.sync_history import SyncHistory
+from app.models.email_sync_error import EmailSyncError
 from app.schemas.mailbox import (
     MailboxCreate,
     MailboxUpdate,
@@ -165,7 +166,27 @@ async def list_mailboxes(
 
     mailboxes = query.order_by(Mailbox.created_at.desc()).all()
 
-    return [MailboxResponse.model_validate(m) for m in mailboxes]
+    # Batch-load pending sync-error counts for the badge.
+    mailbox_ids = [m.id for m in mailboxes]
+    counts: dict = {}
+    if mailbox_ids:
+        rows = (
+            db.query(EmailSyncError.mailbox_id, func.count(EmailSyncError.id))
+            .filter(
+                EmailSyncError.mailbox_id.in_(mailbox_ids),
+                EmailSyncError.status == "pending",
+            )
+            .group_by(EmailSyncError.mailbox_id)
+            .all()
+        )
+        counts = {mb_id: cnt for mb_id, cnt in rows}
+
+    responses = []
+    for m in mailboxes:
+        resp = MailboxResponse.model_validate(m)
+        resp.pending_sync_errors_count = counts.get(m.id, 0)
+        responses.append(resp)
+    return responses
 
 
 @router.get("/{mailbox_id}", response_model=MailboxResponse)
@@ -188,7 +209,18 @@ async def get_mailbox(
             status_code=status.HTTP_404_NOT_FOUND, detail="Mailbox not found"
         )
 
-    return MailboxResponse.model_validate(mailbox)
+    pending_count = (
+        db.query(func.count(EmailSyncError.id))
+        .filter(
+            EmailSyncError.mailbox_id == mailbox.id,
+            EmailSyncError.status == "pending",
+        )
+        .scalar()
+        or 0
+    )
+    response = MailboxResponse.model_validate(mailbox)
+    response.pending_sync_errors_count = pending_count
+    return response
 
 
 @router.put("/{mailbox_id}", response_model=MailboxResponse)

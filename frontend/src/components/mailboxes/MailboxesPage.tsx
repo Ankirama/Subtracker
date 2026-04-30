@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link as RouterLink, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Box,
@@ -42,6 +43,7 @@ export const MailboxesPage = () => {
 
   const queryClient = useQueryClient()
   const toast = useToast()
+  const { t } = useTranslation('syncErrors')
 
   // Handle OAuth callback query params
   useEffect(() => {
@@ -374,6 +376,17 @@ export const MailboxesPage = () => {
                                 <Icon as={FiAlertTriangle} boxSize={3} />
                                 <Text>Reconnect Required</Text>
                               </HStack>
+                            </Badge>
+                          )}
+                          {mailbox.pending_sync_errors_count > 0 && (
+                            <Badge
+                              as={RouterLink}
+                              to={`/mailboxes/${mailbox.id}/sync-errors`}
+                              colorScheme="orange"
+                              cursor="pointer"
+                              _hover={{ textDecoration: 'underline' }}
+                            >
+                              {t('badge', { count: mailbox.pending_sync_errors_count })}
                             </Badge>
                           )}
                         </HStack>

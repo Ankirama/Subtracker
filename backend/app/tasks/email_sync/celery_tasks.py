@@ -29,6 +29,7 @@ from app.database import SessionLocal
 from app.email_providers.gmail import GmailAuthError
 from app.models.mailbox import Mailbox
 from app.models.sync_history import SyncHistory
+from app.services.sync_error_circuit_breaker import SyncCircuitBreakerError
 
 from .orchestrator import _sync_mailbox_async
 from .status_reconciler import update_subscription_statuses
@@ -229,6 +230,23 @@ def sync_mailbox_emails(
             logger.info(
                 f"Subscription status update: {status_update['activated']} activated, {status_update['deactivated']} deactivated"
             )
+
+            # Notification: many skipped emails during this sync.
+            from app.models.email_sync_error import EmailSyncError
+            from app.services.sync_notification_service import (
+                notify_sync_skipped_many,
+            )
+
+            skipped_count = (
+                db.query(EmailSyncError)
+                .filter(EmailSyncError.sync_history_id == history_entry.id)
+                .count()
+            )
+            if skipped_count > 0:
+                history_entry.error_message = (
+                    f"Completed with {skipped_count} skipped emails"
+                )
+            notify_sync_skipped_many(db, mailbox, skipped_count)
         else:
             # Store error message on failure
             error_msg = result.get("error", "Unknown error")
@@ -304,14 +322,21 @@ def sync_mailbox_emails(
             "error_type": "auth_failed",
         }
 
-    except Exception as e:
-        logger.error(f"Email sync failed for mailbox {mailbox_id}: {str(e)}")
+    except SyncCircuitBreakerError as e:
+        # Sync aborted by the per-mailbox sync-error circuit breaker. Treat as
+        # a terminal failure: do NOT let Celery's autoretry_for=(Exception,)
+        # retry — the circuit will just trip again. The mailbox is already
+        # likely dirty (the breaker raises mid-pipeline), so reset the session
+        # before committing the failed state.
+        logger.error(f"Sync aborted by circuit breaker for mailbox {mailbox_id}: {e}")
         exception_time = datetime.now(timezone.utc)
+        try:
+            db.rollback()
+        except Exception:
+            pass
         mailbox.last_sync_status = "failed"
         mailbox.last_sync_at = exception_time
         mailbox.last_sync_error_message = str(e)
-
-        # Update history entry for exception (Issue #11)
         history_entry.status = "failed"
         history_entry.completed_at = exception_time
         history_entry.duration_seconds = int(
@@ -320,12 +345,89 @@ def sync_mailbox_emails(
             ).total_seconds()
         )
         history_entry.error_message = str(e)
-        history_entry.error_type = type(e).__name__
+        history_entry.error_type = "SyncCircuitBreakerError"
         history_entry.total_emails_processed = mailbox.last_sync_emails_processed or 0
         history_entry.subscriptions_found = mailbox.last_sync_subscriptions_found or 0
         history_entry.batches_processed = mailbox.last_sync_batch_num or 0
-
+        # Symmetric with the outer except: any sync end clears the cancellation flag.
+        mailbox.sync_cancellation_requested = False
         db.commit()
+
+        # Notify the user about the circuit breaker (HIGH severity).
+        from app.services.sync_notification_service import (
+            notify_sync_circuit_breaker,
+        )
+
+        try:
+            notify_sync_circuit_breaker(db, mailbox, e.error_count)
+        except Exception:
+            # Notification failure must not crash the sync handler.
+            logger.exception("Failed to send circuit-breaker notification")
+
+        # Early return prevents Celery's autoretry_for=(Exception,) kicking in.
+        return {"success": False, "error": str(e), "error_type": "circuit_breaker"}
+
+    except Exception as e:
+        logger.exception(f"Email sync failed for mailbox {mailbox_id}: {str(e)}")
+        exception_time = datetime.now(timezone.utc)
+        # Reset the session: any inner failure may have left it in
+        # PendingRollback. We MUST update mailbox state regardless so the
+        # mailbox doesn't stay stuck in `in_progress` (zombie state).
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        try:
+            # Re-fetch mailbox + history in case they became detached after
+            # rollback (or the session was poisoned upstream).
+            mailbox_id_uuid = UUID(mailbox_id)
+            mailbox_fresh = (
+                db.query(Mailbox).filter(Mailbox.id == mailbox_id_uuid).first()
+            )
+            if mailbox_fresh is not None:
+                mailbox_fresh.last_sync_status = "failed"
+                mailbox_fresh.last_sync_at = exception_time
+                mailbox_fresh.last_sync_error_message = str(e)
+                # If a cancellation was in-flight when the sync exploded, ack
+                # it: the sync is over, the flag should not linger as True.
+                mailbox_fresh.sync_cancellation_requested = False
+
+                history_fresh = (
+                    db.query(SyncHistory)
+                    .filter(SyncHistory.id == history_entry.id)
+                    .first()
+                    if history_entry is not None
+                    else None
+                )
+                if history_fresh is not None:
+                    history_fresh.status = "failed"
+                    history_fresh.completed_at = exception_time
+                    history_fresh.duration_seconds = int(
+                        (
+                            exception_time
+                            - history_fresh.started_at.replace(tzinfo=timezone.utc)
+                        ).total_seconds()
+                    )
+                    history_fresh.error_message = str(e)
+                    history_fresh.error_type = type(e).__name__
+                    history_fresh.total_emails_processed = (
+                        mailbox_fresh.last_sync_emails_processed or 0
+                    )
+                    history_fresh.subscriptions_found = (
+                        mailbox_fresh.last_sync_subscriptions_found or 0
+                    )
+                    history_fresh.batches_processed = (
+                        mailbox_fresh.last_sync_batch_num or 0
+                    )
+
+                db.commit()
+        except Exception as commit_exc:
+            # Double-fault: log with traceback so on-call can diagnose why the
+            # resilience escape hatch itself failed.
+            logger.exception(
+                f"Failed to mark mailbox failed after sync error: {commit_exc}"
+            )
+
         return {"success": False, "error": str(e)}
 
 

@@ -129,6 +129,9 @@ class Mailbox(Base):
     sync_history = relationship(
         "SyncHistory", back_populates="mailbox", cascade="all, delete-orphan"
     )
+    sync_errors = relationship(
+        "EmailSyncError", back_populates="mailbox", cascade="all, delete-orphan"
+    )
 
     # Constraints
     __table_args__ = (

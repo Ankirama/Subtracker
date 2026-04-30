@@ -69,14 +69,14 @@ class EmailMessage(Base):
 
     # Email identification (from email headers)
     message_id = Column(
-        String(500), unique=True, nullable=False, index=True
+        Text, unique=True, nullable=False, index=True
     )  # Email Message-ID header
-    thread_id = Column(String(500), nullable=True, index=True)  # Thread/conversation ID
+    thread_id = Column(Text, nullable=True, index=True)  # Thread/conversation ID
 
     # Email content
-    subject = Column(String(500), nullable=False)
+    subject = Column(Text, nullable=False)
     sender = Column(String(255), nullable=False, index=True)
-    sender_name = Column(String(255), nullable=True)
+    sender_name = Column(Text, nullable=True)
     recipient = Column(String(255), nullable=False)
     date = Column(DateTime(timezone=True), nullable=False, index=True)
     body_text = Column(Text, nullable=True)  # Plain text version
