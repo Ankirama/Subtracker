@@ -24,6 +24,7 @@ const DuplicatesPage = lazy(() => import('./components/subscriptions/DuplicatesP
 
 // Lazy loaded feature pages
 const MailboxesPage = lazy(() => import('./components/mailboxes/MailboxesPage').then(m => ({ default: m.MailboxesPage })))
+const SyncErrorsPage = lazy(() => import('./components/mailboxes/SyncErrorsPage').then(m => ({ default: m.SyncErrorsPage })))
 const AnalyticsPage = lazy(() => import('./components/analytics/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })))
 const AISandboxPage = lazy(() => import('./components/ai-sandbox/AISandboxPage').then(m => ({ default: m.AISandboxPage })))
 const NotificationSettingsPage = lazy(() => import('./components/notifications/NotificationSettingsPage').then(m => ({ default: m.NotificationSettingsPage })))
@@ -87,6 +88,7 @@ function App() {
                     <Route path="/reviews" element={<ReviewDashboardPage />} />
                     <Route path="/categories" element={<CategoriesPage />} />
                     <Route path="/mailboxes" element={<MailboxesPage />} />
+                    <Route path="/mailboxes/:mailboxId/sync-errors" element={<SyncErrorsPage />} />
                     <Route path="/budgets" element={<BudgetsPage />} />
                     <Route path="/analytics" element={<AnalyticsPage />} />
                     <Route path="/optimize" element={<OptimizePage />} />
