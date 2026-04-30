@@ -15,6 +15,48 @@ This document tracks planned and in-progress features for the Subscription Track
 
 ## 📋 Planned Features
 
+### Post-sync Subscription Preview 🔍
+
+**Priority:** Medium
+**Estimated Effort:** Small-Medium
+
+When a sync completes and creates new subscriptions, surface them in a modal/panel so the user can immediately review what was just discovered, edit or reject obvious mistakes, and avoid having to scroll through the full list to find them.
+
+**Features:**
+- [ ] Post-sync modal listing subscriptions created during the run (grouped: high-confidence auto-saved vs. pending-review)
+- [ ] Inline edit (label, amount, billing cycle, category) without leaving the modal
+- [ ] One-click reject / keep / "send to review" actions
+- [ ] Linkable summary entry in the notification feed (so the user can re-open the preview later if they dismiss the modal)
+- [ ] Optionally include subscriptions whose existing record was confirmed/refreshed by the sync (price changes, cancellation detected)
+
+**Technical Requirements:**
+- Backend: tag subscriptions/email_processing_records with the `sync_history_id` that produced/touched them (already present on most rows — verify), expose `GET /api/sync-history/{id}/discoveries`
+- Frontend: modal component, hook into the existing sync-completion notification, persist "seen" state per sync_history_id so the modal doesn't reopen
+- i18n: en + fr strings
+
+---
+
+### Fastmail OAuth Integration 📨
+
+**Priority:** Medium
+**Estimated Effort:** Medium
+
+Currently Fastmail users must generate an API/app-password manually and paste it into the JMAP form. Fastmail supports OAuth 2.0 with PKCE — wiring this up would mirror the Gmail/Outlook flow and remove the friction (and the support load when users pick the wrong app-password type, as we just hit).
+
+**Features:**
+- [ ] Fastmail OAuth provider in `app/email_providers/` (auth code + refresh flow, JMAP capability negotiation post-auth)
+- [ ] OAuth callback endpoint and credential persistence (mirror Gmail pattern)
+- [ ] "Connect Fastmail" button in `AddMailboxModal` (alongside Gmail), keep manual JMAP form available as a fallback for non-Fastmail JMAP servers
+- [ ] Refresh token handling + `needs_reconnect` flag wiring (reuse existing OAuth-failure plumbing)
+
+**Technical Requirements:**
+- Fastmail OAuth client registration (client_id / client_secret, redirect URI in env)
+- Scopes needed: `urn:ietf:params:jmap:mail` at minimum
+- Reuse existing OAuth state/PKCE infra used for Gmail
+- Migration: none — existing JMAP rows keep working
+
+---
+
 ### Subscription Insights & Analytics 📊
 
 **Status:** Partially Complete
@@ -225,6 +267,12 @@ See detailed plan: `backend/claudedocs/cancellation_workflows_implementation_pla
 
 ---
 
+## 🐛 Known Bugs
+
+- [ ] **Add Mailbox test connection: green toast on backend-reported failure** — `frontend/src/components/mailboxes/AddMailboxModal.tsx:109-120`. The `testConnectionMutation.onSuccess` callback fires on any HTTP 200, but the `/api/mailboxes/test` endpoint returns 200 with `{success: false, message: "..."}` when the provider rejects the credentials. Result: the user sees a green "Connection test successful — JMAP server credentials are valid" toast even though the inline panel below shows "Failed", and `connectionTested` is set to true so Save becomes clickable. Fix: branch the toast and `setConnectionTested` on `data.success` inside `onSuccess`.
+
+---
+
 ## 📝 Ideas for Discussion
 
 - Should we integrate with bank APIs for automatic transaction matching?
@@ -235,4 +283,4 @@ See detailed plan: `backend/claudedocs/cancellation_workflows_implementation_pla
 
 ---
 
-*Last Updated: 2026-04-25 (split from ROADMAP.md; see docs/_archive/roadmap-phase-1-completed.md for completed Phase 1 items)*
+*Last Updated: 2026-04-30 (added: post-sync subscription preview, Fastmail OAuth, AddMailbox test-connection bug)*
