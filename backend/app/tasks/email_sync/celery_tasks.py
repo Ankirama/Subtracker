@@ -271,15 +271,15 @@ def sync_mailbox_emails(
             history_entry.error_message = error_msg
             history_entry.error_type = result.get("error_type", "sync_error")
 
-        # Date range covered by emails processed during this sync run.
-        # Filter by processed_at >= started_at so re-syncs of older emails
-        # don't bleed into a previous run's range.
+        # Date range of emails currently held in this mailbox, computed at
+        # sync completion. Global rather than run-scoped: an incremental sync
+        # that finds no new emails would otherwise show NULL even when the
+        # mailbox still covers a long history. The user-visible question this
+        # answers is "did my last sync leave the mailbox with the expected
+        # date window?" — which the global MIN/MAX answers reliably.
         date_range = (
             db.query(func.min(EmailMessage.date), func.max(EmailMessage.date))
-            .filter(
-                EmailMessage.mailbox_id == mailbox.id,
-                EmailMessage.processed_at >= history_entry.started_at,
-            )
+            .filter(EmailMessage.mailbox_id == mailbox.id)
             .first()
         )
         oldest_email_date, newest_email_date = date_range or (None, None)
