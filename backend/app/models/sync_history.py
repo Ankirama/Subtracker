@@ -55,6 +55,10 @@ class SyncHistory(Base):
     subscriptions_updated = Column(Integer, default=0, nullable=False)
     batches_processed = Column(Integer, default=0, nullable=False)
 
+    # Date range covered by emails processed in this run (sender-side dates).
+    oldest_email_date = Column(DateTime(timezone=True), nullable=True)
+    newest_email_date = Column(DateTime(timezone=True), nullable=True)
+
     # Sync configuration
     sync_type = Column(String(50), nullable=True)  # 'full', 'incremental', 'manual'
     date_filter_used = Column(
