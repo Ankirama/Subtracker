@@ -107,17 +107,26 @@ export const AddMailboxModal = ({
         password: formData.password,
       }),
     onSuccess: (data) => {
-      setConnectionTested(true)
+      setConnectionTested(data.success)
       setTestResult({
         success: data.success,
-        message: data.message || 'Connection successful!',
+        message: data.message || (data.success ? 'Connection successful!' : 'Connection failed'),
       })
-      toast({
-        title: 'Connection test successful',
-        description: 'JMAP server credentials are valid',
-        status: 'success',
-        duration: 3000,
-      })
+      if (data.success) {
+        toast({
+          title: 'Connection test successful',
+          description: 'JMAP server credentials are valid',
+          status: 'success',
+          duration: 3000,
+        })
+      } else {
+        toast({
+          title: 'Connection test failed',
+          description: data.message || 'JMAP server rejected the credentials',
+          status: 'error',
+          duration: 5000,
+        })
+      }
     },
     onError: (error: any) => {
       setConnectionTested(false)

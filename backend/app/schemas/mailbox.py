@@ -87,6 +87,8 @@ class MailboxResponse(BaseModel):
     last_sync_emails_processed: Optional[int] = None
     last_sync_subscriptions_found: Optional[int] = None
     last_sync_error_message: Optional[str] = None
+    last_sync_oldest_email_date: Optional[datetime] = None
+    last_sync_newest_email_date: Optional[datetime] = None
     sync_frequency: str
     batch_size: int
     import_date_filter: Optional[str]

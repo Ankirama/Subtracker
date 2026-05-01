@@ -22,11 +22,13 @@ from typing import Any, Dict
 from uuid import UUID
 
 from celery import Task
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.celery_app import celery_app
 from app.database import SessionLocal
 from app.email_providers.gmail import GmailAuthError
+from app.models.email_message import EmailMessage
 from app.models.mailbox import Mailbox
 from app.models.sync_history import SyncHistory
 from app.services.sync_error_circuit_breaker import SyncCircuitBreakerError
@@ -268,6 +270,23 @@ def sync_mailbox_emails(
             history_entry.subscriptions_updated = result.get("subscriptions_updated", 0)
             history_entry.error_message = error_msg
             history_entry.error_type = result.get("error_type", "sync_error")
+
+        # Date range covered by emails processed during this sync run.
+        # Filter by processed_at >= started_at so re-syncs of older emails
+        # don't bleed into a previous run's range.
+        date_range = (
+            db.query(func.min(EmailMessage.date), func.max(EmailMessage.date))
+            .filter(
+                EmailMessage.mailbox_id == mailbox.id,
+                EmailMessage.processed_at >= history_entry.started_at,
+            )
+            .first()
+        )
+        oldest_email_date, newest_email_date = date_range or (None, None)
+        mailbox.last_sync_oldest_email_date = oldest_email_date
+        mailbox.last_sync_newest_email_date = newest_email_date
+        history_entry.oldest_email_date = oldest_email_date
+        history_entry.newest_email_date = newest_email_date
 
         db.commit()
 

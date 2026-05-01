@@ -298,6 +298,8 @@ export interface Mailbox {
   last_sync_emails_processed: number | null
   last_sync_subscriptions_found: number | null
   last_sync_error_message: string | null
+  last_sync_oldest_email_date: string | null
+  last_sync_newest_email_date: string | null
   sync_frequency: string
   batch_size: number
   import_date_filter: string | null
