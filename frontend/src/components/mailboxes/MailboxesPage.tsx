@@ -492,6 +492,20 @@ export const MailboxesPage = () => {
                         </HStack>
                       )}
 
+                      {/* Show email date range covered by the last sync */}
+                      {mailbox.last_sync_oldest_email_date && mailbox.last_sync_newest_email_date && (
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" fontWeight="medium">
+                            Email Date Range:
+                          </Text>
+                          <Text fontSize="sm" color="text.subtle">
+                            {new Date(mailbox.last_sync_oldest_email_date).toLocaleDateString()}
+                            {' → '}
+                            {new Date(mailbox.last_sync_newest_email_date).toLocaleDateString()}
+                          </Text>
+                        </HStack>
+                      )}
+
                       {/* Show error message if failed */}
                       {mailbox.last_sync_status === 'failed' && mailbox.last_sync_error_message && !mailbox.needs_reconnect && (
                         <Alert status="error" size="sm" borderRadius="md">
