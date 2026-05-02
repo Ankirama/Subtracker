@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Box,
   Container,
@@ -13,7 +14,6 @@ import {
   Icon,
   IconButton,
   Badge,
-  Divider,
   useToast,
   Spinner,
   Center,
@@ -21,208 +21,190 @@ import {
   ButtonGroup,
   useColorModeValue,
 } from '@chakra-ui/react'
-import { FiBell, FiCheck, FiX, FiSettings, FiFilter, FiChevronLeft, FiChevronRight } from 'react-icons/fi'
+import {
+  FiBell,
+  FiCheck,
+  FiX,
+  FiSettings,
+  FiFilter,
+  FiChevronLeft,
+  FiChevronRight,
+} from 'react-icons/fi'
 import { Link as RouterLink } from 'react-router-dom'
-import { notificationsApi, Notification } from '../../api/notifications'
+import { notificationsApi, NotificationType } from '../../api/notifications'
 import { formatDistanceToNow } from '../../utils/timeFormat'
 import { MarkdownRenderer } from '../common/MarkdownRenderer'
 import { SyncPreviewDrawer } from '../mailboxes/SyncPreviewDrawer'
 
+const PAGE_SIZE = 20
+
+type ReadFilter = '' | 'unread' | 'read'
+
+const NOTIFICATION_TYPE_FILTER_OPTIONS: Array<{ value: NotificationType; label: string }> = [
+  { value: 'TRIAL_ENDING', label: 'Trial Ending' },
+  { value: 'RENEWAL_REMINDER', label: 'Renewal Reminder' },
+  { value: 'WEEKLY_SUMMARY', label: 'Weekly Summary' },
+  { value: 'MONTHLY_SUMMARY', label: 'Monthly Summary' },
+  { value: 'INACTIVE_SUBSCRIPTION', label: 'Inactive Subscription' },
+  { value: 'PRICE_CHANGE', label: 'Price Change' },
+  { value: 'BUDGET_ALERT', label: 'Budget Alert' },
+  { value: 'SYSTEM_ANNOUNCEMENT', label: 'System Announcement' },
+  { value: 'SYNC_SKIPPED_MANY', label: 'Sync Skipped' },
+  { value: 'SYNC_CIRCUIT_BREAKER', label: 'Sync Halted' },
+  { value: 'SYNC_PREVIEW_AVAILABLE', label: 'Sync Preview' },
+]
+
+const NOTIFICATION_ICONS: Record<NotificationType, string> = {
+  TRIAL_ENDING: '⚠️',
+  RENEWAL_REMINDER: '🔔',
+  WEEKLY_SUMMARY: '📊',
+  MONTHLY_SUMMARY: '📈',
+  INACTIVE_SUBSCRIPTION: '⏸️',
+  PRICE_CHANGE: '💰',
+  BUDGET_ALERT: '💸',
+  SYSTEM_ANNOUNCEMENT: '📢',
+  SYNC_SKIPPED_MANY: '⏭️',
+  SYNC_CIRCUIT_BREAKER: '🛑',
+  SYNC_PREVIEW_AVAILABLE: '🔍',
+}
+
+const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
+  TRIAL_ENDING: 'Trial Ending',
+  RENEWAL_REMINDER: 'Renewal Reminder',
+  WEEKLY_SUMMARY: 'Weekly Summary',
+  MONTHLY_SUMMARY: 'Monthly Summary',
+  INACTIVE_SUBSCRIPTION: 'Inactive Subscription',
+  PRICE_CHANGE: 'Price Change',
+  BUDGET_ALERT: 'Budget Alert',
+  SYSTEM_ANNOUNCEMENT: 'System Announcement',
+  SYNC_SKIPPED_MANY: 'Sync Skipped',
+  SYNC_CIRCUIT_BREAKER: 'Sync Halted',
+  SYNC_PREVIEW_AVAILABLE: 'Sync preview',
+}
+
+const getNotificationIcon = (type: string) =>
+  (NOTIFICATION_ICONS as Record<string, string>)[type] ?? '📬'
+
+const getNotificationTypeLabel = (type: string) =>
+  (NOTIFICATION_TYPE_LABELS as Record<string, string>)[type] ?? type
+
+const getPriorityColor = (priority: string) => {
+  switch (priority) {
+    case 'high':
+      return 'red'
+    case 'medium':
+      return 'orange'
+    case 'low':
+      return 'blue'
+    default:
+      return 'gray'
+  }
+}
+
 export const NotificationListPage = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [totalCount, setTotalCount] = useState(0)
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [filterType, setFilterType] = useState<string>('')
-  const [filterRead, setFilterRead] = useState<string>('')
+  const [filterType, setFilterType] = useState<NotificationType | ''>('')
+  const [filterRead, setFilterRead] = useState<ReadFilter>('')
   const [previewSyncId, setPreviewSyncId] = useState<string | null>(null)
+
   const toast = useToast()
+  const queryClient = useQueryClient()
 
   const cardBg = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.700')
   const hoverBg = useColorModeValue('gray.50', 'gray.700')
   const unreadBg = useColorModeValue('blue.50', 'blue.900')
 
-  const pageSize = 20
+  const queryKey = [
+    'notifications',
+    { page, filterType: filterType || null, filterRead: filterRead || null },
+  ] as const
 
-  useEffect(() => {
-    fetchNotifications()
-  }, [page, filterType, filterRead])
-
-  const fetchNotifications = async () => {
-    setIsLoading(true)
-    try {
-      const params: any = {
+  const { data, isLoading, isError } = useQuery({
+    queryKey,
+    queryFn: () =>
+      notificationsApi.getNotifications({
         page,
-        page_size: pageSize,
-      }
+        page_size: PAGE_SIZE,
+        unread_only: filterRead === 'unread' ? true : undefined,
+        notification_type: filterType || undefined,
+      }),
+  })
 
-      if (filterRead === 'unread') {
-        params.unread_only = true
-      }
+  const notifications = data?.notifications ?? []
+  const totalCount = data?.total ?? 0
+  const unreadCount = data?.unread_count ?? 0
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1
 
-      if (filterType) {
-        params.notification_type = filterType
-      }
-
-      const data = await notificationsApi.getNotifications(params)
-      setNotifications(data.notifications)
-      setTotalCount(data.total)
-      setUnreadCount(data.unread_count)
-      setTotalPages(Math.ceil(data.total / pageSize))
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load notifications',
-        status: 'error',
-        duration: 3000,
-      })
-    } finally {
-      setIsLoading(false)
-    }
+  if (isError) {
+    toast({
+      id: 'notifications-load-error',
+      title: 'Error',
+      description: 'Failed to load notifications',
+      status: 'error',
+      duration: 3000,
+    })
   }
 
-  const handleMarkAsRead = async (notificationId: string) => {
-    try {
-      await notificationsApi.markAsRead([notificationId])
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
-      )
-      setUnreadCount((prev) => Math.max(0, prev - 1))
-      toast({
-        title: 'Success',
-        description: 'Notification marked as read',
-        status: 'success',
-        duration: 2000,
-      })
-    } catch (error) {
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ['notifications'] })
+
+  const markAsReadMutation = useMutation({
+    mutationFn: (notificationId: string) => notificationsApi.markAsRead([notificationId]),
+    onSuccess: () => {
+      invalidate()
+    },
+    onError: () => {
       toast({
         title: 'Error',
         description: 'Failed to mark notification as read',
         status: 'error',
         duration: 3000,
       })
-    }
-  }
+    },
+  })
 
-  const handleMarkAllAsRead = async () => {
-    try {
-      await notificationsApi.markAllAsRead()
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-      setUnreadCount(0)
+  const markAllAsReadMutation = useMutation({
+    mutationFn: notificationsApi.markAllAsRead,
+    onSuccess: () => {
+      invalidate()
       toast({
         title: 'Success',
         description: 'All notifications marked as read',
         status: 'success',
         duration: 2000,
       })
-    } catch (error) {
+    },
+    onError: () => {
       toast({
         title: 'Error',
         description: 'Failed to mark all as read',
         status: 'error',
         duration: 3000,
       })
-    }
-  }
+    },
+  })
 
-  const handleDelete = async (notificationId: string) => {
-    const notification = notifications.find((n) => n.id === notificationId)
-    try {
-      await notificationsApi.deleteNotification(notificationId)
-      setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
-      setTotalCount((prev) => prev - 1)
-      if (notification && !notification.is_read) {
-        setUnreadCount((prev) => Math.max(0, prev - 1))
-      }
+  const deleteMutation = useMutation({
+    mutationFn: notificationsApi.deleteNotification,
+    onSuccess: () => {
+      invalidate()
       toast({
         title: 'Success',
         description: 'Notification deleted',
         status: 'success',
         duration: 2000,
       })
-    } catch (error) {
+    },
+    onError: () => {
       toast({
         title: 'Error',
         description: 'Failed to delete notification',
         status: 'error',
         duration: 3000,
       })
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'red'
-      case 'medium':
-        return 'orange'
-      case 'low':
-        return 'blue'
-      default:
-        return 'gray'
-    }
-  }
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'TRIAL_ENDING':
-        return '⚠️'
-      case 'RENEWAL_REMINDER':
-        return '🔔'
-      case 'WEEKLY_SUMMARY':
-        return '📊'
-      case 'MONTHLY_SUMMARY':
-        return '📈'
-      case 'INACTIVE_SUBSCRIPTION':
-        return '⏸️'
-      case 'PRICE_CHANGE':
-        return '💰'
-      case 'BUDGET_ALERT':
-        return '💸'
-      case 'SYSTEM_ANNOUNCEMENT':
-        return '📢'
-      case 'SYNC_SKIPPED_MANY':
-        return '⏭️'
-      case 'SYNC_CIRCUIT_BREAKER':
-        return '🛑'
-      case 'SYNC_PREVIEW_AVAILABLE':
-        return '🔍'
-      default:
-        return '📬'
-    }
-  }
-
-  const getNotificationTypeLabel = (type: string) => {
-    switch (type) {
-      case 'TRIAL_ENDING':
-        return 'Trial Ending'
-      case 'RENEWAL_REMINDER':
-        return 'Renewal Reminder'
-      case 'WEEKLY_SUMMARY':
-        return 'Weekly Summary'
-      case 'MONTHLY_SUMMARY':
-        return 'Monthly Summary'
-      case 'INACTIVE_SUBSCRIPTION':
-        return 'Inactive Subscription'
-      case 'PRICE_CHANGE':
-        return 'Price Change'
-      case 'BUDGET_ALERT':
-        return 'Budget Alert'
-      case 'SYSTEM_ANNOUNCEMENT':
-        return 'System Announcement'
-      case 'SYNC_SKIPPED_MANY':
-        return 'Sync Skipped'
-      case 'SYNC_CIRCUIT_BREAKER':
-        return 'Sync Halted'
-      case 'SYNC_PREVIEW_AVAILABLE':
-        return 'Sync preview'
-      default:
-        return type
-    }
-  }
+    },
+  })
 
   const resetFilters = () => {
     setFilterType('')
@@ -251,7 +233,8 @@ export const NotificationListPage = () => {
                 colorScheme="blue"
                 variant="outline"
                 size="sm"
-                onClick={handleMarkAllAsRead}
+                onClick={() => markAllAsReadMutation.mutate()}
+                isLoading={markAllAsReadMutation.isPending}
               >
                 Mark all read
               </Button>
@@ -280,21 +263,15 @@ export const NotificationListPage = () => {
                   size="sm"
                   value={filterType}
                   onChange={(e) => {
-                    setFilterType(e.target.value)
+                    setFilterType((e.target.value as NotificationType | '') || '')
                     setPage(1)
                   }}
                 >
-                  <option value="TRIAL_ENDING">Trial Ending</option>
-                  <option value="RENEWAL_REMINDER">Renewal Reminder</option>
-                  <option value="WEEKLY_SUMMARY">Weekly Summary</option>
-                  <option value="MONTHLY_SUMMARY">Monthly Summary</option>
-                  <option value="INACTIVE_SUBSCRIPTION">Inactive Subscription</option>
-                  <option value="PRICE_CHANGE">Price Change</option>
-                  <option value="BUDGET_ALERT">Budget Alert</option>
-                  <option value="SYSTEM_ANNOUNCEMENT">System Announcement</option>
-                  <option value="SYNC_SKIPPED_MANY">Sync Skipped</option>
-                  <option value="SYNC_CIRCUIT_BREAKER">Sync Halted</option>
-                  <option value="SYNC_PREVIEW_AVAILABLE">Sync Preview</option>
+                  {NOTIFICATION_TYPE_FILTER_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
                 </Select>
               </HStack>
               <HStack flex={1} minW="200px">
@@ -303,7 +280,7 @@ export const NotificationListPage = () => {
                   size="sm"
                   value={filterRead}
                   onChange={(e) => {
-                    setFilterRead(e.target.value)
+                    setFilterRead(e.target.value as ReadFilter)
                     setPage(1)
                   }}
                 >
@@ -333,7 +310,9 @@ export const NotificationListPage = () => {
                 No notifications found
               </Text>
               <Text color="gray.500">
-                {filterType || filterRead ? 'Try adjusting your filters' : 'You are all caught up'}
+                {filterType || filterRead
+                  ? 'Try adjusting your filters'
+                  : 'You are all caught up'}
               </Text>
             </VStack>
           </Center>
@@ -348,10 +327,14 @@ export const NotificationListPage = () => {
                 cursor="pointer"
                 onClick={() => {
                   if (!notification.is_read) {
-                    handleMarkAsRead(notification.id)
+                    markAsReadMutation.mutate(notification.id)
                   }
                   if (notification.type === 'SYNC_PREVIEW_AVAILABLE') {
-                    const sid = (notification.notification_metadata as Record<string, unknown> | null)?.['sync_history_id']
+                    const sid = (
+                      notification.notification_metadata as
+                        | Record<string, unknown>
+                        | null
+                    )?.['sync_history_id']
                     if (typeof sid === 'string') {
                       setPreviewSyncId(sid)
                     }
@@ -411,7 +394,7 @@ export const NotificationListPage = () => {
                           colorScheme="green"
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleMarkAsRead(notification.id)
+                            markAsReadMutation.mutate(notification.id)
                           }}
                         />
                       )}
@@ -423,7 +406,7 @@ export const NotificationListPage = () => {
                         colorScheme="red"
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleDelete(notification.id)
+                          deleteMutation.mutate(notification.id)
                         }}
                       />
                     </HStack>
