@@ -9,7 +9,6 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 import logging
 import uuid
-import markdown
 
 from app.celery_app import celery_app
 from app.database import SessionLocal
@@ -20,6 +19,9 @@ from app.models.notification import (
     NotificationPriority,
 )
 from app.models.user import User
+from app.services.email.templates.system_announcement import (
+    generate_system_announcement_email,
+)
 from app.services.email_service import EmailService
 
 logger = logging.getLogger(__name__)
@@ -85,93 +87,14 @@ async def send_announcement_email(
     metadata = notification.notification_metadata
     priority = metadata.get("announcement_priority", "medium")
 
-    # Styling based on priority
-    if priority == "high":
-        banner_color = "#e53e3e"
-        banner_bg = "#fed7d7"
-        banner_border = "#fc8181"
-        priority_badge = "🔴 HIGH PRIORITY"
-    elif priority == "low":
-        banner_color = "#3182ce"
-        banner_bg = "#bee3f8"
-        banner_border = "#90cdf4"
-        priority_badge = "🔵 INFORMATION"
-    else:  # medium
-        banner_color = "#d69e2e"
-        banner_bg = "#fef5e7"
-        banner_border = "#f6e05e"
-        priority_badge = "🟡 ANNOUNCEMENT"
-
-    # Extract title (remove emoji prefix)
     title = notification.title.replace("📢 ", "")
-
-    # Convert markdown to HTML
-    md = markdown.Markdown(extensions=["extra", "nl2br", "sane_lists"])
-    message_html = md.convert(notification.message)
-
-    # Build email content
     subject = f"📢 System Announcement: {title}"
 
-    html_content = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <!-- Priority Banner -->
-        <div style="background-color: {banner_bg}; border: 2px solid {banner_border}; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
-            <h1 style="margin: 0; font-size: 24px; color: {banner_color};">
-                📢 SYSTEM ANNOUNCEMENT
-            </h1>
-            <p style="margin: 10px 0 0 0; font-size: 14px; color: {banner_color}; font-weight: bold;">
-                {priority_badge}
-            </p>
-        </div>
-
-        <!-- Announcement Content -->
-        <div style="background-color: #fff; border: 2px solid {banner_color}; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-            <h2 style="color: #2c3e50; margin-top: 0;">{title}</h2>
-            <div style="font-size: 16px; color: #34495e; line-height: 1.6;">
-                {message_html}
-            </div>
-        </div>
-
-        <!-- Action Button -->
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="http://localhost:5173/notifications"
-               style="background-color: {banner_color}; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">
-                View All Notifications
-            </a>
-        </div>
-
-        <div style="background-color: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center;">
-            <p style="margin: 0; color: #666; font-size: 14px;">
-                📬 Stay informed about important updates and announcements<br>
-                Manage your notification preferences in settings
-            </p>
-        </div>
-
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center; color: #95a5a6; font-size: 12px;">
-            <p>
-                You're receiving this system announcement as a Subscription Tracker user.<br>
-                <a href="http://localhost:5173/notifications/settings" style="color: #3498db;">Manage notification settings</a>
-            </p>
-        </div>
-    </body>
-    </html>
-    """
-
-    plain_content = f"""
-📢 SYSTEM ANNOUNCEMENT
-{priority_badge}
-
-{title}
-
-{notification.message}
-
-View all notifications: http://localhost:5173/notifications
-Manage settings: http://localhost:5173/notifications/settings
-
----
-Subscription Tracker - System Announcements
-    """
+    html_content, plain_content = generate_system_announcement_email(
+        notification_title=notification.title,
+        notification_message=notification.message,
+        priority=priority,
+    )
 
     # Send email
     email_service = EmailService(db)

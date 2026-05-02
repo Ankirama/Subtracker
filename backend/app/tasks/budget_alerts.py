@@ -14,6 +14,7 @@ from app.models.budget import Budget
 from app.models.notification import Notification, NotificationType, NotificationPriority
 from app.models.user import User
 from app.services.budget_service import BudgetService
+from app.services.email.templates.budget_alert import generate_budget_alert_email
 from app.services.email_service import EmailService
 
 logger = logging.getLogger(__name__)
@@ -121,100 +122,19 @@ async def send_budget_alert_email(
     try:
         budget_status = BudgetService.get_budget_status(db, budget)
 
-        urgency_color = "#F59E0B" if alert_type == "warning" else "#EF4444"
-        urgency_text = "Approaching Limit" if alert_type == "warning" else "Over Budget"
-
-        html_content = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: {urgency_color}; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
-                <h2 style="margin: 0; font-size: 24px;">⚠️ Budget Alert</h2>
-                <p style="margin: 10px 0 0 0; font-size: 16px;">{urgency_text}</p>
-            </div>
-
-            <div style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
-                <h3 style="color: #333; margin-top: 0;">Budget: {budget.name}</h3>
-
-                <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <tr>
-                            <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
-                                <strong>Current Spending:</strong>
-                            </td>
-                            <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
-                                {budget_status.currency} {budget_status.current_spending:.2f}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
-                                <strong>Budget Limit:</strong>
-                            </td>
-                            <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; text-align: right;">
-                                {budget_status.currency} {budget_status.limit_amount:.2f}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
-                                <strong>Remaining:</strong>
-                            </td>
-                            <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; text-align: right; color: {'#EF4444' if budget_status.remaining < 0 else '#10B981'};">
-                                {budget_status.currency} {budget_status.remaining:.2f}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 10px 0;">
-                                <strong>Usage:</strong>
-                            </td>
-                            <td style="padding: 10px 0; text-align: right; color: {urgency_color};">
-                                <strong>{budget_status.percentage_used:.1f}%</strong>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-
-                <div style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 15px; margin: 20px 0; border-radius: 4px;">
-                    <p style="margin: 0; color: #92400E;">
-                        <strong>Alert Details:</strong><br>
-                        {message}
-                    </p>
-                </div>
-
-                {f'<p style="color: #6b7280; margin: 20px 0;"><strong>Category:</strong> {budget.category.capitalize()}</p>' if budget.category else ''}
-
-                <p style="color: #6b7280; margin: 20px 0;">
-                    <strong>Period:</strong> {budget_status.period_start} to {budget_status.period_end}
-                </p>
-
-                <div style="text-align: center; margin-top: 30px;">
-                    <a href="http://localhost:5173/budgets"
-                       style="background-color: #3B82F6; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                        View Budget Details
-                    </a>
-                </div>
-
-                <p style="color: #9ca3af; font-size: 12px; margin-top: 30px; text-align: center;">
-                    You can adjust your budget settings or disable alerts in your budget preferences.
-                </p>
-            </div>
-        </div>
-        """
-
-        plain_content = f"""
-Budget Alert: {budget.name}
-
-{urgency_text}
-
-Current Spending: {budget_status.currency} {budget_status.current_spending:.2f}
-Budget Limit: {budget_status.currency} {budget_status.limit_amount:.2f}
-Remaining: {budget_status.currency} {budget_status.remaining:.2f}
-Usage: {budget_status.percentage_used:.1f}%
-
-{message}
-
-{'Category: ' + budget.category if budget.category else ''}
-Period: {budget_status.period_start} to {budget_status.period_end}
-
-View your budget details: http://localhost:5173/budgets
-        """
+        html_content, plain_content = generate_budget_alert_email(
+            budget_name=budget.name,
+            budget_category=budget.category,
+            alert_type=alert_type,
+            message=message,
+            currency=budget_status.currency,
+            current_spending=budget_status.current_spending,
+            limit_amount=budget_status.limit_amount,
+            remaining=budget_status.remaining,
+            percentage_used=budget_status.percentage_used,
+            period_start=budget_status.period_start,
+            period_end=budget_status.period_end,
+        )
 
         await EmailService.send_email(
             to_email=user.email,

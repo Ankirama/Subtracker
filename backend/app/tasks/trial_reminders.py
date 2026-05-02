@@ -21,6 +21,7 @@ from app.models.notification import (
     NotificationPriority,
 )
 from app.models.user import User
+from app.services.email.templates.trial_reminder import generate_trial_reminder_email
 from app.services.email_service import EmailService
 
 logger = logging.getLogger(__name__)
@@ -152,127 +153,23 @@ async def send_trial_email(
         else 0
     )
 
-    # Urgency messaging
     if days_until == 0:
-        urgency = "TODAY"
-        urgency_style = "background-color: #e53e3e; color: white;"
+        urgency_title = "Today"
     elif days_until == 1:
-        urgency = "TOMORROW"
-        urgency_style = "background-color: #ed8936; color: white;"
+        urgency_title = "Tomorrow"
     else:
-        urgency = f"IN {days_until} DAYS"
-        urgency_style = "background-color: #f6ad55; color: white;"
+        urgency_title = f"In {days_until} Days"
+    subject = f"⚠️ {subscription.provider} Trial Ends {urgency_title}"
 
-    # Build email content
-    subject = f"⚠️ {subscription.provider} Trial Ends {urgency.title()}"
-
-    html_content = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <!-- Urgent Warning Banner -->
-        <div style="{urgency_style} padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px;">
-            <h1 style="margin: 0; font-size: 24px;">⚠️ TRIAL ENDING {urgency}</h1>
-        </div>
-
-        <div style="background-color: #fff; border: 2px solid #e53e3e; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-            <h2 style="color: #2c3e50; margin-top: 0;">🔔 Important: Avoid Unexpected Charges</h2>
-            <p style="font-size: 16px; color: #34495e;">
-                Your <strong>{subscription.provider}</strong> free trial is ending soon.
-                If you don't cancel before the trial ends, you'll be automatically charged.
-            </p>
-        </div>
-
-        <div style="background-color: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="color: #2c3e50; margin-top: 0;">Trial Details</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr style="border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 10px 0; color: #7f8c8d;"><strong>Service:</strong></td>
-                    <td style="padding: 10px 0; text-align: right;">{subscription.provider}</td>
-                </tr>
-                <tr style="border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 10px 0; color: #7f8c8d;"><strong>Trial Ends:</strong></td>
-                    <td style="padding: 10px 0; text-align: right;">
-                        <strong style="color: #e53e3e;">{subscription.trial_end_date.strftime('%B %d, %Y')}</strong> ({days_until} days)
-                    </td>
-                </tr>
-                <tr style="border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 10px 0; color: #7f8c8d;"><strong>Charge After Trial:</strong></td>
-                    <td style="padding: 10px 0; text-align: right; color: #e74c3c; font-size: 20px;">
-                        <strong>{subscription.currency} {subscription.amount:.2f}</strong> / {subscription.billing_cycle}
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-        <div style="background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="margin-top: 0; color: #856404;">💡 What You Need To Do</h3>
-            <div style="color: #856404;">
-                <p style="margin: 10px 0;"><strong>If you want to keep this subscription:</strong></p>
-                <ul style="margin: 5px 0;">
-                    <li>No action needed - you'll be charged automatically</li>
-                    <li>Amount: {subscription.currency} {subscription.amount:.2f} per {subscription.billing_cycle}</li>
-                </ul>
-
-                <p style="margin: 15px 0 10px 0;"><strong>If you want to cancel:</strong></p>
-                <ul style="margin: 5px 0;">
-                    <li>Cancel <strong>before {subscription.trial_end_date.strftime('%B %d, %Y')}</strong></li>
-                    <li>Visit {subscription.provider}'s website to cancel</li>
-                    <li>You have {days_until} day{'s' if days_until != 1 else ''} remaining</li>
-                </ul>
-            </div>
-        </div>
-
-        <div style="text-align: center; margin: 30px 0;">
-            <a href="http://localhost:5173/subscriptions/{subscription.id}"
-               style="background-color: #e53e3e; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">
-                View Subscription Details
-            </a>
-        </div>
-
-        <div style="background-color: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px; text-align: center;">
-            <p style="margin: 0; color: #666; font-size: 14px;">
-                📊 Track all your trials and subscriptions in one place<br>
-                Never get surprised by unexpected charges again
-            </p>
-        </div>
-
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center; color: #95a5a6; font-size: 12px;">
-            <p>
-                You're receiving this trial reminder to help you avoid unexpected charges.<br>
-                <a href="http://localhost:5173/notifications/settings" style="color: #3498db;">Manage notification settings</a>
-            </p>
-        </div>
-    </body>
-    </html>
-    """
-
-    plain_content = f"""
-⚠️ TRIAL ENDING {urgency}
-
-Your {subscription.provider} free trial is ending soon!
-
-Trial Details:
-- Service: {subscription.provider}
-- Trial Ends: {subscription.trial_end_date.strftime('%B %d, %Y')} ({days_until} days)
-- Charge After Trial: {subscription.currency} {subscription.amount:.2f} per {subscription.billing_cycle}
-
-WHAT YOU NEED TO DO:
-
-If you want to keep this subscription:
-• No action needed - you'll be charged automatically
-• Amount: {subscription.currency} {subscription.amount:.2f} per {subscription.billing_cycle}
-
-If you want to cancel:
-• Cancel BEFORE {subscription.trial_end_date.strftime('%B %d, %Y')}
-• Visit {subscription.provider}'s website to cancel
-• You have {days_until} day{'s' if days_until != 1 else ''} remaining
-
-View subscription: http://localhost:5173/subscriptions/{subscription.id}
-Manage settings: http://localhost:5173/notifications/settings
-
----
-Subscription Tracker - Never get surprised by unexpected charges
-    """
+    html_content, plain_content = generate_trial_reminder_email(
+        subscription_id=subscription.id,
+        provider=subscription.provider,
+        amount=subscription.amount,
+        currency=subscription.currency,
+        billing_cycle=subscription.billing_cycle,
+        trial_end_date=subscription.trial_end_date,
+        days_until=days_until,
+    )
 
     # Send email
     email_service = EmailService(db)
