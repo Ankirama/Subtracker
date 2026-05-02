@@ -45,7 +45,7 @@ export const MailboxesPage = () => {
 
   const queryClient = useQueryClient()
   const toast = useToast()
-  const { t } = useTranslation('syncErrors')
+  const { t } = useTranslation(['syncErrors', 'common'])
 
   // Handle OAuth callback query params
   useEffect(() => {
@@ -527,7 +527,7 @@ export const MailboxesPage = () => {
                       {mailbox.last_sync_oldest_email_date && mailbox.last_sync_newest_email_date && (
                         <HStack justify="space-between">
                           <Text fontSize="sm" fontWeight="medium">
-                            Last Run Range:
+                            {t('common:mailboxes.lastRunRange')}
                           </Text>
                           <Text fontSize="sm" color="text.subtle">
                             {new Date(mailbox.last_sync_oldest_email_date).toLocaleDateString()}
