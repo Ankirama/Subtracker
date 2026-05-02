@@ -5,6 +5,11 @@
 
 set -uo pipefail   # NB: no `-e` — we tolerate non-fatal errors.
 
+# The Stop hook fires with the user's shell cwd, which may be a subdirectory
+# (e.g. frontend/). Anchor everything to the script's own project root so that
+# `git status backend/app` and `graphify update .` operate on the right tree.
+cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit 0
+
 # Detect changes to backend/app/**/*.py since the last commit OR in the working tree.
 # We use `git status --porcelain` because the hook runs at session end, possibly
 # before the user has committed.
