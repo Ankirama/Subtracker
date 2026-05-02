@@ -35,6 +35,7 @@ import { notificationsApi, NotificationType } from '../../api/notifications'
 import { formatDistanceToNow } from '../../utils/timeFormat'
 import { MarkdownRenderer } from '../common/MarkdownRenderer'
 import { SyncPreviewDrawer } from '../mailboxes/SyncPreviewDrawer'
+import { NOTIFICATION_TYPE_ICONS } from '../../constants/enums'
 
 const PAGE_SIZE = 20
 
@@ -54,20 +55,6 @@ const NOTIFICATION_TYPE_FILTER_OPTIONS: Array<{ value: NotificationType; label: 
   { value: 'SYNC_PREVIEW_AVAILABLE', label: 'Sync Preview' },
 ]
 
-const NOTIFICATION_ICONS: Record<NotificationType, string> = {
-  TRIAL_ENDING: '⚠️',
-  RENEWAL_REMINDER: '🔔',
-  WEEKLY_SUMMARY: '📊',
-  MONTHLY_SUMMARY: '📈',
-  INACTIVE_SUBSCRIPTION: '⏸️',
-  PRICE_CHANGE: '💰',
-  BUDGET_ALERT: '💸',
-  SYSTEM_ANNOUNCEMENT: '📢',
-  SYNC_SKIPPED_MANY: '⏭️',
-  SYNC_CIRCUIT_BREAKER: '🛑',
-  SYNC_PREVIEW_AVAILABLE: '🔍',
-}
-
 const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   TRIAL_ENDING: 'Trial Ending',
   RENEWAL_REMINDER: 'Renewal Reminder',
@@ -83,7 +70,7 @@ const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
 }
 
 const getNotificationIcon = (type: string) =>
-  (NOTIFICATION_ICONS as Record<string, string>)[type] ?? '📬'
+  (NOTIFICATION_TYPE_ICONS as Record<string, string>)[type] ?? '📬'
 
 const getNotificationTypeLabel = (type: string) =>
   (NOTIFICATION_TYPE_LABELS as Record<string, string>)[type] ?? type

@@ -24,6 +24,12 @@ import {
 import { subscriptionsAPI } from '../../api/subscriptions'
 import { categoriesAPI } from '../../api/categories'
 import { BillingCycle, Subscription, SubscriptionCreate, SubscriptionUpdate } from '../../types'
+import { BILLING_CYCLE_OPTIONS, CURRENCIES } from '../../constants/enums'
+
+const CURRENCY_CODES = ['EUR', 'USD', 'GBP'] as const
+const SUPPORTED_CURRENCIES = CURRENCIES.filter((c) =>
+  (CURRENCY_CODES as readonly string[]).includes(c.code),
+)
 
 interface SubscriptionModalProps {
   isOpen: boolean
@@ -225,9 +231,11 @@ export const SubscriptionModal = ({
                   value={formData.currency}
                   onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
                 >
-                  <option value="EUR">EUR (€)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="GBP">GBP (£)</option>
+                  {SUPPORTED_CURRENCIES.map(({ code, symbol }) => (
+                    <option key={code} value={code}>
+                      {code} ({symbol})
+                    </option>
+                  ))}
                 </Select>
               </FormControl>
             </HStack>
@@ -244,11 +252,11 @@ export const SubscriptionModal = ({
                     })
                   }
                 >
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                  <option value="quarterly">Quarterly</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="one-time">One-time</option>
+                  {BILLING_CYCLE_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
                 </Select>
               </FormControl>
 

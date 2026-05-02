@@ -33,6 +33,7 @@ import {
 import { FiEye, FiEyeOff, FiCheckCircle, FiXCircle, FiMail, FiArrowLeft } from 'react-icons/fi'
 import { FaGoogle } from 'react-icons/fa'
 import { mailboxesAPI } from '../../api/mailboxes'
+import { MAILBOX_SYNC_FREQUENCY_OPTIONS } from '../../constants/enums'
 import { Mailbox, MailboxCreate, MailboxUpdate } from '../../types'
 
 interface AddMailboxModalProps {
@@ -515,9 +516,11 @@ export const AddMailboxModal = ({
           value={formData.sync_frequency}
           onChange={(e) => setFormData({ ...formData, sync_frequency: e.target.value })}
         >
-          <option value="manual">Manual only</option>
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
+          {MAILBOX_SYNC_FREQUENCY_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </Select>
         <FormHelperText>
           {formData.sync_frequency === 'manual'
@@ -561,9 +564,11 @@ export const AddMailboxModal = ({
                 value={formData.sync_frequency}
                 onChange={(e) => setFormData({ ...formData, sync_frequency: e.target.value })}
               >
-                <option value="manual">Manual only</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
+                {MAILBOX_SYNC_FREQUENCY_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </Select>
               <FormHelperText>
                 {formData.sync_frequency === 'manual'
