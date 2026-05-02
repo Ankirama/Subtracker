@@ -13,6 +13,7 @@ coverage of the inner pipeline lives in `test_email_sync.py`.
 import asyncio
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 from sqlalchemy.orm import Session
@@ -130,7 +131,7 @@ def test_inject_classify_batch_calls_mock_instead_of_default(seam_state):
                 force_full_sync=True,
                 date_filter=None,
                 sync_start_time=datetime.now(timezone.utc),
-                history_entry=MagicMock(),
+                history_entry=MagicMock(id=uuid4()),
                 classify_batch=classify_mock,
                 extract_batch=extract_mock,
                 ref_extractor_factory=ref_factory,
@@ -206,7 +207,7 @@ def test_inject_extract_batch_calls_mock_when_emails_are_subscriptions(seam_stat
                 force_full_sync=True,
                 date_filter=None,
                 sync_start_time=datetime.now(timezone.utc),
-                history_entry=MagicMock(),
+                history_entry=MagicMock(id=uuid4()),
                 classify_batch=classify_mock,
                 extract_batch=extract_mock,
                 ref_extractor_factory=ref_factory,
@@ -347,7 +348,7 @@ def test_inject_ref_extractor_factory_drives_dedup_strategy(seam_state):
                 force_full_sync=True,
                 date_filter=None,
                 sync_start_time=datetime.now(timezone.utc),
-                history_entry=MagicMock(),
+                history_entry=MagicMock(id=uuid4()),
                 classify_batch=classify_mock,
                 extract_batch=extract_mock,
                 ref_extractor_factory=ref_factory,

@@ -31,7 +31,8 @@ drive dedup with a mock matcher (Phase 8a interface seam).
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Tuple
+from typing import List, Optional, Tuple
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -58,6 +59,7 @@ def persist_subscriptions_for_batch(
     subscriptions_found: int,
     subscriptions_updated: int,
     ref_extractor_factory: ReferenceExtractorFactory,
+    sync_history_id: Optional[UUID] = None,
 ) -> Tuple[int, int]:
     """Stage 3: per-email upsert + history + renewal + cancellation + link.
 
@@ -74,6 +76,13 @@ def persist_subscriptions_for_batch(
         ref_extractor_factory: Injected factory returning a
             ``ReferenceExtractorProtocol`` instance, used to drive
             ``find_best_match``.
+        sync_history_id: Optional FK to ``sync_history.id`` identifying
+            the sync run that produced these rows. When provided, freshly
+            inserted ``Subscription`` rows are tagged via
+            ``discovered_via_sync_history_id`` and any
+            ``PriceHistory`` rows recorded here carry the same
+            ``sync_history_id``. ``None`` for non-sync callers (e.g.
+            manual subscription creation), which keeps the FK NULL.
 
     Returns:
         ``(subscriptions_found, subscriptions_updated)`` after this batch.
@@ -122,6 +131,7 @@ def persist_subscriptions_for_batch(
                             or existing_sub.currency,
                             detected_from="email",
                             notes=f"Price update detected by AI from email: {email.subject}",
+                            sync_history_id=sync_history_id,
                         )
 
                         # Link email to existing subscription
@@ -221,6 +231,7 @@ def persist_subscriptions_for_batch(
                             currency=subscription_data.get("currency", "EUR"),
                             detected_from="email",
                             notes=f"Price change detected from email: {email.subject}",
+                            sync_history_id=sync_history_id,
                         )
                     else:
                         logger.info(
@@ -232,6 +243,7 @@ def persist_subscriptions_for_batch(
                     new_subscription = Subscription(
                         user_id=mailbox.user_id,
                         mailbox_id=mailbox.id,
+                        discovered_via_sync_history_id=sync_history_id,
                         **filtered_data,
                     )
                     db.add(new_subscription)
@@ -250,6 +262,7 @@ def persist_subscriptions_for_batch(
                         currency=subscription_data.get("currency", "EUR"),
                         detected_from="email",
                         notes=f"Initial price detected from email: {email.subject}",
+                        sync_history_id=sync_history_id,
                     )
 
                 # Calculate accurate renewal date and active status

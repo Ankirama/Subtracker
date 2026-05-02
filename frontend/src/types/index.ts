@@ -301,6 +301,7 @@ export interface Mailbox {
   last_sync_oldest_email_date: string | null
   last_sync_newest_email_date: string | null
   last_sync_new_emails_count: number | null
+  last_sync_history_id: string | null
   sync_frequency: string
   batch_size: number
   import_date_filter: string | null

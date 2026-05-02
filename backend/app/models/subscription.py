@@ -44,6 +44,12 @@ class Subscription(Base):
         ForeignKey("mailboxes.id", ondelete="SET NULL"),
         nullable=True,
     )
+    discovered_via_sync_history_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sync_history.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Core subscription data
     provider = Column(String(255), nullable=False, index=True)

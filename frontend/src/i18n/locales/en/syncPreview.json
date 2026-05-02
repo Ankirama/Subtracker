@@ -1,0 +1,14 @@
+{
+  "drawer_title": "Sync preview",
+  "subtitle": "{{mailboxEmail}} — completed {{when}}",
+  "section_new": "New subscriptions",
+  "section_updated": "Updated subscriptions",
+  "badge_auto_saved": "Auto-saved",
+  "badge_pending_review": "Pending review",
+  "update_price_change": "Price changed: {{before}} → {{after}}",
+  "update_cancellation": "Cancellation detected",
+  "empty": "Nothing new this run.",
+  "view_link": "View",
+  "open_subscription": "Open",
+  "loading": "Loading preview…"
+}

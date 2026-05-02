@@ -1,0 +1,14 @@
+{
+  "drawer_title": "Aperçu de la synchronisation",
+  "subtitle": "{{mailboxEmail}} — terminé le {{when}}",
+  "section_new": "Nouveaux abonnements",
+  "section_updated": "Abonnements mis à jour",
+  "badge_auto_saved": "Sauvegardé auto",
+  "badge_pending_review": "À vérifier",
+  "update_price_change": "Prix modifié : {{before}} → {{after}}",
+  "update_cancellation": "Annulation détectée",
+  "empty": "Rien de neuf pour cette synchronisation.",
+  "view_link": "Voir",
+  "open_subscription": "Ouvrir",
+  "loading": "Chargement…"
+}

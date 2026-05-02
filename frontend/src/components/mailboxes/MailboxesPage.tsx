@@ -30,12 +30,14 @@ import { mailboxesAPI } from '../../api/mailboxes'
 import { Mailbox, MailboxSyncStatus } from '../../types'
 import { AddMailboxModal } from './AddMailboxModal'
 import { SyncEmailsModal } from './SyncEmailsModal'
+import { SyncPreviewDrawer } from './SyncPreviewDrawer'
 
 export const MailboxesPage = () => {
   const [selectedMailbox, setSelectedMailbox] = useState<Mailbox | null>(null)
   const [syncMailbox, setSyncMailbox] = useState<Mailbox | null>(null)
   const [syncingMailboxId, setSyncingMailboxId] = useState<string | null>(null)
   const [syncStatuses, setSyncStatuses] = useState<Map<string, MailboxSyncStatus>>(new Map())
+  const [previewSyncId, setPreviewSyncId] = useState<string | null>(null)
   const pollingIntervalRef = useRef<number | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { isOpen: isSyncOpen, onOpen: onSyncOpen, onClose: onSyncClose } = useDisclosure()
@@ -498,14 +500,26 @@ export const MailboxesPage = () => {
                           <Text fontSize="sm" fontWeight="medium">
                             New This Run:
                           </Text>
-                          <Text
-                            fontSize="sm"
-                            color={mailbox.last_sync_new_emails_count > 0 ? 'green.600' : 'text.subtle'}
-                          >
-                            {mailbox.last_sync_new_emails_count > 0
-                              ? `+${mailbox.last_sync_new_emails_count} new email${mailbox.last_sync_new_emails_count === 1 ? '' : 's'}`
-                              : 'No new emails'}
-                          </Text>
+                          <HStack spacing={2}>
+                            <Text
+                              fontSize="sm"
+                              color={mailbox.last_sync_new_emails_count > 0 ? 'green.600' : 'text.subtle'}
+                            >
+                              {mailbox.last_sync_new_emails_count > 0
+                                ? `+${mailbox.last_sync_new_emails_count} new email${mailbox.last_sync_new_emails_count === 1 ? '' : 's'}`
+                                : 'No new emails'}
+                            </Text>
+                            {mailbox.last_sync_new_emails_count > 0 && mailbox.last_sync_history_id && (
+                              <Button
+                                size="xs"
+                                variant="link"
+                                colorScheme="blue"
+                                onClick={() => setPreviewSyncId(mailbox.last_sync_history_id ?? null)}
+                              >
+                                View
+                              </Button>
+                            )}
+                          </HStack>
                         </HStack>
                       )}
 
@@ -612,6 +626,13 @@ export const MailboxesPage = () => {
         onClose={onSyncClose}
         mailbox={syncMailbox}
         onSyncStarted={handleSyncStarted}
+      />
+
+      {/* Sync Preview Drawer */}
+      <SyncPreviewDrawer
+        syncHistoryId={previewSyncId}
+        isOpen={!!previewSyncId}
+        onClose={() => setPreviewSyncId(null)}
       />
     </Container>
   )
