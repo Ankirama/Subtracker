@@ -44,6 +44,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Feature branches should follow naming: `feature/description`, `fix/description`, `hotfix/description`
 
 ### Pre-Commit Checklist (run before EVERY commit)
+
+The repo ships a pre-commit hook at `scripts/pre-commit.sh`. Install once per clone:
+
+```bash
+./scripts/install-hooks.sh
+```
+
+The hook runs frontend lint + tsc when `frontend/` files change, and backend black + flake8 (via the running dev container) when `backend/` files change. Backend checks are skipped with a warning if the container isn't up.
+
+Manual fallback (if running checks ad-hoc):
+
 1. **Backend linting** (required):
    ```bash
    docker-compose -f docker-compose.dev.yml exec backend python -m black --check app/
