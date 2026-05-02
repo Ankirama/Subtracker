@@ -89,7 +89,9 @@ class SyncHistory(Base):
     )
 
     # Relationships
-    mailbox = relationship("Mailbox", back_populates="sync_history")
+    mailbox = relationship(
+        "Mailbox", back_populates="sync_history", foreign_keys=[mailbox_id]
+    )
     errors = relationship("EmailSyncError", back_populates="sync_history")
 
     def __repr__(self):
