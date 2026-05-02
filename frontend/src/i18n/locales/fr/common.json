@@ -93,5 +93,8 @@
     "selectLanguage": "Sélectionner la langue",
     "english": "Anglais",
     "french": "Français"
+  },
+  "mailboxes": {
+    "lastRunRange": "Plage de la dernière synchro"
   }
 }
