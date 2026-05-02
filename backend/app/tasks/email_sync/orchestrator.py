@@ -237,6 +237,7 @@ async def _sync_mailbox_async(
                     subscriptions_found=subscriptions_found,
                     subscriptions_updated=subscriptions_updated,
                     ref_extractor_factory=ref_extractor_factory,
+                    sync_history_id=history_entry.id if history_entry else None,
                 )
             )
 

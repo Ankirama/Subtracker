@@ -16,6 +16,7 @@ commit-counter behaviour that the Phase 1 chartests verify).
 from __future__ import annotations
 
 from typing import Optional
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -36,6 +37,7 @@ def record_price_change(
     currency: Optional[str] = None,
     detected_from: str = "email",
     notes: str = "",
+    sync_history_id: Optional[UUID] = None,
 ) -> Optional[PriceHistory]:
     """
     Record an increase or decrease in a subscription's price.
@@ -62,6 +64,10 @@ def record_price_change(
         Source of detection, e.g. ``"email"`` or ``"manual"``.
     notes:
         Free-text notes stored on the record.
+    sync_history_id:
+        Optional FK to ``sync_history.id`` identifying the sync run that
+        produced this price change. ``None`` for non-sync paths (e.g.
+        manual updates).
 
     Returns
     -------
@@ -89,6 +95,7 @@ def record_price_change(
         change_percentage=round(change_percentage, 2),
         detected_from=detected_from,
         notes=notes,
+        sync_history_id=sync_history_id,
     )
     db.add(record)
     logger.info(
@@ -106,6 +113,7 @@ def record_initial_price(
     currency: str = "EUR",
     detected_from: str = "email",
     notes: str = "",
+    sync_history_id: Optional[UUID] = None,
 ) -> Optional[PriceHistory]:
     """
     Record the initial price for a newly created subscription.
@@ -127,6 +135,9 @@ def record_initial_price(
         Source of detection.
     notes:
         Free-text notes stored on the record.
+    sync_history_id:
+        Optional FK to ``sync_history.id`` identifying the sync run that
+        produced this initial-price record. ``None`` for non-sync paths.
 
     Returns
     -------
@@ -146,6 +157,7 @@ def record_initial_price(
         change_percentage=None,  # No percentage for initial record
         detected_from=detected_from,
         notes=notes,
+        sync_history_id=sync_history_id,
     )
     db.add(record)
     logger.info(
