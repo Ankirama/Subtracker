@@ -84,7 +84,7 @@ class SecurityEventLogger:
 
             return event
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — event logger must never raise
             logger.error(f"Failed to log security event: {str(e)}")
             db.rollback()
             return None

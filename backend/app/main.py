@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
 
     try:
         await init_rate_limiter()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — startup must not crash
         logger.error(f"Failed to initialize rate limiter: {e}")
 
     yield
@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
 
     try:
         await close_rate_limiter()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — shutdown is best-effort
         logger.error(f"Failed to close rate limiter: {e}")
 
 
@@ -83,7 +83,7 @@ app.add_middleware(
 )
 
 # Security middleware (order matters - applied in reverse order)
-from app.middleware import (
+from app.middleware import (  # noqa: E402 — middleware imports must come after `app` is created
     RateLimitMiddleware,
     QueryLoggingMiddleware,
     SecurityHeadersMiddleware,
@@ -127,7 +127,7 @@ async def root():
 
 
 # Import and include routers
-from app.api import (
+from app.api import (  # noqa: E402 — routers must be imported after `app` is created
     auth,
     mailboxes,
     subscriptions,
@@ -146,8 +146,8 @@ from app.api import (
     sync_preview,
     waitlist,
 )
-from app.api.endpoints import push_notifications
-from app.api.admin import (
+from app.api.endpoints import push_notifications  # noqa: E402
+from app.api.admin import (  # noqa: E402
     config as admin_config,
     announcements as admin_announcements,
     users as admin_users,

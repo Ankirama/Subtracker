@@ -97,7 +97,7 @@ class TOTPManager:
         try:
             totp = pyotp.TOTP(secret)
             return totp.verify(code, valid_window=window)
-        except Exception:
+        except Exception:  # noqa: BLE001 — any pyotp error means invalid code
             return False
 
 

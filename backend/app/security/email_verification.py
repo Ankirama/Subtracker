@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Redis client for rate limiting and temporary blocks
 try:
     redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
-except Exception as e:
+except Exception as e:  # noqa: BLE001 — import must not crash on Redis outage
     logger.error(f"Failed to connect to Redis: {e}")
     redis_client = None
 
@@ -156,7 +156,7 @@ class VerificationRateLimiter:
             redis_client.incr(key)
             return True, None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — fail-open on Redis outage
             logger.error(f"Redis error in rate limit check: {e}")
             return True, None  # Fail open on Redis errors
 
@@ -203,7 +203,7 @@ class VerificationRateLimiter:
 
             return False, None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — fail-open: not-blocked on Redis outage
             logger.error(f"Redis error in block check: {e}")
             return False, None
 
@@ -293,6 +293,6 @@ class VerificationRateLimiter:
 
             return None
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — degrade silently on Redis outage
             logger.error(f"Redis error in attempt tracking: {e}")
             return None

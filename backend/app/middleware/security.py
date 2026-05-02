@@ -269,7 +269,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
             return response
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — log + record duration, then re-raise
             duration = time.time() - start_time
             logger.error(
                 f"Request failed: {request.method} {request.url.path} - {str(e)} ({duration:.3f}s)",
