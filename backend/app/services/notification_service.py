@@ -390,6 +390,7 @@ Subscription Tracker Team
         Creates preferences for all notification types with default values.
         """
         notification_types = [
+            NotificationType.TRIAL_ENDING,
             NotificationType.RENEWAL_REMINDER,
             NotificationType.WEEKLY_SUMMARY,
             NotificationType.MONTHLY_SUMMARY,

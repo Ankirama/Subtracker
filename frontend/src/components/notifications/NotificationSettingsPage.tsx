@@ -35,49 +35,49 @@ import { PushNotificationSettings } from './PushNotificationSettings'
 
 const NOTIFICATION_TYPES = [
   {
-    type: 'trial_ending',
+    type: 'TRIAL_ENDING',
     label: 'Trial Ending Reminders',
     description: 'Get notified before free trials end to avoid charges',
     icon: '⚠️',
     hasSettings: false,
   },
   {
-    type: 'renewal_reminder',
+    type: 'RENEWAL_REMINDER',
     label: 'Renewal Reminders',
     description: 'Get notified before your subscriptions renew',
     icon: '🔔',
     hasSettings: true,
   },
   {
-    type: 'weekly_summary',
+    type: 'WEEKLY_SUMMARY',
     label: 'Weekly Summary',
     description: 'Weekly overview of your subscription spending',
     icon: '📊',
     hasSettings: true,
   },
   {
-    type: 'monthly_summary',
+    type: 'MONTHLY_SUMMARY',
     label: 'Monthly Summary',
     description: 'Monthly spending report and insights',
     icon: '📈',
     hasSettings: true,
   },
   {
-    type: 'inactive_subscription',
+    type: 'INACTIVE_SUBSCRIPTION',
     label: 'Inactive Subscriptions',
     description: 'Alert when subscriptions appear inactive',
     icon: '⏸️',
     hasSettings: false,
   },
   {
-    type: 'price_change',
+    type: 'PRICE_CHANGE',
     label: 'Price Changes',
     description: 'Notify when subscription prices change',
     icon: '💰',
     hasSettings: false,
   },
   {
-    type: 'system_announcement',
+    type: 'SYSTEM_ANNOUNCEMENT',
     label: 'System Announcements',
     description: 'Important updates and announcements',
     icon: '📢',
@@ -264,7 +264,7 @@ export const NotificationSettingsPage = () => {
                       </HStack>
 
                       {/* Type-specific settings */}
-                      {notifType.type === 'renewal_reminder' && (
+                      {notifType.type === 'RENEWAL_REMINDER' && (
                         <FormControl>
                           <FormLabel fontSize="sm">Days before renewal to notify</FormLabel>
                           <NumberInput
@@ -288,7 +288,7 @@ export const NotificationSettingsPage = () => {
                         </FormControl>
                       )}
 
-                      {notifType.type === 'weekly_summary' && (
+                      {notifType.type === 'WEEKLY_SUMMARY' && (
                         <FormControl>
                           <FormLabel fontSize="sm">Day to send summary</FormLabel>
                           <Select
@@ -313,7 +313,7 @@ export const NotificationSettingsPage = () => {
                         </FormControl>
                       )}
 
-                      {notifType.type === 'monthly_summary' && (
+                      {notifType.type === 'MONTHLY_SUMMARY' && (
                         <FormControl>
                           <FormLabel fontSize="sm">Day of month to send summary</FormLabel>
                           <NumberInput
