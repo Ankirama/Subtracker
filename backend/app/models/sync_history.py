@@ -59,6 +59,9 @@ class SyncHistory(Base):
     oldest_email_date = Column(DateTime(timezone=True), nullable=True)
     newest_email_date = Column(DateTime(timezone=True), nullable=True)
 
+    # Number of email_messages rows inserted during this run.
+    new_emails_count = Column(Integer, nullable=True)
+
     # Sync configuration
     sync_type = Column(String(50), nullable=True)  # 'full', 'incremental', 'manual'
     date_filter_used = Column(
