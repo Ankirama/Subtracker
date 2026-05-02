@@ -294,6 +294,7 @@ def sync_mailbox_emails(
         history_entry.oldest_email_date = oldest_email_date
         history_entry.newest_email_date = newest_email_date
         history_entry.new_emails_count = new_emails_count
+        mailbox.last_sync_history_id = history_entry.id
 
         db.commit()
 
