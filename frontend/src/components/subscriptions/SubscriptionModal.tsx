@@ -23,7 +23,7 @@ import {
 } from '@chakra-ui/react'
 import { subscriptionsAPI } from '../../api/subscriptions'
 import { categoriesAPI } from '../../api/categories'
-import { Subscription, SubscriptionCreate, SubscriptionUpdate } from '../../types'
+import { BillingCycle, Subscription, SubscriptionCreate, SubscriptionUpdate } from '../../types'
 
 interface SubscriptionModalProps {
   isOpen: boolean
@@ -36,7 +36,17 @@ export const SubscriptionModal = ({
   onClose,
   subscription,
 }: SubscriptionModalProps) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    provider: string
+    amount: string
+    currency: string
+    billing_cycle: BillingCycle
+    category: string
+    custom_label: string
+    notes: string
+    renewal_date: string
+    is_active: boolean
+  }>({
     provider: '',
     amount: '',
     currency: 'EUR',
@@ -227,7 +237,12 @@ export const SubscriptionModal = ({
                 <FormLabel>Billing Cycle</FormLabel>
                 <Select
                   value={formData.billing_cycle}
-                  onChange={(e) => setFormData({ ...formData, billing_cycle: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      billing_cycle: e.target.value as BillingCycle,
+                    })
+                  }
                 >
                   <option value="monthly">Monthly</option>
                   <option value="yearly">Yearly</option>

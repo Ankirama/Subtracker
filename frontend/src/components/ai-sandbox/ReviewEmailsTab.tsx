@@ -51,7 +51,7 @@ import {
 import { FiEye, FiPlus, FiSearch, FiX, FiCheckSquare } from 'react-icons/fi'
 import DOMPurify from 'dompurify'
 import { aiSandboxAPI } from '../../api/aiSandbox'
-import { UncertainEmail, EmailDetailResponse } from '../../types'
+import { BillingCycle, UncertainEmail, EmailDetailResponse } from '../../types'
 
 type FilterType = 'all' | 'low_confidence' | 'extraction_failed'
 type SortField = 'date' | 'confidence' | 'status' | 'subject'
@@ -70,7 +70,16 @@ export const ReviewEmailsTab = () => {
   const { isOpen: isDetailOpen, onOpen: onDetailOpen, onClose: onDetailClose } = useDisclosure()
   const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure()
 
-  const [subscriptionData, setSubscriptionData] = useState({
+  const [subscriptionData, setSubscriptionData] = useState<{
+    provider: string
+    amount: string
+    currency: string
+    billing_cycle: BillingCycle
+    renewal_date: string
+    custom_label: string
+    category: string
+    notes: string
+  }>({
     provider: '',
     amount: '',
     currency: 'EUR',
@@ -721,7 +730,12 @@ export const ReviewEmailsTab = () => {
                 <FormLabel>Billing Cycle</FormLabel>
                 <Select
                   value={subscriptionData.billing_cycle}
-                  onChange={(e) => setSubscriptionData({ ...subscriptionData, billing_cycle: e.target.value })}
+                  onChange={(e) =>
+                    setSubscriptionData({
+                      ...subscriptionData,
+                      billing_cycle: e.target.value as BillingCycle,
+                    })
+                  }
                 >
                   <option value="monthly">Monthly</option>
                   <option value="yearly">Yearly</option>

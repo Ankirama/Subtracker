@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { BillingCycle } from '../types'
 
 export type ConfidenceBucket = 'auto_saved' | 'pending_review'
 export type UpdateType = 'price_change' | 'cancellation_detected'
@@ -9,7 +10,7 @@ export interface NewSubscriptionPreview {
   custom_label: string | null
   amount: number | null
   currency: string
-  billing_cycle: string
+  billing_cycle: BillingCycle
   category: string | null
   confidence_bucket: ConfidenceBucket
   source_email_subject: string | null

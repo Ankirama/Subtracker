@@ -145,6 +145,18 @@ export interface LanguagePreferenceResponse {
 }
 
 // Subscription types
+
+// Mirrors backend Pydantic Literal in app/schemas/subscription.py.
+// "none" is preserved as-is (legacy unknown value); "biannual" = every 6 months.
+export type BillingCycle =
+  | 'monthly'
+  | 'yearly'
+  | 'weekly'
+  | 'quarterly'
+  | 'biannual'
+  | 'one-time'
+  | 'none'
+
 export interface Subscription {
   id: string
   user_id: string
@@ -153,7 +165,7 @@ export interface Subscription {
   email_sender: string | null
   amount: number | null
   currency: string
-  billing_cycle: string
+  billing_cycle: BillingCycle
   renewal_date: string | null
   next_renewal_date: string | null  // Computed next future renewal date
   next_billing_date: string | null
@@ -212,7 +224,7 @@ export interface SubscriptionCreate {
   provider: string
   amount?: number | null
   currency?: string
-  billing_cycle: string
+  billing_cycle: BillingCycle
   renewal_date?: string | null
   category?: string
   custom_label?: string | null
@@ -223,7 +235,7 @@ export interface SubscriptionUpdate {
   provider?: string
   amount?: number | null
   currency?: string
-  billing_cycle?: string
+  billing_cycle?: BillingCycle
   renewal_date?: string | null
   is_active?: boolean
   category?: string
@@ -379,7 +391,7 @@ export interface ExtractionTestResponse {
   provider: string | null
   amount: number | null
   currency: string | null
-  billing_cycle: string | null
+  billing_cycle: BillingCycle | null
   renewal_date: string | null
   custom_label: string | null
   category: string
@@ -428,7 +440,7 @@ export interface ManualSubscriptionCreate {
   provider: string
   amount?: number | null
   currency?: string | null
-  billing_cycle?: string | null
+  billing_cycle?: BillingCycle | null
   renewal_date?: string | null
   custom_label?: string | null
   category?: string
@@ -521,7 +533,7 @@ export interface ReviewSuggestion {
   provider: string
   amount: number | null
   currency: string
-  billing_cycle: string
+  billing_cycle: BillingCycle
   reason: ReviewSuggestionReason
   priority: 'critical' | 'high' | 'medium' | 'low'
   message: string

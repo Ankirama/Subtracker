@@ -15,38 +15,66 @@ The authentication system provides secure user registration, login, and token-ba
 
 ```
 Security Layer
-├── password.py         # bcrypt password hashing and verification
-├── jwt.py              # JWT token creation and verification
-├── encryption.py       # Fernet credential encryption
-└── dependencies.py     # FastAPI authentication dependencies
+├── password.py             # bcrypt password hashing and verification
+├── jwt.py                  # JWT token creation and verification
+├── encryption.py           # Fernet credential encryption
+├── two_factor.py           # TOTP / Email-OTP / backup codes facade
+├── email_verification.py   # Email-verification token + rate limiter
+├── events.py               # Security event logger (failed logins, …)
+└── dependencies.py         # FastAPI authentication dependencies
 
 API Layer
-└── api/auth.py         # Authentication endpoints
+└── api/auth/               # Auth router package (Phase 7 split)
+    ├── router.py           # Aggregate APIRouter (mounts the four sub-routers)
+    ├── registration.py     # POST /register, /verify-email, /resend-verification
+    ├── login.py            # POST /login, /refresh, /logout · GET /me
+    ├── two_factor.py       # 6 routes under /2fa/*
+    ├── account.py          # /me/profile, /me/password, /me/preferences,
+    │                       # GET+PATCH /me/language, DELETE /me
+    └── _email_dispatch.py  # Internal helper for verification + 2FA emails
 
 Schemas
-└── schemas/auth.py     # Pydantic models for validation
+└── schemas/auth.py         # Pydantic models for validation
 
 Models
-└── models/user.py      # SQLAlchemy User model
+└── models/user.py          # SQLAlchemy User model
 ```
 
 ### Security Flow
 
 ```
-Registration:
-User submits email + password
+Registration (email-verified):
+User submits email + password (+ optional invite_token)
 → Validate password strength (8+ chars, letter + digit)
+→ Validate invite token if REQUIRE_INVITE_TOKEN
 → Hash password with bcrypt
-→ Store user with hash + salt
-→ Generate JWT tokens
+→ Store user with email_verified=False
+→ Send verification email with token
+→ Return { message, email }   ← no tokens yet
+
+Email verification:
+User clicks verification link
+→ Look up token, check expiry + brute-force lockout
+→ Mark email_verified=True, clear token
+→ Issue access + refresh JWTs (auto-login)
 → Return tokens + user info
 
-Login:
+Login (no 2FA):
 User submits email + password
-→ Fetch user by email
+→ Brute-force gate (≥5 failed → 429 for 15 min)
 → Verify password with bcrypt
-→ Generate JWT tokens
+→ Reject if email not verified or account inactive
+→ Issue access + refresh JWTs
 → Return tokens + user info
+
+Login (2FA enabled):
+User submits email + password
+→ … same gates as above …
+→ If 2FA = email: send OTP and return TwoFactorRequiredResponse(method=email)
+→ If 2FA = TOTP: return TwoFactorRequiredResponse(method=totp)
+→ Client calls POST /2fa/verify-login with email + code
+→ TwoFactorAuth.verify_two_factor (TOTP / email-OTP / backup code)
+→ Issue access + refresh JWTs
 
 Protected Route Access:
 Client sends request with Bearer token
@@ -59,141 +87,175 @@ Client sends request with Bearer token
 
 ## API Endpoints
 
-### POST /api/auth/register
+The 19 endpoints below are mounted under the `/api/auth` prefix and split across four modules. The interactive OpenAPI schema at `http://localhost:8000/docs` is the source of truth for request/response shapes — the tables here summarise the contract.
 
-Register a new user account.
+| Method | Path                              | Auth | Module          | Purpose |
+|--------|-----------------------------------|------|-----------------|---------|
+| POST   | `/register`                       | —    | registration.py | Create unverified user, send verification email |
+| POST   | `/verify-email`                   | —    | registration.py | Verify token, auto-login (returns tokens) |
+| POST   | `/resend-verification`            | —    | registration.py | Resend verification email (rate-limited) |
+| POST   | `/login`                          | —    | login.py        | Credentials + 2FA challenge dispatch |
+| POST   | `/refresh`                        | —    | login.py        | Rotate access token from refresh token |
+| GET    | `/me`                             | ✓    | login.py        | Current authenticated user |
+| POST   | `/logout`                         | ✓    | login.py        | Log a logout event (JWT is stateless) |
+| POST   | `/2fa/verify-login`               | —    | two_factor.py   | Complete login with 2FA code |
+| POST   | `/2fa/setup`                      | ✓    | two_factor.py   | Start 2FA setup (TOTP or email) |
+| POST   | `/2fa/enable`                     | ✓    | two_factor.py   | Confirm setup, enable 2FA, return backup codes |
+| POST   | `/2fa/disable`                    | ✓    | two_factor.py   | Disable 2FA (password-confirmed) |
+| GET    | `/2fa/status`                     | ✓    | two_factor.py   | Current 2FA status for user |
+| POST   | `/2fa/backup-codes/regenerate`    | ✓    | two_factor.py   | Replace existing backup codes |
+| PUT    | `/me/profile`                     | ✓    | account.py      | Update display_name and/or email |
+| PUT    | `/me/password`                    | ✓    | account.py      | Change password (current password required) |
+| PUT    | `/me/preferences`                 | ✓    | account.py      | Merge UI preferences into `User.settings` |
+| GET    | `/me/language`                    | ✓    | account.py      | Read `User.preferred_language` |
+| PATCH  | `/me/language`                    | ✓    | account.py      | Set `User.preferred_language` (or null) |
+| DELETE | `/me`                             | ✓    | account.py      | Delete account (password + confirm flag) |
+
+### Registration & email verification
+
+#### POST /api/auth/register
+
+Register a new user. The user is created with `email_verified=False` and a verification email is dispatched. **No tokens are issued at this stage** — the client must complete `/verify-email` first.
 
 **Request:**
 ```json
 {
   "email": "user@example.com",
-  "password": "SecurePass123"
+  "password": "SecurePass123",
+  "display_name": "Optional",
+  "invite_token": "optional-when-REQUIRE_INVITE_TOKEN"
 }
 ```
 
-**Password Requirements:**
-- Minimum 8 characters
-- At least one letter
-- At least one digit
+**Password requirements:** ≥ 8 characters, at least one letter, at least one digit.
 
-**Response (201 Created):**
+**Response (201 Created)** — `EmailVerificationResponse`:
 ```json
 {
-  "access_token": "eyJhbGc...",
-  "refresh_token": "eyJhbGc...",
-  "token_type": "bearer",
-  "user": {
-    "id": "uuid-here",
-    "email": "user@example.com",
-    "is_active": true,
-    "created_at": "2024-01-15T10:30:00Z",
-    "updated_at": "2024-01-15T10:30:00Z"
-  }
+  "message": "Registration successful! Please check your email to verify your account.",
+  "email": "user@example.com"
 }
 ```
 
 **Errors:**
-- 400: Email already registered
+- 400: Email already registered (or unverified account already exists), invalid/used/expired invite token
 - 422: Validation error (weak password, invalid email)
 
-<!-- duplicates the above; reconcile manually -->
-TECHNICAL_SPEC.md showed an alternative register response that returns `id`, `email`, `access_token`, `refresh_token`, `token_type` flat (without a nested `user` object). The version above (with nested `user`) matches the actual code under `backend/app/security/` and `backend/app/api/auth.py`; the flat shape is deprecated.
+#### POST /api/auth/verify-email
 
-### POST /api/auth/login
-
-Login to existing account.
+Consume a verification token and auto-login.
 
 **Request:**
 ```json
-{
-  "email": "user@example.com",
-  "password": "SecurePass123"
-}
+{ "token": "<32+ char token from email>" }
 ```
 
-**Response (200 OK):**
-```json
-{
-  "access_token": "eyJhbGc...",
-  "refresh_token": "eyJhbGc...",
-  "token_type": "bearer",
-  "user": {
-    "id": "uuid-here",
-    "email": "user@example.com",
-    "is_active": true,
-    "created_at": "2024-01-15T10:30:00Z",
-    "updated_at": "2024-01-15T10:30:00Z"
-  }
-}
-```
+**Response (200 OK)** — `TokenResponse` (access + refresh + user).
 
-**Errors:**
-- 401: Invalid credentials
-- 403: Account inactive
+**Errors:** 400 (invalid/expired/used token) · 429 (IP brute-force lockout).
 
-### POST /api/auth/refresh
+#### POST /api/auth/resend-verification
 
-Refresh access token using refresh token.
+**Request:** `{ "email": "user@example.com" }` · **Response:** `EmailVerificationResponse`. Rate-limited to 12/hour per email; IP brute-force lockout applies. Returns a generic "if an account exists…" message when the email is unknown (no enumeration leak).
+
+### Login, refresh, session
+
+#### POST /api/auth/login
+
+Verifies credentials and either issues tokens or returns a 2FA challenge.
+
+**Request:** `{ "email": "...", "password": "..." }`
+
+**Response (200 OK)** — depends on 2FA state:
+- 2FA disabled → `TokenResponse` (access + refresh + user)
+- 2FA enabled  → `TwoFactorRequiredResponse`:
+  ```json
+  { "requires_2fa": true, "method": "totp" | "email", "message": "..." }
+  ```
+
+**Errors:** 401 (invalid credentials) · 403 (email not verified, account inactive) · 429 (≥ 5 failed attempts in 15 min).
+
+#### POST /api/auth/refresh
+
+**Request:** `{ "refresh_token": "..." }` · **Response:** `{ "access_token": "...", "token_type": "bearer" }` · **Errors:** 401 (invalid token, wrong type, user not found/inactive).
+
+#### GET /api/auth/me
+
+Returns the current authenticated user (`UserResponse`). Errors: 401 (invalid/expired token) · 403 (account inactive).
+
+#### POST /api/auth/logout
+
+Logs a logout event. JWTs are stateless; actual logout is client-side token deletion. Response: `{ "message": "Successfully logged out" }`.
+
+### Two-factor authentication
+
+#### POST /api/auth/2fa/verify-login
+
+Completes a login that returned `TwoFactorRequiredResponse`.
 
 **Request:**
 ```json
-{
-  "refresh_token": "eyJhbGc..."
-}
+{ "email": "user@example.com", "code": "123456", "is_backup_code": false }
 ```
 
-**Response (200 OK):**
+**Response (200 OK):** `TokenResponse`. Errors: 400 (2FA not enabled), 401 (invalid code).
+
+#### POST /api/auth/2fa/setup
+
+**Auth required.** Body: `{ "method": "totp" | "email" }`. Returns:
+- TOTP → `{ method: "totp", secret, qr_code, message }` (client must scan + call `/2fa/enable`).
+- Email → sends OTP, returns `{ method: "email", message }`.
+
+#### POST /api/auth/2fa/enable
+
+**Auth required.** Confirms setup and stores backup codes.
+
+**Request:**
 ```json
-{
-  "access_token": "eyJhbGc...",
-  "token_type": "bearer"
-}
+{ "method": "totp" | "email", "secret": "<TOTP secret, required for totp>", "verification_code": "123456" }
 ```
 
-**Errors:**
-- 401: Invalid or expired refresh token
+**Response:** `{ success, message, backup_codes: [...] }` (codes shown once).
 
-### GET /api/auth/me
+#### POST /api/auth/2fa/disable
 
-Get current authenticated user information.
+**Auth required.** Body: `{ "password": "..." }`. Returns `{ success, message }`. Errors: 400 (2FA not enabled), 401 (wrong password).
 
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
+#### GET /api/auth/2fa/status
 
-**Response (200 OK):**
-```json
-{
-  "id": "uuid-here",
-  "email": "user@example.com",
-  "is_active": true,
-  "created_at": "2024-01-15T10:30:00Z",
-  "updated_at": "2024-01-15T10:30:00Z"
-}
-```
+**Auth required.** Returns `{ enabled, method, backup_codes_remaining }`.
 
-**Errors:**
-- 401: Invalid or expired token
-- 403: Account inactive
+#### POST /api/auth/2fa/backup-codes/regenerate
 
-### POST /api/auth/logout
+**Auth required.** Replaces existing backup codes. Returns `{ success, message, backup_codes: [...] }`. Errors: 400 (2FA not enabled).
 
-Logout (client-side token deletion).
+### Account management
 
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
+#### PUT /api/auth/me/profile
 
-**Response (200 OK):**
-```json
-{
-  "message": "Successfully logged out"
-}
-```
+**Auth required.** Body: `{ "display_name"?: "...", "email"?: "..." }`. Updating the email sets `email_verified=False`. Returns the updated `UserResponse`. Errors: 400 (new email already registered).
 
-**Note:** JWT tokens are stateless. Actual logout is handled client-side by deleting tokens.
+#### PUT /api/auth/me/password
+
+**Auth required.** Body: `{ "current_password": "...", "new_password": "..." }`. Same strength rules as registration. Errors: 400 (wrong current password, weak new password).
+
+#### PUT /api/auth/me/preferences
+
+**Auth required.** Merges into `User.settings` JSONB. Body fields (all optional): `theme` (`light|dark|system`), `language` (`xx` or `xx-XX`), `currency` (3-letter ISO), `date_format`, `timezone`. Returns `{ message, preferences }`.
+
+> **Note:** `language` written here lives in `settings.language`; the dedicated `/me/language` endpoints (below) target the first-class `User.preferred_language` column. The two are intentionally kept distinct — see `audits/` §C.2.
+
+#### GET /api/auth/me/language
+
+**Auth required.** Returns `{ preferred_language: "en" | "fr" | null, message }`.
+
+#### PATCH /api/auth/me/language
+
+**Auth required.** Body: `{ "language": "en" | "fr" | null }` (null = browser detection). Errors: 422 (unsupported code).
+
+#### DELETE /api/auth/me
+
+**Auth required.** Body: `{ "password": "...", "confirm": true }`. Cascading delete via SQLAlchemy `cascade="all, delete-orphan"` on the user's mailboxes, subscriptions, etc. Errors: 400 (wrong password, confirm not set).
 
 ## JWT Tokens
 
@@ -563,7 +625,7 @@ ENCRYPTION_KEY=your-fernet-key-here  # Generate with Python script
 - JWT_SECRET_KEY might have changed
 - Token signature verification failed
 
-**Import errors in auth.py**
+**Import errors in app/api/auth/**
 - Ensure all dependencies installed: `pip install -r requirements.txt`
 - Check Python path includes app directory
 - Verify all `__init__.py` files exist
