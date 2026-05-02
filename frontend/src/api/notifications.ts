@@ -1,21 +1,26 @@
 import apiClient from './client'
+import type { BillingCycle } from '../types'
+
+export type NotificationType =
+  | 'TRIAL_ENDING'
+  | 'RENEWAL_REMINDER'
+  | 'WEEKLY_SUMMARY'
+  | 'MONTHLY_SUMMARY'
+  | 'INACTIVE_SUBSCRIPTION'
+  | 'PRICE_CHANGE'
+  | 'BUDGET_ALERT'
+  | 'SYSTEM_ANNOUNCEMENT'
+  | 'SYNC_SKIPPED_MANY'
+  | 'SYNC_CIRCUIT_BREAKER'
+  | 'SYNC_PREVIEW_AVAILABLE'
+
+export type NotificationPriorityValue = 'low' | 'medium' | 'high'
 
 export interface Notification {
   id: string
   user_id: string
-  type:
-    | 'TRIAL_ENDING'
-    | 'RENEWAL_REMINDER'
-    | 'WEEKLY_SUMMARY'
-    | 'MONTHLY_SUMMARY'
-    | 'INACTIVE_SUBSCRIPTION'
-    | 'PRICE_CHANGE'
-    | 'BUDGET_ALERT'
-    | 'SYSTEM_ANNOUNCEMENT'
-    | 'SYNC_SKIPPED_MANY'
-    | 'SYNC_CIRCUIT_BREAKER'
-    | 'SYNC_PREVIEW_AVAILABLE'
-  priority: 'low' | 'medium' | 'high'
+  type: NotificationType
+  priority: NotificationPriorityValue
   title: string
   message: string
   related_subscription_id?: string
@@ -40,7 +45,7 @@ export interface NotificationListResponse {
 export interface NotificationPreference {
   id: string
   user_id: string
-  notification_type: string
+  notification_type: NotificationType
   enabled: boolean
   in_app_enabled: boolean
   email_enabled: boolean
@@ -63,7 +68,7 @@ export const notificationsApi = {
     page?: number
     page_size?: number
     unread_only?: boolean
-    notification_type?: string
+    notification_type?: NotificationType
   }): Promise<NotificationListResponse> {
     const response = await apiClient.get('/notifications', { params })
     return response.data
@@ -115,7 +120,7 @@ export const notificationsApi = {
    * Update a notification preference
    */
   async updatePreference(
-    notificationType: string,
+    notificationType: NotificationType,
     updates: {
       enabled?: boolean
       in_app_enabled?: boolean
@@ -137,7 +142,7 @@ export const notificationsApi = {
     provider: string
     amount: number
     currency: string
-    billing_cycle: string
+    billing_cycle: BillingCycle
     renewal_date: string
     days_until_renewal: number
   }>> {

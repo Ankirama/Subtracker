@@ -29,11 +29,18 @@ import {
 import {
   notificationsApi,
   NotificationPreference,
+  NotificationType,
 } from '../../api/notifications'
 import { FiBell, FiMail, FiCheck } from 'react-icons/fi'
 import { PushNotificationSettings } from './PushNotificationSettings'
 
-const NOTIFICATION_TYPES = [
+const NOTIFICATION_TYPES: Array<{
+  type: NotificationType
+  label: string
+  description: string
+  icon: string
+  hasSettings: boolean
+}> = [
   {
     type: 'TRIAL_ENDING',
     label: 'Trial Ending Reminders',
@@ -129,7 +136,7 @@ export const NotificationSettingsPage = () => {
   }
 
   const updatePreference = async (
-    notificationType: string,
+    notificationType: NotificationType,
     updates: Partial<NotificationPreference>
   ) => {
     try {
