@@ -297,7 +297,9 @@ def sync_mailbox_emails(
         mailbox.last_sync_history_id = history_entry.id
 
         # Notification: sync produced new or updated subscriptions (success path only).
-        if result["success"]:
+        # Skip the COUNT queries entirely when the run found 0 new emails — there
+        # is nothing to notify about and no point paying for two scans.
+        if result["success"] and new_emails_count > 0:
             from app.models.price_history import PriceHistory
             from app.models.subscription import Subscription
             from app.services.sync_notification_service import (
@@ -315,14 +317,18 @@ def sync_mailbox_emails(
                 .scalar()
             ) or 0
             if new_subs_count + updated_subs_count > 0:
-                notify_sync_preview_available(
-                    db,
-                    user_id=mailbox.user_id,
-                    mailbox_id=mailbox.id,
-                    sync_history_id=history_entry.id,
-                    new_count=new_subs_count,
-                    updated_count=updated_subs_count,
-                )
+                try:
+                    notify_sync_preview_available(
+                        db,
+                        user_id=mailbox.user_id,
+                        mailbox_id=mailbox.id,
+                        sync_history_id=history_entry.id,
+                        new_count=new_subs_count,
+                        updated_count=updated_subs_count,
+                    )
+                except Exception:
+                    # Notification failure must not crash the sync handler.
+                    logger.exception("Failed to send sync-preview notification")
 
         db.commit()
 
