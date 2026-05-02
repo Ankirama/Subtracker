@@ -296,6 +296,34 @@ def sync_mailbox_emails(
         history_entry.new_emails_count = new_emails_count
         mailbox.last_sync_history_id = history_entry.id
 
+        # Notification: sync produced new or updated subscriptions (success path only).
+        if result["success"]:
+            from app.models.price_history import PriceHistory
+            from app.models.subscription import Subscription
+            from app.services.sync_notification_service import (
+                notify_sync_preview_available,
+            )
+
+            new_subs_count = (
+                db.query(func.count(Subscription.id))
+                .filter(Subscription.discovered_via_sync_history_id == history_entry.id)
+                .scalar()
+            ) or 0
+            updated_subs_count = (
+                db.query(func.count(PriceHistory.id))
+                .filter(PriceHistory.sync_history_id == history_entry.id)
+                .scalar()
+            ) or 0
+            if new_subs_count + updated_subs_count > 0:
+                notify_sync_preview_available(
+                    db,
+                    user_id=mailbox.user_id,
+                    mailbox_id=mailbox.id,
+                    sync_history_id=history_entry.id,
+                    new_count=new_subs_count,
+                    updated_count=updated_subs_count,
+                )
+
         db.commit()
 
         result.update(

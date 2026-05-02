@@ -10,6 +10,7 @@ sufficient signal.
 
 import logging
 from typing import Optional
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -44,6 +45,33 @@ def notify_sync_skipped_many(
             "mailbox_id": str(mailbox.id),
             "skipped_count": skipped_count,
             "deeplink": f"/mailboxes/{mailbox.id}/sync-errors",
+        },
+    )
+    db.add(notif)
+    db.commit()
+    return notif
+
+
+def notify_sync_preview_available(
+    db: Session,
+    user_id: UUID,
+    mailbox_id: UUID,
+    sync_history_id: UUID,
+    new_count: int,
+    updated_count: int,
+) -> Notification:
+    """Create a low-priority notification when a sync produced new or updated subscriptions."""
+    notif = Notification(
+        user_id=user_id,
+        type=NotificationType.SYNC_PREVIEW_AVAILABLE,
+        priority=NotificationPriority.LOW,
+        title="Sync preview ready",
+        message=f"{new_count} new, {updated_count} updated",
+        notification_metadata={
+            "sync_history_id": str(sync_history_id),
+            "mailbox_id": str(mailbox_id),
+            "new_count": new_count,
+            "updated_count": updated_count,
         },
     )
     db.add(notif)
