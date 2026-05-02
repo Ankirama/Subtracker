@@ -156,20 +156,22 @@ export const NotificationBell = () => {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'trial_ending':
+      case 'TRIAL_ENDING':
         return '⚠️'
-      case 'renewal_reminder':
+      case 'RENEWAL_REMINDER':
         return '🔔'
-      case 'weekly_summary':
+      case 'WEEKLY_SUMMARY':
         return '📊'
-      case 'monthly_summary':
+      case 'MONTHLY_SUMMARY':
         return '📈'
-      case 'inactive_subscription':
+      case 'INACTIVE_SUBSCRIPTION':
         return '⏸️'
-      case 'price_change':
+      case 'PRICE_CHANGE':
         return '💰'
-      case 'system_announcement':
+      case 'SYSTEM_ANNOUNCEMENT':
         return '📢'
+      case 'SYNC_PREVIEW_AVAILABLE':
+        return '🔍'
       default:
         return '📬'
     }
