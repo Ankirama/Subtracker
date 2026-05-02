@@ -62,6 +62,11 @@ class Mailbox(Base):
     last_sync_oldest_email_date = Column(DateTime(timezone=True), nullable=True)
     last_sync_newest_email_date = Column(DateTime(timezone=True), nullable=True)
     last_sync_new_emails_count = Column(Integer, nullable=True)
+    last_sync_history_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sync_history.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Sync resume capability (Issue #7)
     last_sync_started_at = Column(
@@ -130,7 +135,10 @@ class Mailbox(Base):
         "EmailMessage", back_populates="mailbox", cascade="all, delete-orphan"
     )
     sync_history = relationship(
-        "SyncHistory", back_populates="mailbox", cascade="all, delete-orphan"
+        "SyncHistory",
+        back_populates="mailbox",
+        cascade="all, delete-orphan",
+        foreign_keys="SyncHistory.mailbox_id",
     )
     sync_errors = relationship(
         "EmailSyncError", back_populates="mailbox", cascade="all, delete-orphan"

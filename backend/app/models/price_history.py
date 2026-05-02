@@ -28,6 +28,13 @@ class PriceHistory(Base):
         index=True,
     )
 
+    sync_history_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("sync_history.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     # Price change details
     old_amount = Column(
         Numeric(10, 2), nullable=True
