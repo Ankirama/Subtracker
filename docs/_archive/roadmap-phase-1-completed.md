@@ -198,4 +198,26 @@
 
 ---
 
-*Archived from ROADMAP.md on 2026-04-25*
+## Sync Date Range Visibility 📅
+
+**Status:** ✅ Complete
+**Priority:** Medium
+**Completed:** 2026-05-02
+
+After a sync run, the oldest and newest email dates that were processed are surfaced so the user can confirm the expected window was covered.
+
+**Features:**
+- ✅ `oldest_email_date` and `newest_email_date` tracked on each `sync_history` row, computed during the persistence stage from the `email_messages` rows touched by the run.
+- ✅ Mirrored to `mailboxes.last_sync_oldest_email_date` / `last_sync_newest_email_date` for quick lookup on the mailbox card.
+- ✅ Displayed on the mailbox card on `MailboxesPage` as `Last Run Range: <oldest> → <newest>`, conditional on both dates being present.
+- ✅ Heading translated (en + fr) via `common.json:mailboxes.lastRunRange`.
+
+**Technical Requirements:**
+- ✅ Migration `m2m2m2m2m2m2_add_sync_email_date_range`: two nullable `TIMESTAMPTZ` columns on `sync_history`, two on `mailboxes`. Defaults null; existing rows stay null, new rows backfill naturally.
+- ✅ Persistence: populated in `tasks/email_sync/celery_tasks.py:285-295`.
+- ✅ API: exposed on `MailboxResponse.last_sync_oldest_email_date` / `last_sync_newest_email_date` (`schemas/mailbox.py:90-91`).
+- ✅ Frontend: `MailboxesPage.tsx:527-538` renders the range; types in `frontend/src/types/index.ts:313-314`.
+
+---
+
+*Archived from ROADMAP.md on 2026-04-25; Sync Date Range Visibility added 2026-05-02*

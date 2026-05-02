@@ -36,25 +36,6 @@ When a sync completes and creates new subscriptions, surface them in a modal/pan
 
 ---
 
-### Sync Date Range Visibility 📅
-
-**Priority:** Medium
-**Estimated Effort:** Small
-
-After a sync run, surface the oldest and newest email dates that were processed, so the user can confirm the expected window was covered — especially after changing `import_date_filter`, after a force-resync, or when investigating "did we miss old emails?".
-
-**Features:**
-- [ ] Track `oldest_email_date` and `newest_email_date` on each sync run (computed during the per-batch persistence stage from the `email_messages` rows produced/updated by that run)
-- [ ] Display on the mailbox card next to the "last synced at" line: "covers `<oldest>` → `<newest>`"
-- [ ] Display on the sync history detail row (per-run breakdown) when that view exists
-
-**Technical Requirements:**
-- Backend: two nullable `TIMESTAMPTZ` columns on `sync_history` (Alembic migration, defaults null), populated during the persistence stage; expose them in `MailboxResponse.last_sync_*` (mirroring the existing `last_sync_emails_processed` pattern)
-- Frontend: small surface change on `MailboxesPage` / `MailboxCard` and any future sync history detail view; locale strings for both en + fr
-- No migration risk: existing rows stay null, new rows backfill naturally
-
----
-
 ### Fastmail OAuth Integration 📨
 
 **Priority:** Medium
@@ -103,7 +84,7 @@ Currently Fastmail users must generate an API/app-password manually and paste it
 
 ### Cancellation Workflows ✂️
 
-**Status:** 🚀 In Progress (Starting Phase 1)
+**Status:** Planned (queued — Phase 1 not yet started)
 **Priority:** High (User-requested killer feature)
 **Estimated Effort:** Large (8 phases)
 
@@ -288,7 +269,7 @@ See detailed plan: `backend/claudedocs/cancellation_workflows_implementation_pla
 
 ## 🐛 Known Bugs
 
-- [ ] **Add Mailbox test connection: green toast on backend-reported failure** — `frontend/src/components/mailboxes/AddMailboxModal.tsx:109-120`. The `testConnectionMutation.onSuccess` callback fires on any HTTP 200, but the `/api/mailboxes/test` endpoint returns 200 with `{success: false, message: "..."}` when the provider rejects the credentials. Result: the user sees a green "Connection test successful — JMAP server credentials are valid" toast even though the inline panel below shows "Failed", and `connectionTested` is set to true so Save becomes clickable. Fix: branch the toast and `setConnectionTested` on `data.success` inside `onSuccess`.
+*No known bugs at the moment.*
 
 ---
 
@@ -302,4 +283,4 @@ See detailed plan: `backend/claudedocs/cancellation_workflows_implementation_pla
 
 ---
 
-*Last Updated: 2026-04-30 (added: sync date range visibility)*
+*Last Updated: 2026-05-02 (sync with reality: shipped sync date range visibility, fixed AddMailboxModal toast bug, corrected Cancellation Workflows status)*
