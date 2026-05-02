@@ -19,6 +19,7 @@ from sqlalchemy.orm import relationship
 import uuid
 
 from app.database import Base
+from app.models.sync_history import SyncHistory
 
 
 class Mailbox(Base):
@@ -138,7 +139,7 @@ class Mailbox(Base):
         "SyncHistory",
         back_populates="mailbox",
         cascade="all, delete-orphan",
-        foreign_keys="SyncHistory.mailbox_id",
+        foreign_keys=[SyncHistory.mailbox_id],
     )
     sync_errors = relationship(
         "EmailSyncError", back_populates="mailbox", cascade="all, delete-orphan"

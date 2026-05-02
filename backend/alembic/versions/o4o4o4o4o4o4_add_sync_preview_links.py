@@ -58,7 +58,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("mailboxes", "last_sync_history_id")
-    op.drop_index("ix_price_history_sync_history_id", "price_history")
+    op.drop_index("ix_price_history_sync_history_id", table_name="price_history")
     op.drop_column("price_history", "sync_history_id")
-    op.drop_index("ix_subscriptions_discovered_via_sync_history_id", "subscriptions")
+    op.drop_index(
+        "ix_subscriptions_discovered_via_sync_history_id", table_name="subscriptions"
+    )
     op.drop_column("subscriptions", "discovered_via_sync_history_id")
