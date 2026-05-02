@@ -1,11 +1,12 @@
 import apiClient from './client'
+import type { BudgetPeriod } from '../constants/enums'
 
 export interface Budget {
   id: string
   user_id: string
   name: string
   category: string | null
-  period: 'monthly' | 'quarterly' | 'yearly'
+  period: BudgetPeriod
   limit_amount: number
   currency: string
   alert_threshold: number
@@ -40,7 +41,7 @@ export interface BudgetAlert {
 export interface BudgetCreate {
   name: string
   category?: string | null
-  period: 'monthly' | 'quarterly' | 'yearly'
+  period: BudgetPeriod
   limit_amount: number
   currency?: string
   alert_threshold?: number
@@ -50,7 +51,7 @@ export interface BudgetCreate {
 export interface BudgetUpdate {
   name?: string
   category?: string | null
-  period?: 'monthly' | 'quarterly' | 'yearly'
+  period?: BudgetPeriod
   limit_amount?: number
   currency?: string
   alert_threshold?: number

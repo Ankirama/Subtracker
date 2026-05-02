@@ -25,6 +25,7 @@ import {
 } from '@chakra-ui/react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { budgetsAPI, Budget, BudgetCreate, BudgetUpdate } from '../../api/budgets'
+import { BUDGET_PERIOD_OPTIONS, BudgetPeriod } from '../../constants/enums'
 
 interface BudgetModalProps {
   isOpen: boolean
@@ -209,13 +210,15 @@ export const BudgetModal = ({ isOpen, onClose, budget }: BudgetModalProps) => {
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    period: e.target.value as 'monthly' | 'quarterly' | 'yearly',
+                    period: e.target.value as BudgetPeriod,
                   })
                 }
               >
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="yearly">Yearly</option>
+                {BUDGET_PERIOD_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </Select>
             </FormControl>
 

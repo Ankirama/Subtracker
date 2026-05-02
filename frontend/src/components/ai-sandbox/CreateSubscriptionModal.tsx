@@ -19,6 +19,16 @@ import {
 } from '@chakra-ui/react'
 
 import type { BillingCycle, EmailDetailResponse, ManualSubscriptionCreate } from '../../types'
+import { BILLING_CYCLE_OPTIONS, CURRENCIES } from '../../constants/enums'
+
+const SUPPORTED_BILLING_CYCLES = ['monthly', 'yearly', 'weekly'] as const
+const BILLING_CYCLE_CHOICES = BILLING_CYCLE_OPTIONS.filter((o) =>
+  (SUPPORTED_BILLING_CYCLES as readonly string[]).includes(o.value),
+)
+const SUPPORTED_CURRENCY_CODES = ['EUR', 'USD', 'GBP'] as const
+const CURRENCY_CHOICES = CURRENCIES.filter((c) =>
+  (SUPPORTED_CURRENCY_CODES as readonly string[]).includes(c.code),
+)
 
 interface CreateSubscriptionModalProps {
   email: EmailDetailResponse | null
@@ -125,9 +135,11 @@ export const CreateSubscriptionModal = ({
                   value={formData.currency}
                   onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
                 >
-                  <option value="EUR">EUR</option>
-                  <option value="USD">USD</option>
-                  <option value="GBP">GBP</option>
+                  {CURRENCY_CHOICES.map(({ code }) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
                 </Select>
               </FormControl>
             </HStack>
@@ -140,9 +152,11 @@ export const CreateSubscriptionModal = ({
                   setFormData({ ...formData, billing_cycle: e.target.value as BillingCycle })
                 }
               >
-                <option value="monthly">Monthly</option>
-                <option value="yearly">Yearly</option>
-                <option value="weekly">Weekly</option>
+                {BILLING_CYCLE_CHOICES.map(({ value, label }) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
               </Select>
             </FormControl>
 

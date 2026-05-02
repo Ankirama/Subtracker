@@ -17,6 +17,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { authAPI } from '../../api/auth'
 import type { UserPreferencesUpdate } from '../../types'
 import { LanguageSwitcher } from '../common/LanguageSwitcher'
+import { CURRENCIES } from '../../constants/enums'
 
 export function PreferencesTab() {
   const toast = useToast()
@@ -122,12 +123,11 @@ export function PreferencesTab() {
             <FormControl>
               <FormLabel>Currency</FormLabel>
               <Select value={currency} onChange={(e) => setCurrency(e.target.value)}>
-                <option value="USD">USD - US Dollar</option>
-                <option value="EUR">EUR - Euro</option>
-                <option value="GBP">GBP - British Pound</option>
-                <option value="JPY">JPY - Japanese Yen</option>
-                <option value="CAD">CAD - Canadian Dollar</option>
-                <option value="AUD">AUD - Australian Dollar</option>
+                {CURRENCIES.map(({ code, name }) => (
+                  <option key={code} value={code}>
+                    {code} - {name}
+                  </option>
+                ))}
               </Select>
             </FormControl>
 

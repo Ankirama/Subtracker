@@ -33,61 +33,54 @@ import {
 } from '../../api/notifications'
 import { FiBell, FiMail, FiCheck } from 'react-icons/fi'
 import { PushNotificationSettings } from './PushNotificationSettings'
+import { NOTIFICATION_TYPE_ICONS } from '../../constants/enums'
 
 const NOTIFICATION_TYPES: Array<{
   type: NotificationType
   label: string
   description: string
-  icon: string
   hasSettings: boolean
 }> = [
   {
     type: 'TRIAL_ENDING',
     label: 'Trial Ending Reminders',
     description: 'Get notified before free trials end to avoid charges',
-    icon: '⚠️',
     hasSettings: false,
   },
   {
     type: 'RENEWAL_REMINDER',
     label: 'Renewal Reminders',
     description: 'Get notified before your subscriptions renew',
-    icon: '🔔',
     hasSettings: true,
   },
   {
     type: 'WEEKLY_SUMMARY',
     label: 'Weekly Summary',
     description: 'Weekly overview of your subscription spending',
-    icon: '📊',
     hasSettings: true,
   },
   {
     type: 'MONTHLY_SUMMARY',
     label: 'Monthly Summary',
     description: 'Monthly spending report and insights',
-    icon: '📈',
     hasSettings: true,
   },
   {
     type: 'INACTIVE_SUBSCRIPTION',
     label: 'Inactive Subscriptions',
     description: 'Alert when subscriptions appear inactive',
-    icon: '⏸️',
     hasSettings: false,
   },
   {
     type: 'PRICE_CHANGE',
     label: 'Price Changes',
     description: 'Notify when subscription prices change',
-    icon: '💰',
     hasSettings: false,
   },
   {
     type: 'SYSTEM_ANNOUNCEMENT',
     label: 'System Announcements',
     description: 'Important updates and announcements',
-    icon: '📢',
     hasSettings: false,
   },
 ]
@@ -205,7 +198,7 @@ export const NotificationSettingsPage = () => {
                 <CardHeader pb={2}>
                   <HStack justify="space-between">
                     <HStack spacing={3}>
-                      <Text fontSize="2xl">{notifType.icon}</Text>
+                      <Text fontSize="2xl">{NOTIFICATION_TYPE_ICONS[notifType.type]}</Text>
                       <Box>
                         <Text fontWeight="bold">{notifType.label}</Text>
                         <Text fontSize="sm" color="text.subtle">
