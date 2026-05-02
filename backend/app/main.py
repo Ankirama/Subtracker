@@ -143,6 +143,7 @@ from app.api import (
     providers,
     oauth,
     sync_errors,
+    sync_preview,
     waitlist,
 )
 from app.api.endpoints import push_notifications
@@ -170,6 +171,7 @@ app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews"])
 app.include_router(feedback.router, prefix="/api", tags=["Feedback"])
 app.include_router(providers.router, prefix="/api", tags=["Providers"])
 app.include_router(sync_errors.router, tags=["Sync Errors"])
+app.include_router(sync_preview.router, tags=["Sync Preview"])
 app.include_router(admin_sync_errors.router, tags=["Admin", "Sync Errors"])
 app.include_router(ai_sandbox.router, prefix="/api/ai-sandbox", tags=["AI Sandbox"])
 app.include_router(
