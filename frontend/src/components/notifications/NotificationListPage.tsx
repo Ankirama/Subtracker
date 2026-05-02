@@ -26,6 +26,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { notificationsApi, Notification } from '../../api/notifications'
 import { formatDistanceToNow } from '../../utils/timeFormat'
 import { MarkdownRenderer } from '../common/MarkdownRenderer'
+import { SyncPreviewDrawer } from '../mailboxes/SyncPreviewDrawer'
 
 export const NotificationListPage = () => {
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -36,6 +37,7 @@ export const NotificationListPage = () => {
   const [unreadCount, setUnreadCount] = useState(0)
   const [filterType, setFilterType] = useState<string>('')
   const [filterRead, setFilterRead] = useState<string>('')
+  const [previewSyncId, setPreviewSyncId] = useState<string | null>(null)
   const toast = useToast()
 
   const cardBg = useColorModeValue('white', 'gray.800')
@@ -180,6 +182,8 @@ export const NotificationListPage = () => {
         return '💰'
       case 'system_announcement':
         return '📢'
+      case 'SYNC_PREVIEW_AVAILABLE':
+        return '🔍'
       default:
         return '📬'
     }
@@ -201,6 +205,8 @@ export const NotificationListPage = () => {
         return 'Price Change'
       case 'system_announcement':
         return 'System Announcement'
+      case 'SYNC_PREVIEW_AVAILABLE':
+        return 'Sync preview'
       default:
         return type
     }
@@ -324,7 +330,17 @@ export const NotificationListPage = () => {
                 borderColor={borderColor}
                 _hover={{ bg: hoverBg }}
                 cursor="pointer"
-                onClick={() => !notification.is_read && handleMarkAsRead(notification.id)}
+                onClick={() => {
+                  if (!notification.is_read) {
+                    handleMarkAsRead(notification.id)
+                  }
+                  if (notification.type === 'SYNC_PREVIEW_AVAILABLE') {
+                    const sid = (notification.notification_metadata as Record<string, unknown> | null)?.['sync_history_id']
+                    if (typeof sid === 'string') {
+                      setPreviewSyncId(sid)
+                    }
+                  }
+                }}
               >
                 <CardBody>
                   <HStack align="start" spacing={4}>
@@ -429,6 +445,13 @@ export const NotificationListPage = () => {
           </Card>
         )}
       </VStack>
+
+      {/* Sync Preview Drawer */}
+      <SyncPreviewDrawer
+        syncHistoryId={previewSyncId}
+        isOpen={!!previewSyncId}
+        onClose={() => setPreviewSyncId(null)}
+      />
     </Container>
   )
 }
