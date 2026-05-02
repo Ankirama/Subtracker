@@ -1,65 +1,56 @@
-import { useState, useMemo } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
-  Box,
-  VStack,
-  HStack,
-  Text,
-  Badge,
-  Button,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
   Alert,
   AlertIcon,
-  Spinner,
-  Center,
+  Badge,
+  Box,
+  Button,
+  ButtonGroup,
   Card,
   CardBody,
   CardHeader,
+  Center,
+  Checkbox,
+  HStack,
   Heading,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalCloseButton,
-  ModalFooter,
-  useDisclosure,
-  FormControl,
-  FormLabel,
+  Icon,
   Input,
-  Select,
-  Textarea,
-  useToast,
-  Divider,
-  Code,
   InputGroup,
   InputLeftElement,
-  Icon,
-  ButtonGroup,
-  Checkbox,
-  Tabs,
-  TabList,
-  Tab,
-  TabPanels,
-  TabPanel,
+  Select,
+  Spinner,
+  Table,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tr,
+  VStack,
+  useDisclosure,
+  useToast,
 } from '@chakra-ui/react'
-import { FiEye, FiPlus, FiSearch, FiX, FiCheckSquare } from 'react-icons/fi'
-import DOMPurify from 'dompurify'
+import { FiCheckSquare, FiEye, FiSearch, FiX } from 'react-icons/fi'
+
 import { aiSandboxAPI } from '../../api/aiSandbox'
-import { BillingCycle, UncertainEmail, EmailDetailResponse } from '../../types'
+import type { EmailDetailResponse, UncertainEmail } from '../../types'
+import { useUncertainEmailsManagement } from '../../hooks/useUncertainEmailsManagement'
+import { CreateSubscriptionModal } from './CreateSubscriptionModal'
+import { EmailDetailModal } from './EmailDetailModal'
 
 type FilterType = 'all' | 'low_confidence' | 'extraction_failed'
 type SortField = 'date' | 'confidence' | 'status' | 'subject'
 type SortOrder = 'asc' | 'desc'
 
+const confidenceColor = (confidence: number) => {
+  if (confidence >= 0.8) return 'green'
+  if (confidence >= 0.6) return 'yellow'
+  return 'red'
+}
+
 export const ReviewEmailsTab = () => {
   const toast = useToast()
-  const queryClient = useQueryClient()
   const [selectedEmail, setSelectedEmail] = useState<EmailDetailResponse | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterType, setFilterType] = useState<FilterType>('all')
@@ -67,62 +58,59 @@ export const ReviewEmailsTab = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set())
 
-  const { isOpen: isDetailOpen, onOpen: onDetailOpen, onClose: onDetailClose } = useDisclosure()
-  const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure()
-
-  const [subscriptionData, setSubscriptionData] = useState<{
-    provider: string
-    amount: string
-    currency: string
-    billing_cycle: BillingCycle
-    renewal_date: string
-    custom_label: string
-    category: string
-    notes: string
-  }>({
-    provider: '',
-    amount: '',
-    currency: 'EUR',
-    billing_cycle: 'monthly',
-    renewal_date: '',
-    custom_label: '',
-    category: 'other',
-    notes: '',
-  })
+  const detailModal = useDisclosure()
+  const createModal = useDisclosure()
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['uncertainEmails'],
     queryFn: () => aiSandboxAPI.getUncertainEmails(100),
   })
 
-  // Filter and sort emails
+  const {
+    emailDetailMutation,
+    createSubscriptionMutation,
+    markNotSubscriptionMutation,
+    bulkMarkNotSubscriptionMutation,
+  } = useUncertainEmailsManagement({
+    onEmailDetailLoaded: (email) => {
+      setSelectedEmail(email)
+      detailModal.onOpen()
+    },
+    onSubscriptionCreated: () => {
+      createModal.onClose()
+      detailModal.onClose()
+    },
+    onMarkedNotSubscription: () => {
+      detailModal.onClose()
+    },
+    onBulkMarked: () => {
+      setSelectedEmailIds(new Set())
+    },
+  })
+
   const filteredAndSortedEmails = useMemo(() => {
     if (!data?.emails) return []
 
     let filtered = data.emails
 
-    // Apply search filter
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
       filtered = filtered.filter(
         (email) =>
           email.subject.toLowerCase().includes(search) ||
           email.sender.toLowerCase().includes(search) ||
-          email.sender_name?.toLowerCase().includes(search)
+          email.sender_name?.toLowerCase().includes(search),
       )
     }
 
-    // Apply type filter
     if (filterType === 'low_confidence') {
       filtered = filtered.filter((email) => email.classification_confidence < 0.8)
     } else if (filterType === 'extraction_failed') {
       filtered = filtered.filter((email) => !email.has_linked_subscription)
     }
 
-    // Apply sorting
-    const sorted = [...filtered].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       let comparison = 0
-
       switch (sortField) {
         case 'date':
           comparison = new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -131,222 +119,54 @@ export const ReviewEmailsTab = () => {
           comparison = a.classification_confidence - b.classification_confidence
           break
         case 'status':
-          comparison = (a.has_linked_subscription ? 1 : 0) - (b.has_linked_subscription ? 1 : 0)
+          comparison =
+            (a.has_linked_subscription ? 1 : 0) - (b.has_linked_subscription ? 1 : 0)
           break
         case 'subject':
           comparison = a.subject.localeCompare(b.subject)
           break
       }
-
       return sortOrder === 'asc' ? comparison : -comparison
     })
-
-    return sorted
   }, [data?.emails, searchTerm, filterType, sortField, sortOrder])
 
-  // Calculate filtered statistics
-  const filteredStats = useMemo(() => {
-    if (!filteredAndSortedEmails) return { total: 0, lowConfidence: 0, extractionFailed: 0 }
-
-    return {
+  const filteredStats = useMemo(
+    () => ({
       total: filteredAndSortedEmails.length,
-      lowConfidence: filteredAndSortedEmails.filter((e) => e.classification_confidence < 0.8).length,
-      extractionFailed: filteredAndSortedEmails.filter((e) => !e.has_linked_subscription).length,
-    }
-  }, [filteredAndSortedEmails])
+      lowConfidence: filteredAndSortedEmails.filter(
+        (e) => e.classification_confidence < 0.8,
+      ).length,
+      extractionFailed: filteredAndSortedEmails.filter((e) => !e.has_linked_subscription)
+        .length,
+    }),
+    [filteredAndSortedEmails],
+  )
 
-  const emailDetailMutation = useMutation({
-    mutationFn: aiSandboxAPI.getEmailDetail,
-    onSuccess: (data) => {
-      setSelectedEmail(data)
-      onDetailOpen()
-    },
-    onError: () => {
-      toast({
-        title: 'Failed to load email details',
-        status: 'error',
-        duration: 3000,
-      })
-    },
-  })
+  const isAllSelected =
+    filteredAndSortedEmails.length > 0 &&
+    selectedEmailIds.size === filteredAndSortedEmails.length
+  const isSomeSelected =
+    selectedEmailIds.size > 0 && selectedEmailIds.size < filteredAndSortedEmails.length
 
-  const createSubscriptionMutation = useMutation({
-    mutationFn: aiSandboxAPI.createSubscription,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['uncertainEmails'] })
-      queryClient.invalidateQueries({ queryKey: ['subscriptions'] })
-      onCreateClose()
-      onDetailClose()
-      toast({
-        title: 'Subscription created successfully',
-        status: 'success',
-        duration: 3000,
-      })
-      setSubscriptionData({
-        provider: '',
-        amount: '',
-        currency: 'EUR',
-        billing_cycle: 'monthly',
-        renewal_date: '',
-        custom_label: '',
-        category: 'other',
-        notes: '',
-      })
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Failed to create subscription',
-        description: error.response?.data?.detail || 'Unknown error',
-        status: 'error',
-        duration: 5000,
-      })
-    },
-  })
-
-  const markNotSubscriptionMutation = useMutation({
-    mutationFn: aiSandboxAPI.markNotSubscription,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['uncertainEmails'] })
-      onDetailClose()
-      toast({
-        title: 'Email marked as not a subscription',
-        description: 'This email will be removed from uncertain emails list',
-        status: 'success',
-        duration: 3000,
-      })
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Failed to mark email',
-        description: error.response?.data?.detail || 'Unknown error',
-        status: 'error',
-        duration: 5000,
-      })
-    },
-  })
-
-  const bulkMarkNotSubscriptionMutation = useMutation({
-    mutationFn: aiSandboxAPI.bulkMarkNotSubscription,
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['uncertainEmails'] })
-      setSelectedEmailIds(new Set())
-      toast({
-        title: 'Bulk operation completed',
-        description: `${result.processed} emails marked as not subscriptions${result.failed > 0 ? `, ${result.failed} failed` : ''}`,
-        status: result.failed > 0 ? 'warning' : 'success',
-        duration: 5000,
-      })
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Bulk operation failed',
-        description: error.response?.data?.detail || 'Unknown error',
-        status: 'error',
-        duration: 5000,
-      })
-    },
-  })
-
-  const handleViewEmail = (emailId: string) => {
-    emailDetailMutation.mutate(emailId)
+  const toggleSelectEmail = (emailId: string, checked: boolean) => {
+    const next = new Set(selectedEmailIds)
+    if (checked) next.add(emailId)
+    else next.delete(emailId)
+    setSelectedEmailIds(next)
   }
 
-  const handleCreateSubscription = () => {
-    if (!selectedEmail || !subscriptionData.provider) {
-      toast({
-        title: 'Provider is required',
-        status: 'warning',
-        duration: 3000,
-      })
-      return
-    }
-
-    // Convert date string to ISO datetime format
-    let renewalDateTime = null
-    if (subscriptionData.renewal_date) {
-      renewalDateTime = new Date(subscriptionData.renewal_date + 'T00:00:00').toISOString()
-    }
-
-    createSubscriptionMutation.mutate({
-      email_id: selectedEmail.id,
-      provider: subscriptionData.provider,
-      amount: subscriptionData.amount ? parseFloat(subscriptionData.amount) : null,
-      currency: subscriptionData.currency || null,
-      billing_cycle: subscriptionData.billing_cycle || null,
-      renewal_date: renewalDateTime,
-      custom_label: subscriptionData.custom_label || null,
-      category: subscriptionData.category || 'other',
-      notes: subscriptionData.notes || null,
-    })
-  }
-
-  const openCreateModal = () => {
-    if (selectedEmail) {
-      setSubscriptionData({
-        provider: '',
-        amount: '',
-        currency: 'EUR',
-        billing_cycle: 'monthly',
-        renewal_date: '',
-        custom_label: '',
-        category: 'other',
-        notes: '',
-      })
-      onCreateOpen()
-    }
-  }
-
-  const handleMarkNotSubscription = () => {
-    if (selectedEmail) {
-      markNotSubscriptionMutation.mutate(selectedEmail.id)
-    }
+  const toggleSelectAll = (checked: boolean) => {
+    setSelectedEmailIds(
+      checked ? new Set(filteredAndSortedEmails.map((email) => email.id)) : new Set(),
+    )
   }
 
   const handleBulkMarkNotSubscription = () => {
     if (selectedEmailIds.size === 0) {
-      toast({
-        title: 'No emails selected',
-        status: 'warning',
-        duration: 3000,
-      })
+      toast({ title: 'No emails selected', status: 'warning', duration: 3000 })
       return
     }
-
-    bulkMarkNotSubscriptionMutation.mutate({
-      email_ids: Array.from(selectedEmailIds),
-    })
-  }
-
-  const handleSelectEmail = (emailId: string, checked: boolean) => {
-    const newSelected = new Set(selectedEmailIds)
-    if (checked) {
-      newSelected.add(emailId)
-    } else {
-      newSelected.delete(emailId)
-    }
-    setSelectedEmailIds(newSelected)
-  }
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const allIds = new Set(filteredAndSortedEmails.map((email) => email.id))
-      setSelectedEmailIds(allIds)
-    } else {
-      setSelectedEmailIds(new Set())
-    }
-  }
-
-  const isAllSelected = filteredAndSortedEmails.length > 0 && selectedEmailIds.size === filteredAndSortedEmails.length
-  const isSomeSelected = selectedEmailIds.size > 0 && selectedEmailIds.size < filteredAndSortedEmails.length
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'green'
-    if (confidence >= 0.6) return 'yellow'
-    return 'red'
-  }
-
-  const toggleSortOrder = () => {
-    setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    bulkMarkNotSubscriptionMutation.mutate({ email_ids: Array.from(selectedEmailIds) })
   }
 
   if (isLoading) {
@@ -385,12 +205,15 @@ export const ReviewEmailsTab = () => {
               <HStack justify="space-between">
                 <Heading size="md">Uncertain Emails ({data?.total || 0})</Heading>
                 <HStack spacing={4}>
-                  <Badge colorScheme="yellow">Low Confidence: {data?.uncertain_classified || 0}</Badge>
-                  <Badge colorScheme="red">Extraction Failed: {data?.extraction_failed || 0}</Badge>
+                  <Badge colorScheme="yellow">
+                    Low Confidence: {data?.uncertain_classified || 0}
+                  </Badge>
+                  <Badge colorScheme="red">
+                    Extraction Failed: {data?.extraction_failed || 0}
+                  </Badge>
                 </HStack>
               </HStack>
 
-              {/* Search and Filters */}
               <HStack spacing={4} wrap="wrap">
                 <InputGroup maxW="400px">
                   <InputLeftElement>
@@ -437,22 +260,24 @@ export const ReviewEmailsTab = () => {
                     <option value="status">Status</option>
                     <option value="subject">Subject</option>
                   </Select>
-                  <Button size="sm" onClick={toggleSortOrder}>
+                  <Button
+                    size="sm"
+                    onClick={() => setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                  >
                     {sortOrder === 'asc' ? '↑' : '↓'}
                   </Button>
                 </HStack>
               </HStack>
 
-              {/* Filtered Results Info */}
               {(searchTerm || filterType !== 'all') && (
                 <Text fontSize="sm" color="text.subtle">
                   Showing {filteredStats.total} results
                   {searchTerm && ` matching "${searchTerm}"`}
-                  {filterType !== 'all' && ` (${filterType === 'low_confidence' ? 'Low Confidence' : 'Extraction Failed'})`}
+                  {filterType !== 'all' &&
+                    ` (${filterType === 'low_confidence' ? 'Low Confidence' : 'Extraction Failed'})`}
                 </Text>
               )}
 
-              {/* Bulk Action Bar */}
               {selectedEmailIds.size > 0 && (
                 <Alert status="info" variant="left-accent">
                   <HStack flex={1} justify="space-between">
@@ -490,7 +315,7 @@ export const ReviewEmailsTab = () => {
                       <Checkbox
                         isChecked={isAllSelected}
                         isIndeterminate={isSomeSelected}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        onChange={(e) => toggleSelectAll(e.target.checked)}
                       />
                     </Th>
                     <Th>Subject</Th>
@@ -514,7 +339,7 @@ export const ReviewEmailsTab = () => {
                         <Td>
                           <Checkbox
                             isChecked={selectedEmailIds.has(email.id)}
-                            onChange={(e) => handleSelectEmail(email.id, e.target.checked)}
+                            onChange={(e) => toggleSelectEmail(email.id, e.target.checked)}
                           />
                         </Td>
                         <Td maxW="300px" isTruncated>
@@ -523,19 +348,25 @@ export const ReviewEmailsTab = () => {
                         <Td>
                           <VStack align="start" spacing={0}>
                             <Text fontSize="sm">{email.sender_name || 'Unknown'}</Text>
-                            <Text fontSize="xs" color="gray.500">{email.sender}</Text>
+                            <Text fontSize="xs" color="gray.500">
+                              {email.sender}
+                            </Text>
                           </VStack>
                         </Td>
                         <Td>
-                          <Text fontSize="sm">{new Date(email.date).toLocaleDateString()}</Text>
+                          <Text fontSize="sm">
+                            {new Date(email.date).toLocaleDateString()}
+                          </Text>
                         </Td>
                         <Td>
-                          <Badge colorScheme={getConfidenceColor(email.classification_confidence)}>
+                          <Badge colorScheme={confidenceColor(email.classification_confidence)}>
                             {(email.classification_confidence * 100).toFixed(0)}%
                           </Badge>
                         </Td>
                         <Td>
-                          <Badge colorScheme={email.has_linked_subscription ? 'green' : 'orange'}>
+                          <Badge
+                            colorScheme={email.has_linked_subscription ? 'green' : 'orange'}
+                          >
                             {email.has_linked_subscription ? 'Linked' : 'No Subscription'}
                           </Badge>
                         </Td>
@@ -543,7 +374,7 @@ export const ReviewEmailsTab = () => {
                           <Button
                             size="sm"
                             leftIcon={<FiEye />}
-                            onClick={() => handleViewEmail(email.id)}
+                            onClick={() => emailDetailMutation.mutate(email.id)}
                             isLoading={emailDetailMutation.isPending}
                           >
                             Review
@@ -559,254 +390,24 @@ export const ReviewEmailsTab = () => {
         </Card>
       )}
 
-      {/* Email Detail Modal */}
-      <Modal isOpen={isDetailOpen} onClose={onDetailClose} size="4xl" scrollBehavior="inside">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Email Details</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {selectedEmail && (
-              <VStack spacing={4} align="stretch">
-                <Box>
-                  <Text fontWeight="bold" mb={2}>Subject:</Text>
-                  <Text>{selectedEmail.subject}</Text>
-                </Box>
+      <EmailDetailModal
+        email={selectedEmail}
+        isOpen={detailModal.isOpen}
+        onClose={detailModal.onClose}
+        onMarkNotSubscription={() =>
+          selectedEmail && markNotSubscriptionMutation.mutate(selectedEmail.id)
+        }
+        onCreateSubscription={() => selectedEmail && createModal.onOpen()}
+        isMarkPending={markNotSubscriptionMutation.isPending}
+      />
 
-                <HStack spacing={4}>
-                  <Box flex={1}>
-                    <Text fontWeight="bold" mb={2}>From:</Text>
-                    <Text>{selectedEmail.sender_name || 'Unknown'}</Text>
-                    <Text fontSize="sm" color="gray.500">{selectedEmail.sender}</Text>
-                  </Box>
-                  <Box flex={1}>
-                    <Text fontWeight="bold" mb={2}>To:</Text>
-                    <Text fontSize="sm">{selectedEmail.recipient}</Text>
-                  </Box>
-                </HStack>
-
-                <HStack spacing={4}>
-                  <Box>
-                    <Text fontWeight="bold" mb={2}>Date:</Text>
-                    <Text>{new Date(selectedEmail.date).toLocaleString()}</Text>
-                  </Box>
-                  <Box>
-                    <Text fontWeight="bold" mb={2}>Confidence:</Text>
-                    <Badge colorScheme={getConfidenceColor(selectedEmail.classification_confidence)}>
-                      {(selectedEmail.classification_confidence * 100).toFixed(0)}%
-                    </Badge>
-                  </Box>
-                  <Box>
-                    <Text fontWeight="bold" mb={2}>Subscription Status:</Text>
-                    <Badge colorScheme={selectedEmail.has_linked_subscription ? 'green' : 'orange'}>
-                      {selectedEmail.has_linked_subscription ? 'Linked' : 'No Subscription'}
-                    </Badge>
-                  </Box>
-                </HStack>
-
-                <Divider />
-
-                <Box>
-                  <Text fontWeight="bold" mb={2}>Email Body:</Text>
-                  <Tabs colorScheme="blue" variant="enclosed">
-                    <TabList>
-                      <Tab>Source Code</Tab>
-                      {selectedEmail.body_html && <Tab>Rendered HTML</Tab>}
-                    </TabList>
-                    <TabPanels>
-                      <TabPanel p={0} pt={4}>
-                        <Box bg="bg.subtle" p={4} borderRadius="md" maxH="400px" overflowY="auto">
-                          <Text whiteSpace="pre-wrap" fontFamily="monospace" fontSize="sm">
-                            {selectedEmail.body_html || selectedEmail.body_text || 'No content'}
-                          </Text>
-                        </Box>
-                      </TabPanel>
-                      {selectedEmail.body_html && (
-                        <TabPanel p={0} pt={4}>
-                          <Box
-                            bg="white"
-                            p={4}
-                            borderRadius="md"
-                            border="1px solid"
-                            borderColor="gray.200"
-                            maxH="400px"
-                            overflowY="auto"
-                            dangerouslySetInnerHTML={{
-                              __html: DOMPurify.sanitize(selectedEmail.body_html),
-                            }}
-                          />
-                        </TabPanel>
-                      )}
-                    </TabPanels>
-                  </Tabs>
-                </Box>
-
-                {selectedEmail.classification_reasoning && (
-                  <Box>
-                    <Text fontWeight="bold" mb={2}>Classification Reasoning:</Text>
-                    <Box bg="bg.subtle" p={4} borderRadius="md" maxH="200px" overflowY="auto">
-                      <Code display="block" whiteSpace="pre-wrap" fontSize="xs">
-                        {JSON.stringify(selectedEmail.classification_reasoning, null, 2)}
-                      </Code>
-                    </Box>
-                  </Box>
-                )}
-              </VStack>
-            )}
-          </ModalBody>
-          <ModalFooter>
-            <HStack spacing={3} flex={1} justify="space-between">
-              <Box>
-                {selectedEmail && selectedEmail.is_subscription && (
-                  <Button
-                    colorScheme="red"
-                    variant="outline"
-                    leftIcon={<FiX />}
-                    onClick={handleMarkNotSubscription}
-                    isLoading={markNotSubscriptionMutation.isPending}
-                  >
-                    Not a Subscription
-                  </Button>
-                )}
-              </Box>
-              <HStack spacing={3}>
-                {selectedEmail && !selectedEmail.has_linked_subscription && (
-                  <Button colorScheme="green" leftIcon={<FiPlus />} onClick={openCreateModal}>
-                    Create Subscription
-                  </Button>
-                )}
-                <Button variant="ghost" onClick={onDetailClose}>
-                  Close
-                </Button>
-              </HStack>
-            </HStack>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Create Subscription Modal */}
-      <Modal isOpen={isCreateOpen} onClose={onCreateClose} size="xl">
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Create Subscription Manually</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack spacing={4}>
-              <FormControl isRequired>
-                <FormLabel>Provider</FormLabel>
-                <Input
-                  placeholder="Service name (e.g., Netflix, Spotify)"
-                  value={subscriptionData.provider}
-                  onChange={(e) => setSubscriptionData({ ...subscriptionData, provider: e.target.value })}
-                />
-              </FormControl>
-
-              <HStack w="full" spacing={4}>
-                <FormControl flex={2}>
-                  <FormLabel>Amount</FormLabel>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="9.99"
-                    value={subscriptionData.amount}
-                    onChange={(e) => setSubscriptionData({ ...subscriptionData, amount: e.target.value })}
-                  />
-                </FormControl>
-
-                <FormControl flex={1}>
-                  <FormLabel>Currency</FormLabel>
-                  <Select
-                    value={subscriptionData.currency}
-                    onChange={(e) => setSubscriptionData({ ...subscriptionData, currency: e.target.value })}
-                  >
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                    <option value="GBP">GBP</option>
-                  </Select>
-                </FormControl>
-              </HStack>
-
-              <FormControl>
-                <FormLabel>Billing Cycle</FormLabel>
-                <Select
-                  value={subscriptionData.billing_cycle}
-                  onChange={(e) =>
-                    setSubscriptionData({
-                      ...subscriptionData,
-                      billing_cycle: e.target.value as BillingCycle,
-                    })
-                  }
-                >
-                  <option value="monthly">Monthly</option>
-                  <option value="yearly">Yearly</option>
-                  <option value="weekly">Weekly</option>
-                </Select>
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Renewal Date</FormLabel>
-                <Input
-                  type="date"
-                  value={subscriptionData.renewal_date}
-                  onChange={(e) => setSubscriptionData({ ...subscriptionData, renewal_date: e.target.value })}
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Custom Label</FormLabel>
-                <Input
-                  placeholder="e.g., Family Plan, Premium Tier"
-                  value={subscriptionData.custom_label}
-                  onChange={(e) => setSubscriptionData({ ...subscriptionData, custom_label: e.target.value })}
-                />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Category</FormLabel>
-                <Select
-                  value={subscriptionData.category}
-                  onChange={(e) => setSubscriptionData({ ...subscriptionData, category: e.target.value })}
-                >
-                  <option value="streaming">Streaming</option>
-                  <option value="software">Software</option>
-                  <option value="storage">Storage</option>
-                  <option value="productivity">Productivity</option>
-                  <option value="entertainment">Entertainment</option>
-                  <option value="fitness">Fitness</option>
-                  <option value="gaming">Gaming</option>
-                  <option value="news">News</option>
-                  <option value="education">Education</option>
-                  <option value="music">Music</option>
-                  <option value="other">Other</option>
-                </Select>
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Notes</FormLabel>
-                <Textarea
-                  placeholder="Additional notes..."
-                  value={subscriptionData.notes}
-                  onChange={(e) => setSubscriptionData({ ...subscriptionData, notes: e.target.value })}
-                  rows={3}
-                />
-              </FormControl>
-            </VStack>
-          </ModalBody>
-          <ModalFooter>
-            <Button
-              colorScheme="blue"
-              onClick={handleCreateSubscription}
-              isLoading={createSubscriptionMutation.isPending}
-              mr={3}
-            >
-              Create Subscription
-            </Button>
-            <Button variant="ghost" onClick={onCreateClose}>
-              Cancel
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <CreateSubscriptionModal
+        email={selectedEmail}
+        isOpen={createModal.isOpen}
+        onClose={createModal.onClose}
+        onSubmit={(data) => createSubscriptionMutation.mutate(data)}
+        isSubmitting={createSubscriptionMutation.isPending}
+      />
     </Box>
   )
 }
