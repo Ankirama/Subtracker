@@ -20,6 +20,9 @@ from app.models.notification import (
     NotificationPriority,
 )
 from app.models.user import User
+from app.services.email.templates.subscription_renewal_alert import (
+    generate_subscription_renewal_alert,
+)
 from app.services.email_service import EmailService
 
 logger = logging.getLogger(__name__)
@@ -145,84 +148,17 @@ async def send_renewal_email(
     renewal_date = get_renewal_date(subscription)
     days_until = (renewal_date - date.today()).days if renewal_date else 0
 
-    # Build email content
     subject = f"⏰ {subscription.provider} Renews in {days_until} Days"
 
-    html_content = f"""
-    <html>
-    <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background-color: #f8f9fa; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-            <h2 style="color: #2c3e50; margin-top: 0;">🔔 Renewal Reminder</h2>
-            <p style="font-size: 16px; color: #34495e;">
-                Your <strong>{subscription.provider}</strong> subscription will renew soon.
-            </p>
-        </div>
-
-        <div style="background-color: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-            <h3 style="color: #2c3e50; margin-top: 0;">Subscription Details</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr style="border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 10px 0; color: #7f8c8d;"><strong>Provider:</strong></td>
-                    <td style="padding: 10px 0; text-align: right;">{subscription.provider}</td>
-                </tr>
-                <tr style="border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 10px 0; color: #7f8c8d;"><strong>Amount:</strong></td>
-                    <td style="padding: 10px 0; text-align: right; color: #e74c3c; font-size: 18px;">
-                        <strong>{subscription.currency} {subscription.amount:.2f}</strong>
-                    </td>
-                </tr>
-                <tr style="border-bottom: 1px solid #e0e0e0;">
-                    <td style="padding: 10px 0; color: #7f8c8d;"><strong>Billing Cycle:</strong></td>
-                    <td style="padding: 10px 0; text-align: right;">{subscription.billing_cycle.capitalize()}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 10px 0; color: #7f8c8d;"><strong>Renewal Date:</strong></td>
-                    <td style="padding: 10px 0; text-align: right;">
-                        <strong>{renewal_date.strftime('%B %d, %Y')}</strong> ({days_until} days)
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
-            <p style="margin: 0; color: #856404;">
-                💡 <strong>Reminder:</strong> You have {days_until} days to cancel or modify this subscription if needed.
-            </p>
-        </div>
-
-        <div style="text-align: center; margin-top: 30px;">
-            <a href="http://localhost:5173/subscriptions/{subscription.id}"
-               style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                View Subscription
-            </a>
-        </div>
-
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e0e0e0; text-align: center; color: #95a5a6; font-size: 12px;">
-            <p>
-                You're receiving this because you have renewal reminders enabled.<br>
-                <a href="http://localhost:5173/notifications/settings" style="color: #3498db;">Manage notification settings</a>
-            </p>
-        </div>
-    </body>
-    </html>
-    """
-
-    plain_content = f"""
-Renewal Reminder
-
-Your {subscription.provider} subscription will renew in {days_until} days.
-
-Subscription Details:
-- Provider: {subscription.provider}
-- Amount: {subscription.currency} {subscription.amount:.2f}
-- Billing Cycle: {subscription.billing_cycle.capitalize()}
-- Renewal Date: {renewal_date.strftime('%B %d, %Y')}
-
-You have {days_until} days to cancel or modify this subscription if needed.
-
-View subscription: http://localhost:5173/subscriptions/{subscription.id}
-Manage settings: http://localhost:5173/notifications/settings
-    """
+    html_content, plain_content = generate_subscription_renewal_alert(
+        subscription_id=subscription.id,
+        provider=subscription.provider,
+        amount=subscription.amount,
+        currency=subscription.currency,
+        billing_cycle=subscription.billing_cycle,
+        renewal_date=renewal_date,
+        days_until=days_until,
+    )
 
     # Send email
     email_service = EmailService(db)
