@@ -168,8 +168,14 @@ export const NotificationBell = () => {
         return '⏸️'
       case 'PRICE_CHANGE':
         return '💰'
+      case 'BUDGET_ALERT':
+        return '💸'
       case 'SYSTEM_ANNOUNCEMENT':
         return '📢'
+      case 'SYNC_SKIPPED_MANY':
+        return '⏭️'
+      case 'SYNC_CIRCUIT_BREAKER':
+        return '🛑'
       case 'SYNC_PREVIEW_AVAILABLE':
         return '🔍'
       default:

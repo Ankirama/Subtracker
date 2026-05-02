@@ -227,6 +227,34 @@ def test_mailbox(db_session: Session, test_user: User) -> Mailbox:
 
 
 @pytest.fixture(scope="function")
+def other_user_mailbox(db_session: Session) -> Mailbox:
+    """Create a mailbox owned by a second (non-admin) user — for cross-tenant isolation tests."""
+    password_hash, salt = hash_password("otherpassword123")
+    other_user = User(
+        email="other-tenant@example.com",
+        password_hash=password_hash,
+        salt=salt,
+        is_active=True,
+        email_verified=True,
+        settings={},
+    )
+    db_session.add(other_user)
+    db_session.commit()
+    db_session.refresh(other_user)
+    mailbox = Mailbox(
+        user_id=other_user.id,
+        email_address="other@fastmail.com",
+        provider_type="jmap",
+        encrypted_credentials="other_encrypted_credentials",
+        is_active=True,
+    )
+    db_session.add(mailbox)
+    db_session.commit()
+    db_session.refresh(mailbox)
+    return mailbox
+
+
+@pytest.fixture(scope="function")
 def test_subscription(db_session: Session, test_mailbox: Mailbox) -> Subscription:
     """Create a test subscription."""
     from datetime import datetime, timezone

@@ -65,7 +65,12 @@ class Mailbox(Base):
     last_sync_new_emails_count = Column(Integer, nullable=True)
     last_sync_history_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("sync_history.id", ondelete="SET NULL"),
+        ForeignKey(
+            "sync_history.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_mailboxes_last_sync_history_id",
+        ),
         nullable=True,
     )
 

@@ -4,15 +4,12 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models.mailbox import Mailbox
 from app.models.subscription import Subscription
 from app.models.sync_history import SyncHistory
-from app.models.user import User
-from app.security.password import hash_password
 
 
 def _make_sync_history(db: Session, mailbox_id) -> SyncHistory:
@@ -28,35 +25,6 @@ def _make_sync_history(db: Session, mailbox_id) -> SyncHistory:
     db.commit()
     db.refresh(sh)
     return sh
-
-
-@pytest.fixture
-def other_user_mailbox(db_session: Session) -> Mailbox:
-    """Create a mailbox owned by a different user (for cross-tenant tests)."""
-    password_hash, salt = hash_password("otherpass123")
-    other_user = User(
-        email="other-tenant@example.com",
-        password_hash=password_hash,
-        salt=salt,
-        is_active=True,
-        email_verified=True,
-        settings={},
-    )
-    db_session.add(other_user)
-    db_session.commit()
-    db_session.refresh(other_user)
-
-    mailbox = Mailbox(
-        user_id=other_user.id,
-        email_address="other@fastmail.com",
-        provider_type="jmap",
-        encrypted_credentials="other_encrypted_credentials",
-        is_active=True,
-    )
-    db_session.add(mailbox)
-    db_session.commit()
-    db_session.refresh(mailbox)
-    return mailbox
 
 
 class TestSyncPreviewEndpoint:

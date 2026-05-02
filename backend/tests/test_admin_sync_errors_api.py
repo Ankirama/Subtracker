@@ -2,40 +2,7 @@
 
 import uuid
 
-import pytest
-from sqlalchemy.orm import Session
-
 from app.models.email_sync_error import EmailSyncError
-from app.models.mailbox import Mailbox
-from app.models.user import User
-from app.security.password import hash_password
-
-
-@pytest.fixture
-def other_user_mailbox(db_session: Session) -> Mailbox:
-    """Create a mailbox owned by a second (non-admin) user."""
-    pw_hash, salt = hash_password("otherpassword123")
-    other = User(
-        email="other@example.com",
-        password_hash=pw_hash,
-        salt=salt,
-        is_active=True,
-        email_verified=True,
-        settings={},
-    )
-    db_session.add(other)
-    db_session.commit()
-    mb = Mailbox(
-        user_id=other.id,
-        email_address="other@fastmail.com",
-        provider_type="jmap",
-        encrypted_credentials="x",
-        is_active=True,
-    )
-    db_session.add(mb)
-    db_session.commit()
-    db_session.refresh(mb)
-    return mb
 
 
 def _seed(db_session, mailbox, **kwargs):
