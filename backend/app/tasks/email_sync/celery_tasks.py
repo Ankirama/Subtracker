@@ -271,22 +271,29 @@ def sync_mailbox_emails(
             history_entry.error_message = error_msg
             history_entry.error_type = result.get("error_type", "sync_error")
 
-        # Date range of emails currently held in this mailbox, computed at
-        # sync completion. Global rather than run-scoped: an incremental sync
-        # that finds no new emails would otherwise show NULL even when the
-        # mailbox still covers a long history. The user-visible question this
-        # answers is "did my last sync leave the mailbox with the expected
-        # date window?" — which the global MIN/MAX answers reliably.
+        # Run-scoped metrics: date range and count of email_messages rows
+        # inserted during THIS sync run (filter by processed_at >=
+        # started_at). When the run inserted nothing new (incremental sync,
+        # 0 new messages) the columns stay NULL / 0 and the UI hides the
+        # corresponding lines.
+        run_window = EmailMessage.processed_at >= history_entry.started_at
         date_range = (
             db.query(func.min(EmailMessage.date), func.max(EmailMessage.date))
-            .filter(EmailMessage.mailbox_id == mailbox.id)
+            .filter(EmailMessage.mailbox_id == mailbox.id, run_window)
             .first()
         )
         oldest_email_date, newest_email_date = date_range or (None, None)
+        new_emails_count = (
+            db.query(func.count(EmailMessage.id))
+            .filter(EmailMessage.mailbox_id == mailbox.id, run_window)
+            .scalar()
+        ) or 0
         mailbox.last_sync_oldest_email_date = oldest_email_date
         mailbox.last_sync_newest_email_date = newest_email_date
+        mailbox.last_sync_new_emails_count = new_emails_count
         history_entry.oldest_email_date = oldest_email_date
         history_entry.newest_email_date = newest_email_date
+        history_entry.new_emails_count = new_emails_count
 
         db.commit()
 

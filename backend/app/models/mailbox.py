@@ -61,6 +61,7 @@ class Mailbox(Base):
     last_sync_error_message = Column(Text, nullable=True)
     last_sync_oldest_email_date = Column(DateTime(timezone=True), nullable=True)
     last_sync_newest_email_date = Column(DateTime(timezone=True), nullable=True)
+    last_sync_new_emails_count = Column(Integer, nullable=True)
 
     # Sync resume capability (Issue #7)
     last_sync_started_at = Column(

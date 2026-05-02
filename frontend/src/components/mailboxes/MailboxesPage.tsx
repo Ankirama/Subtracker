@@ -485,18 +485,35 @@ export const MailboxesPage = () => {
                             Last Sync Results:
                           </Text>
                           <HStack spacing={3} fontSize="sm" color="text.subtle">
-                            <Text>{mailbox.last_sync_emails_processed} emails</Text>
+                            <Text>{mailbox.last_sync_emails_processed} scanned</Text>
                             <Text>•</Text>
                             <Text>{mailbox.last_sync_subscriptions_found || 0} subs</Text>
                           </HStack>
                         </HStack>
                       )}
 
-                      {/* Show email date range covered by the last sync */}
+                      {/* New emails inserted during the last run */}
+                      {mailbox.last_sync_new_emails_count !== null && (
+                        <HStack justify="space-between">
+                          <Text fontSize="sm" fontWeight="medium">
+                            New This Run:
+                          </Text>
+                          <Text
+                            fontSize="sm"
+                            color={mailbox.last_sync_new_emails_count > 0 ? 'green.600' : 'text.subtle'}
+                          >
+                            {mailbox.last_sync_new_emails_count > 0
+                              ? `+${mailbox.last_sync_new_emails_count} new email${mailbox.last_sync_new_emails_count === 1 ? '' : 's'}`
+                              : 'No new emails'}
+                          </Text>
+                        </HStack>
+                      )}
+
+                      {/* Show date range of emails ingested by the last run */}
                       {mailbox.last_sync_oldest_email_date && mailbox.last_sync_newest_email_date && (
                         <HStack justify="space-between">
                           <Text fontSize="sm" fontWeight="medium">
-                            Email Date Range:
+                            Last Run Range:
                           </Text>
                           <Text fontSize="sm" color="text.subtle">
                             {new Date(mailbox.last_sync_oldest_email_date).toLocaleDateString()}
