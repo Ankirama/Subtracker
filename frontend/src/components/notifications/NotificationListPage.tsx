@@ -168,19 +168,19 @@ export const NotificationListPage = () => {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'trial_ending':
+      case 'TRIAL_ENDING':
         return '⚠️'
-      case 'renewal_reminder':
+      case 'RENEWAL_REMINDER':
         return '🔔'
-      case 'weekly_summary':
+      case 'WEEKLY_SUMMARY':
         return '📊'
-      case 'monthly_summary':
+      case 'MONTHLY_SUMMARY':
         return '📈'
-      case 'inactive_subscription':
+      case 'INACTIVE_SUBSCRIPTION':
         return '⏸️'
-      case 'price_change':
+      case 'PRICE_CHANGE':
         return '💰'
-      case 'system_announcement':
+      case 'SYSTEM_ANNOUNCEMENT':
         return '📢'
       case 'SYNC_PREVIEW_AVAILABLE':
         return '🔍'
@@ -191,19 +191,19 @@ export const NotificationListPage = () => {
 
   const getNotificationTypeLabel = (type: string) => {
     switch (type) {
-      case 'trial_ending':
+      case 'TRIAL_ENDING':
         return 'Trial Ending'
-      case 'renewal_reminder':
+      case 'RENEWAL_REMINDER':
         return 'Renewal Reminder'
-      case 'weekly_summary':
+      case 'WEEKLY_SUMMARY':
         return 'Weekly Summary'
-      case 'monthly_summary':
+      case 'MONTHLY_SUMMARY':
         return 'Monthly Summary'
-      case 'inactive_subscription':
+      case 'INACTIVE_SUBSCRIPTION':
         return 'Inactive Subscription'
-      case 'price_change':
+      case 'PRICE_CHANGE':
         return 'Price Change'
-      case 'system_announcement':
+      case 'SYSTEM_ANNOUNCEMENT':
         return 'System Announcement'
       case 'SYNC_PREVIEW_AVAILABLE':
         return 'Sync preview'
@@ -272,13 +272,13 @@ export const NotificationListPage = () => {
                     setPage(1)
                   }}
                 >
-                  <option value="trial_ending">Trial Ending</option>
-                  <option value="renewal_reminder">Renewal Reminder</option>
-                  <option value="weekly_summary">Weekly Summary</option>
-                  <option value="monthly_summary">Monthly Summary</option>
-                  <option value="inactive_subscription">Inactive Subscription</option>
-                  <option value="price_change">Price Change</option>
-                  <option value="system_announcement">System Announcement</option>
+                  <option value="TRIAL_ENDING">Trial Ending</option>
+                  <option value="RENEWAL_REMINDER">Renewal Reminder</option>
+                  <option value="WEEKLY_SUMMARY">Weekly Summary</option>
+                  <option value="MONTHLY_SUMMARY">Monthly Summary</option>
+                  <option value="INACTIVE_SUBSCRIPTION">Inactive Subscription</option>
+                  <option value="PRICE_CHANGE">Price Change</option>
+                  <option value="SYSTEM_ANNOUNCEMENT">System Announcement</option>
                 </Select>
               </HStack>
               <HStack flex={1} minW="200px">
