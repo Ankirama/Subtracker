@@ -180,8 +180,14 @@ export const NotificationListPage = () => {
         return '⏸️'
       case 'PRICE_CHANGE':
         return '💰'
+      case 'BUDGET_ALERT':
+        return '💸'
       case 'SYSTEM_ANNOUNCEMENT':
         return '📢'
+      case 'SYNC_SKIPPED_MANY':
+        return '⏭️'
+      case 'SYNC_CIRCUIT_BREAKER':
+        return '🛑'
       case 'SYNC_PREVIEW_AVAILABLE':
         return '🔍'
       default:
@@ -203,8 +209,14 @@ export const NotificationListPage = () => {
         return 'Inactive Subscription'
       case 'PRICE_CHANGE':
         return 'Price Change'
+      case 'BUDGET_ALERT':
+        return 'Budget Alert'
       case 'SYSTEM_ANNOUNCEMENT':
         return 'System Announcement'
+      case 'SYNC_SKIPPED_MANY':
+        return 'Sync Skipped'
+      case 'SYNC_CIRCUIT_BREAKER':
+        return 'Sync Halted'
       case 'SYNC_PREVIEW_AVAILABLE':
         return 'Sync preview'
       default:
@@ -278,7 +290,11 @@ export const NotificationListPage = () => {
                   <option value="MONTHLY_SUMMARY">Monthly Summary</option>
                   <option value="INACTIVE_SUBSCRIPTION">Inactive Subscription</option>
                   <option value="PRICE_CHANGE">Price Change</option>
+                  <option value="BUDGET_ALERT">Budget Alert</option>
                   <option value="SYSTEM_ANNOUNCEMENT">System Announcement</option>
+                  <option value="SYNC_SKIPPED_MANY">Sync Skipped</option>
+                  <option value="SYNC_CIRCUIT_BREAKER">Sync Halted</option>
+                  <option value="SYNC_PREVIEW_AVAILABLE">Sync Preview</option>
                 </Select>
               </HStack>
               <HStack flex={1} minW="200px">
