@@ -25,7 +25,7 @@ async def init_rate_limiter():
         )
         await FastAPILimiter.init(redis_client)
         logger.info("Rate limiter initialized successfully with Redis backend")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — log then re-raise startup errors
         logger.error(f"Failed to initialize rate limiter: {e}")
         raise
 
@@ -39,7 +39,7 @@ async def close_rate_limiter():
     try:
         await FastAPILimiter.close()
         logger.info("Rate limiter closed successfully")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — shutdown is best-effort
         logger.error(f"Failed to close rate limiter: {e}")
 
 

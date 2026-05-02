@@ -17,7 +17,7 @@ class EncryptionService:
         try:
             # If the key is already base64-encoded, use it directly
             self.cipher = Fernet(settings.ENCRYPTION_KEY.encode())
-        except Exception:
+        except Exception:  # noqa: BLE001 — Fernet errors fall back to base64-encoding
             # If not, try to encode it as base64
             key = base64.urlsafe_b64encode(
                 settings.ENCRYPTION_KEY.encode().ljust(32)[:32]

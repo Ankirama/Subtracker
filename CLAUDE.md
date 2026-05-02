@@ -80,6 +80,24 @@ Manual fallback (if running checks ad-hoc):
 5. Create PR with summary and test plan
 6. Wait for user approval before merging
 
+### Broad Exception Handling (Backend)
+
+`except Exception` (and bare `except:`) is allowed but MUST be annotated with the reason it has to be broad:
+
+```python
+except Exception as e:  # noqa: BLE001 — short reason explaining why narrow catch isn't possible
+    ...
+```
+
+Common legitimate reasons:
+- **Best-effort startup/shutdown**: lifespan hooks must not crash the app.
+- **Fail-open infrastructure paths**: Redis/cache failures shouldn't lock users out.
+- **Middleware fall-through**: must record duration / log / re-raise.
+- **3rd-party libraries** with undocumented exception sets (e.g. pyotp, cryptography).
+- **Loggers in error paths** that must never raise.
+
+If none of the above applies, prefer a specific exception type. New code without a reason comment should not be merged. The existing `# noqa: BLE001` markers (search backend/ for them) are reference examples.
+
 ## Language Policy (MANDATORY)
 
 **All written artefacts in this repository must be in English**, regardless of the language used in development conversations:
