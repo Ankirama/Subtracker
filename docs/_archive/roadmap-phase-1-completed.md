@@ -115,6 +115,17 @@
 
 - ✅ Reminders to cancel before trial ends (3-day, 1-day, same-day alerts)
 - ✅ Trial period tracking (trial_status, trial_end_date fields)
+- ✅ AI cancellation research service — `services/cancellation_research.py`, GPT-4o-mini with 90-day cache
+- ✅ Provider cancellation info table — `provider_cancellation_info` (difficulty rating, instructions JSONB, gotchas, AI confidence)
+- ✅ Subscription cancellation status fields — `cancellation_status`, `cancellation_requested_at`, `cancellation_confirmed_at`, `cancellation_notes`, `manual_status_override`
+- ✅ Backend API endpoints — `POST /api/cancellation/research`, `GET /api/cancellation/providers/{name}`, `GET /api/cancellation/subscriptions/{id}`, `PATCH /api/cancellation/subscriptions/{id}/status`
+- ✅ Smart review suggestions API — `GET /api/reviews/suggestions` with reasons trial_ending, trial_ending_soon, likely_unused, expensive_unused, duplicate_detected, price_increased
+- ✅ Frontend cancellation tab — `CancellationInstructions.tsx` (research button, difficulty/steps/gotchas), `CancellationStatusManager.tsx` (manual status transitions)
+- ✅ Frontend Reviews dashboard — `/reviews` route, color-coded suggestion cards, priority+reason filters, potential savings stat
+- ✅ Auto-detect cancellation from incoming emails — AI classifier `category="cancellation"` → `tasks/email_sync/cancellation_step.py:maybe_create_cancellation_suggestion` populates `suggested_cancellation_status` on the matched subscription
+- ✅ Frontend cancellation suggestion banner — `CancellationSuggestionBanner.tsx` on the subscription detail page, with Accept (flips status to cancelled) and Dismiss buttons
+- ✅ Activity-based status reconciliation — `tasks/email_sync/status_reconciler.py` deactivates subs with no email within billing-cycle + grace period
+- ✅ Database migrations — `add_cancellation_workflows`, `add_cancellation_suggestion_fields`, `add_cancellation_feedback_table`, `add_sync_cancellation_fields_to_mailbox`
 
 ### Data Export & Sharing — Completed Sub-items
 
