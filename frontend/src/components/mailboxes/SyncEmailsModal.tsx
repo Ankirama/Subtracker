@@ -62,7 +62,7 @@ export const SyncEmailsModal = ({
   const [selectedPeriod, setSelectedPeriod] = useState<SyncPeriod>('30days')
   const [customDays, setCustomDays] = useState<string>('60')
   const [syncStatus, setSyncStatus] = useState<MailboxSyncStatus | null>(null)
-  const [pollingInterval, setPollingInterval] = useState<number | null>(null)
+  const [pollingInterval, setPollingInterval] = useState<ReturnType<typeof setInterval> | null>(null)
   const [startTime, setStartTime] = useState<Date | null>(null)
 
   const syncMutation = useMutation({
