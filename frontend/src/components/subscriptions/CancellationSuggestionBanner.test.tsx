@@ -1,7 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { CancellationSuggestionBanner } from './CancellationSuggestionBanner'
 import { renderWithProviders } from '@/test/renderWithProviders'
+import { server } from '@/test/server'
 import type { Subscription } from '@/types'
 
 function buildSubscriptionWithSuggestion(
@@ -79,5 +82,29 @@ describe('CancellationSuggestionBanner', () => {
     expect(
       screen.getByRole('button', { name: 'Dismiss Suggestion' }),
     ).toBeInTheDocument()
+  })
+
+  it('calls accept-suggestion endpoint and onUpdate when Accept is clicked', async () => {
+    server.use(
+      http.post('*/subscriptions/sub-1/accept-suggestion', () =>
+        HttpResponse.json(buildSubscriptionWithSuggestion()),
+      ),
+    )
+    const onUpdate = vi.fn()
+    const user = userEvent.setup()
+
+    renderWithProviders(
+      <CancellationSuggestionBanner
+        subscription={buildSubscriptionWithSuggestion()}
+        onUpdate={onUpdate}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: 'Accept & Mark as Cancelled' }),
+    )
+
+    expect(await screen.findByText('Suggestion Accepted')).toBeInTheDocument()
+    expect(onUpdate).toHaveBeenCalledTimes(1)
   })
 })
