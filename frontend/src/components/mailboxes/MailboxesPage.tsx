@@ -38,7 +38,7 @@ export const MailboxesPage = () => {
   const [syncingMailboxId, setSyncingMailboxId] = useState<string | null>(null)
   const [syncStatuses, setSyncStatuses] = useState<Map<string, MailboxSyncStatus>>(new Map())
   const [previewSyncId, setPreviewSyncId] = useState<string | null>(null)
-  const pollingIntervalRef = useRef<number | null>(null)
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { isOpen: isSyncOpen, onOpen: onSyncOpen, onClose: onSyncClose } = useDisclosure()
   const [searchParams, setSearchParams] = useSearchParams()

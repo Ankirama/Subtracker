@@ -147,10 +147,9 @@ jobs:
         working-directory: frontend
         run: npx tsc --noEmit --strict
 
-      # Tests temporarily disabled - will be fixed in separate PR
-      # - name: Run tests
-      #   working-directory: frontend
-      #   run: npm test -- --run
+      - name: Run unit tests
+        working-directory: frontend
+        run: npm test -- --run
 
       - name: Build check
         working-directory: frontend
