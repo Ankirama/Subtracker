@@ -67,7 +67,7 @@ describe('NOTIFICATION_TYPE_ICONS', () => {
     }
   })
 
-  it('covers all 11 notification types', () => {
-    expect(Object.keys(NOTIFICATION_TYPE_ICONS)).toHaveLength(11)
+  it('covers all 12 notification types', () => {
+    expect(Object.keys(NOTIFICATION_TYPE_ICONS)).toHaveLength(12)
   })
 })
