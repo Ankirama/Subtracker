@@ -468,6 +468,7 @@ export type ReviewSuggestionReason =
   | 'price_increased'
   | 'expensive_unused'
   | 'duplicate_detected'
+  | 'cancellation_detected'
 
 export interface ProviderCancellationInfo {
   id: string

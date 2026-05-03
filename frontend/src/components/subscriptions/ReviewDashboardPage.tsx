@@ -100,6 +100,8 @@ export const ReviewDashboardPage = () => {
         return 'Expensive & Unused'
       case 'duplicate_detected':
         return 'Duplicate Detected'
+      case 'cancellation_detected':
+        return 'Cancellation Detected'
       default:
         return (reason as string).replace('_', ' ')
     }
@@ -296,6 +298,7 @@ export const ReviewDashboardPage = () => {
                   <option value="likely_unused">Likely Unused</option>
                   <option value="duplicate_detected">Duplicates</option>
                   <option value="price_increased">Price Increased</option>
+                  <option value="cancellation_detected">Cancellation Detected</option>
                 </Select>
               </Box>
 
