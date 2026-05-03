@@ -75,4 +75,22 @@ describe('ReviewDashboardPage', () => {
       await screen.findByText('Failed to load review suggestions. Please try again.'),
     ).toBeInTheDocument()
   })
+
+  it('renders suggestion cards including the cancellation_detected reason label', async () => {
+    server.use(
+      http.get('*/reviews/suggestions', () =>
+        HttpResponse.json(buildSuggestionsResponse()),
+      ),
+    )
+
+    renderWithProviders(<ReviewDashboardPage />)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Smart Review Dashboard' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Netflix')).toBeInTheDocument()
+    expect(screen.getByText('Spotify')).toBeInTheDocument()
+    expect(screen.getAllByText('Cancellation Detected')).toHaveLength(2) // option + badge
+    expect(screen.getByText('Showing 2 of 2 suggestions')).toBeInTheDocument()
+  })
 })
