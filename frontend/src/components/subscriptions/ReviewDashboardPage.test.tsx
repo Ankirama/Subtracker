@@ -61,4 +61,18 @@ describe('ReviewDashboardPage', () => {
 
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
+
+  it('shows an error alert when the suggestions request fails', async () => {
+    server.use(
+      http.get('*/reviews/suggestions', () =>
+        HttpResponse.json({ detail: 'boom' }, { status: 500 }),
+      ),
+    )
+
+    renderWithProviders(<ReviewDashboardPage />)
+
+    expect(
+      await screen.findByText('Failed to load review suggestions. Please try again.'),
+    ).toBeInTheDocument()
+  })
 })
