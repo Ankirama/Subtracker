@@ -56,4 +56,28 @@ describe('CancellationSuggestionBanner', () => {
       screen.queryByText('AI Detected Potential Cancellation'),
     ).not.toBeInTheDocument()
   })
+
+  it('renders the title, reason, and both action buttons when suggestion is present', () => {
+    const subscription = buildSubscriptionWithSuggestion()
+
+    renderWithProviders(
+      <CancellationSuggestionBanner
+        subscription={subscription}
+        onUpdate={() => {}}
+      />,
+    )
+
+    expect(
+      screen.getByText('AI Detected Potential Cancellation'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Email confirms cancellation processed.'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Accept & Mark as Cancelled' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Dismiss Suggestion' }),
+    ).toBeInTheDocument()
+  })
 })
