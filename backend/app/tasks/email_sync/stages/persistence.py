@@ -38,11 +38,16 @@ from sqlalchemy.orm import Session
 
 from app.models.email_message import subscription_emails
 from app.models.mailbox import Mailbox
+from app.models.notification import NotificationPriority, NotificationType
 from app.models.subscription import Subscription
 from app.services.dedup_strategy import find_best_match
 from app.services.email_pipeline_protocol import ReferenceExtractorFactory
+from app.services.notification_service import NotificationService
 
-from ..cancellation_step import maybe_create_cancellation_suggestion
+from ..cancellation_step import (
+    CancellationSuggestionCreated,
+    maybe_create_cancellation_suggestion,
+)
 from ..filters import filter_subscription_data
 from ..price_history import record_initial_price, record_price_change
 from ..renewal_step import calculate_renewal_for_subscription
@@ -166,7 +171,9 @@ def persist_subscriptions_for_batch(
                         continue  # Skip normal processing, price update handled
                     else:
                         logger.warning(
-                            f"Price update detected but no existing subscription found for {subscription_data['provider']}, creating new subscription"
+                            "Price update detected but no existing subscription "
+                            f"found for {subscription_data['provider']}, creating "
+                            "new subscription"
                         )
                         # Fall through to normal creation logic
 
@@ -235,7 +242,9 @@ def persist_subscriptions_for_batch(
                         )
                     else:
                         logger.info(
-                            f"Updated subscription: {subscription_data['provider']} - {subscription_data.get('custom_label') or 'No label'}"
+                            "Updated subscription: "
+                            f"{subscription_data['provider']} - "
+                            f"{subscription_data.get('custom_label') or 'No label'}"
                         )
                 else:
                     # Create new subscription (filter out metadata fields like is_price_update)
@@ -251,7 +260,9 @@ def persist_subscriptions_for_batch(
                     subscription_record = new_subscription
                     subscriptions_found += 1
                     logger.info(
-                        f"Created new subscription: {subscription_data['provider']} - {subscription_data.get('custom_label') or 'No label'}"
+                        "Created new subscription: "
+                        f"{subscription_data['provider']} - "
+                        f"{subscription_data.get('custom_label') or 'No label'}"
                     )
 
                     # Create initial price history record
@@ -269,10 +280,18 @@ def persist_subscriptions_for_batch(
                 if subscription_record:
                     calculate_renewal_for_subscription(db, subscription_record)
 
-                # Check for cancellation category and create suggestion
+                # Check for cancellation category and create suggestion.
+                # Notification is emitted *after* the per-email commit
+                # below so we never notify for a suggestion that didn't
+                # persist.
+                pending_cancellation_notification: Optional[
+                    CancellationSuggestionCreated
+                ] = None
                 if subscription_record and email_record:
-                    maybe_create_cancellation_suggestion(
-                        subscription_record, email_record
+                    pending_cancellation_notification = (
+                        maybe_create_cancellation_suggestion(
+                            subscription_record, email_record
+                        )
                     )
 
                 # Create subscription-email relationship if not exists
@@ -309,9 +328,40 @@ def persist_subscriptions_for_batch(
 
             db.commit()
 
+            # Emit cancellation notification post-commit. Best-effort: a
+            # failed notification must not undo the persisted suggestion.
+            if pending_cancellation_notification is not None:
+                _emit_cancellation_notification(db, pending_cancellation_notification)
+
         except Exception as e:
             logger.error(f"Error processing email {email.id}: {str(e)}")
             db.rollback()
             continue
 
     return subscriptions_found, subscriptions_updated
+
+
+def _emit_cancellation_notification(
+    db: Session, payload: CancellationSuggestionCreated
+) -> None:
+    """Send the user a notification about a freshly-detected cancellation.
+
+    Single-shot: ``maybe_create_cancellation_suggestion`` only returns a
+    payload when a *new* suggestion is created (i.e. the subscription
+    didn't already have a pending one), so no per-user/per-sub dedup is
+    needed here.
+    """
+    try:
+        NotificationService.create_notification(
+            db=db,
+            user_id=payload.user_id,
+            notification_type=NotificationType.CANCELLATION_DETECTED,
+            title=f"Possible cancellation detected: {payload.provider}",
+            message=payload.reason,
+            priority=NotificationPriority.MEDIUM,
+            related_subscription_id=payload.subscription_id,
+        )
+    except Exception as e:  # noqa: BLE001 — notification is best-effort
+        logger.error(
+            f"Failed to emit cancellation notification for {payload.provider}: {e}"
+        )

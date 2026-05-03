@@ -13,6 +13,7 @@ export type NotificationType =
   | 'SYNC_SKIPPED_MANY'
   | 'SYNC_CIRCUIT_BREAKER'
   | 'SYNC_PREVIEW_AVAILABLE'
+  | 'CANCELLATION_DETECTED'
 
 export type NotificationPriorityValue = 'low' | 'medium' | 'high'
 
