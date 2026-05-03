@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
+import type { User } from '@/types'
 
-export const defaultUser = {
+export const defaultUser: User = {
   id: 'test-user-id',
   email: 'test@example.com',
   is_admin: false,
