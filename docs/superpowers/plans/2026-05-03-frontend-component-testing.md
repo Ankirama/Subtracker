@@ -226,15 +226,19 @@ export function renderWithProviders(
     ...renderOptions
   } = options
 
+  // i18next is initialized globally as a side-effect of importing
+  // '@/i18n/config' from setup.ts (mirroring main.tsx), so useTranslation
+  // works without an I18nextProvider wrapper here.
+  // AuthProvider must be inside MemoryRouter because it calls useNavigate().
   const Wrapper = ({ children }: { children: ReactNode }) => {
-    const tree = (
+    const inner = withAuth ? <AuthProvider>{children}</AuthProvider> : children
+    return (
       <ChakraProvider>
         <QueryClientProvider client={queryClient}>
-          <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+          <MemoryRouter initialEntries={[route]}>{inner}</MemoryRouter>
         </QueryClientProvider>
       </ChakraProvider>
     )
-    return withAuth ? <AuthProvider>{tree}</AuthProvider> : tree
   }
 
   return render(ui, { wrapper: Wrapper, ...renderOptions })
@@ -245,6 +249,7 @@ Key points:
 - Fresh `QueryClient` per call (so cache cannot leak across tests).
 - `MemoryRouter` so we don't touch `window.location`.
 - Real `AuthProvider` (not a mock) — because `localStorage` is empty in tests, it stays in unauthenticated mode and never hits `/auth/me`.
+- `AuthProvider` lives **inside** `MemoryRouter` because `AuthProvider` calls `useNavigate()` at module level; placing it outside the router crashes every render.
 
 - [ ] **Step 2: Type-check passes**
 

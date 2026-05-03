@@ -145,15 +145,16 @@ export function renderWithProviders(
     ...renderOptions
   } = options
 
+  // AuthProvider must be inside MemoryRouter — it calls useNavigate().
   const Wrapper = ({ children }: { children: React.ReactNode }) => {
-    const tree = (
+    const inner = withAuth ? <AuthProvider>{children}</AuthProvider> : children
+    return (
       <ChakraProvider>
         <QueryClientProvider client={queryClient}>
-          <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+          <MemoryRouter initialEntries={[route]}>{inner}</MemoryRouter>
         </QueryClientProvider>
       </ChakraProvider>
     )
-    return withAuth ? <AuthProvider>{tree}</AuthProvider> : tree
   }
 
   return render(ui, { wrapper: Wrapper, ...renderOptions })
