@@ -126,6 +126,10 @@
 - ✅ Frontend cancellation suggestion banner — `CancellationSuggestionBanner.tsx` on the subscription detail page, with Accept (flips status to cancelled) and Dismiss buttons
 - ✅ Activity-based status reconciliation — `tasks/email_sync/status_reconciler.py` deactivates subs with no email within billing-cycle + grace period
 - ✅ Database migrations — `add_cancellation_workflows`, `add_cancellation_suggestion_fields`, `add_cancellation_feedback_table`, `add_sync_cancellation_fields_to_mailbox`
+- ✅ Cancellation-detected notification — `NotificationType.CANCELLATION_DETECTED` emitted once per newly-detected cancellation by `tasks/email_sync/stages/persistence.py`, surfaced in the bell / Notifications page (PR #59, migration `q6q6q6q6q6q6_add_cancellation_detected_notif_type`)
+- ✅ AI-detected suggestions in Reviews dashboard — `services/review_suggestions.py:_detect_pending_cancellation` adds the `cancellation_detected` reason at high priority, with frontend filter + label (PR #60)
+- ✅ Backend tests for auto-detect — `tests/test_cancellation_auto_detect.py` (12 tests) covers `maybe_create_cancellation_suggestion`, accept/dismiss endpoints; `TestDetectPendingCancellation` (4 tests) in `tests/test_review_suggestions.py` covers the new dashboard branch (PRs #61, #62)
+- ✅ Frontend test infrastructure + banner tests — Vitest+jsdom+MSW wired with shared `renderWithProviders` helper at `frontend/src/test/`, 5 tests for `CancellationSuggestionBanner` (visibility, render shape, accept, dismiss, error path), CI test step re-enabled (PRs #63, #64)
 
 ### Data Export & Sharing — Completed Sub-items
 
