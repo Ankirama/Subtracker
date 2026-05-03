@@ -115,4 +115,18 @@ describe('ReviewDashboardPage', () => {
     expect(screen.queryByText('Spotify')).not.toBeInTheDocument()
     expect(screen.getByText('Showing 1 of 2 suggestions')).toBeInTheDocument()
   })
+
+  it('shows the "All good!" empty state when there are no suggestions', async () => {
+    server.use(
+      http.get('*/reviews/suggestions', () =>
+        HttpResponse.json(
+          buildSuggestionsResponse({ suggestions: [], total_count: 0 }),
+        ),
+      ),
+    )
+
+    renderWithProviders(<ReviewDashboardPage />)
+
+    expect(await screen.findByText('All good! 🎉')).toBeInTheDocument()
+  })
 })
