@@ -589,6 +589,135 @@ class TestDetectDuplicates:
         assert len(suggestions) == 3
 
 
+class TestDetectPendingCancellation:
+    """Tests for _detect_pending_cancellation — surfaces AI-detected
+    cancellation suggestions that the user hasn't acted on yet."""
+
+    def test_returns_empty_when_no_suggestion_pending(
+        self,
+        review_service: ReviewSuggestionsService,
+        db_session: Session,
+        test_user: User,
+    ):
+        """Sub without `suggested_cancellation_status` is ignored."""
+        sub = Subscription(
+            id=uuid4(),
+            user_id=test_user.id,
+            provider="Spotify",
+            amount=9.99,
+            currency="EUR",
+            billing_cycle="monthly",
+            is_active=True,
+        )
+        db_session.add(sub)
+        db_session.commit()
+
+        suggestions = review_service._detect_pending_cancellation([sub])
+
+        assert suggestions == []
+
+    def test_surfaces_pending_suggestion_with_high_priority(
+        self,
+        review_service: ReviewSuggestionsService,
+        db_session: Session,
+        test_user: User,
+    ):
+        """Sub with `suggested_cancellation_status` set → one high-priority
+        suggestion with reason CANCELLATION_DETECTED."""
+        sub = Subscription(
+            id=uuid4(),
+            user_id=test_user.id,
+            provider="Netflix",
+            amount=15.99,
+            currency="EUR",
+            billing_cycle="monthly",
+            is_active=True,
+            suggested_cancellation_status="cancelled",
+            cancellation_suggestion_reason="Email confirms cancellation.",
+            cancellation_suggestion_created_at=datetime.now(timezone.utc),
+        )
+        db_session.add(sub)
+        db_session.commit()
+
+        suggestions = review_service._detect_pending_cancellation([sub])
+
+        assert len(suggestions) == 1
+        s = suggestions[0]
+        assert s.subscription_id == sub.id
+        assert s.provider == "Netflix"
+        assert s.reason == ReviewSuggestionReason.CANCELLATION_DETECTED
+        assert s.priority == "high"
+        assert "Netflix" in s.message
+        assert "Email confirms cancellation." in s.message
+        # No action_by_date — user can review at their leisure
+        assert s.action_by_date is None
+
+    def test_uses_default_message_when_reason_missing(
+        self,
+        review_service: ReviewSuggestionsService,
+        db_session: Session,
+        test_user: User,
+    ):
+        """Defensive: a suggestion without a reason text still gets a
+        useful message."""
+        sub = Subscription(
+            id=uuid4(),
+            user_id=test_user.id,
+            provider="HBO",
+            amount=12.99,
+            currency="USD",
+            billing_cycle="monthly",
+            is_active=True,
+            suggested_cancellation_status="cancelled",
+            cancellation_suggestion_reason=None,
+            cancellation_suggestion_created_at=datetime.now(timezone.utc),
+        )
+        db_session.add(sub)
+        db_session.commit()
+
+        suggestions = review_service._detect_pending_cancellation([sub])
+
+        assert len(suggestions) == 1
+        # Default fallback message used
+        assert "looked like a cancellation" in suggestions[0].message
+
+    def test_appears_in_full_get_review_suggestions_response(
+        self,
+        review_service: ReviewSuggestionsService,
+        db_session: Session,
+        test_user: User,
+    ):
+        """End-to-end: pending cancellation suggestion shows up in the
+        public ``get_review_suggestions`` response (not only the internal
+        detector)."""
+        sub = Subscription(
+            id=uuid4(),
+            user_id=test_user.id,
+            provider="Disney+",
+            amount=8.99,
+            currency="EUR",
+            billing_cycle="monthly",
+            is_active=True,
+            cancellation_status="active",
+            suggested_cancellation_status="cancelled",
+            cancellation_suggestion_reason="Cancellation confirmation email.",
+            cancellation_suggestion_created_at=datetime.now(timezone.utc),
+        )
+        db_session.add(sub)
+        db_session.commit()
+
+        response = review_service.get_review_suggestions(test_user.id)
+
+        cancellation_suggestions = [
+            s
+            for s in response.suggestions
+            if s.reason == ReviewSuggestionReason.CANCELLATION_DETECTED
+        ]
+        assert len(cancellation_suggestions) == 1
+        assert cancellation_suggestions[0].provider == "Disney+"
+        assert response.high_priority_count >= 1
+
+
 class TestCalculateMonthlyCost:
     """Tests for _calculate_monthly_cost helper"""
 
