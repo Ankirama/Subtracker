@@ -27,15 +27,19 @@ export function renderWithProviders(
     ...renderOptions
   } = options
 
+  // i18next is initialized globally as a side-effect of importing
+  // '@/i18n/config' from setup.ts (mirroring main.tsx), so useTranslation
+  // works without an I18nextProvider wrapper here.
+  // AuthProvider must be inside MemoryRouter because it calls useNavigate().
   const Wrapper = ({ children }: { children: ReactNode }) => {
-    const tree = (
+    const inner = withAuth ? <AuthProvider>{children}</AuthProvider> : children
+    return (
       <ChakraProvider>
         <QueryClientProvider client={queryClient}>
-          <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>
+          <MemoryRouter initialEntries={[route]}>{inner}</MemoryRouter>
         </QueryClientProvider>
       </ChakraProvider>
     )
-    return withAuth ? <AuthProvider>{tree}</AuthProvider> : tree
   }
 
   return render(ui, { wrapper: Wrapper, ...renderOptions })
