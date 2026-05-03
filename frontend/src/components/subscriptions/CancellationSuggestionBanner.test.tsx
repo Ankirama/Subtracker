@@ -134,4 +134,30 @@ describe('CancellationSuggestionBanner', () => {
     ).not.toBeInTheDocument()
     expect(onUpdate).toHaveBeenCalledTimes(1)
   })
+
+  it('shows an error toast and does not call onUpdate when accept fails', async () => {
+    server.use(
+      http.post('*/subscriptions/sub-1/accept-suggestion', () =>
+        HttpResponse.json({ detail: 'boom' }, { status: 500 }),
+      ),
+    )
+    const onUpdate = vi.fn()
+    const user = userEvent.setup()
+
+    renderWithProviders(
+      <CancellationSuggestionBanner
+        subscription={buildSubscriptionWithSuggestion()}
+        onUpdate={onUpdate}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: 'Accept & Mark as Cancelled' }),
+    )
+
+    expect(
+      await screen.findByText('Failed to accept cancellation suggestion.'),
+    ).toBeInTheDocument()
+    expect(onUpdate).not.toHaveBeenCalled()
+  })
 })
