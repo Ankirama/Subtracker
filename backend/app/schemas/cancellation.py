@@ -196,6 +196,7 @@ class ReviewSuggestionReason(str, Enum):
     PRICE_INCREASED = "price_increased"
     EXPENSIVE_UNUSED = "expensive_unused"
     DUPLICATE_DETECTED = "duplicate_detected"
+    CANCELLATION_DETECTED = "cancellation_detected"
 
 
 class ReviewSuggestion(BaseModel):

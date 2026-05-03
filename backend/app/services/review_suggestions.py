@@ -91,6 +91,9 @@ class ReviewSuggestionsService:
         unused_suggestions = self._detect_likely_unused(subscriptions)
         duplicate_suggestions = self._detect_duplicates(subscriptions)
         expensive_unused_suggestions = self._detect_expensive_unused(subscriptions)
+        pending_cancellation_suggestions = self._detect_pending_cancellation(
+            subscriptions
+        )
 
         # Combine all suggestions (avoiding duplicates)
         all_suggestions = (
@@ -98,6 +101,7 @@ class ReviewSuggestionsService:
             + unused_suggestions
             + duplicate_suggestions
             + expensive_unused_suggestions
+            + pending_cancellation_suggestions
         )
 
         # Remove duplicate suggestions (same subscription, prioritize higher severity)
@@ -341,7 +345,10 @@ class ReviewSuggestionsService:
                         billing_cycle=sub.billing_cycle,
                         reason=ReviewSuggestionReason.EXPENSIVE_UNUSED,
                         priority="high",
-                        message=f"💰 {sub.provider} costs ${monthly_cost:.2f}/month but shows no recent activity. Consider cancelling?",
+                        message=(
+                            f"💰 {sub.provider} costs ${monthly_cost:.2f}/month "
+                            "but shows no recent activity. Consider cancelling?"
+                        ),
                         action_by_date=None,
                         days_since_last_email=days_since,
                     )
@@ -408,6 +415,60 @@ class ReviewSuggestionsService:
                 )
 
         logger.info(f"Found {len(suggestions)} duplicate provider suggestions")
+        return suggestions
+
+    def _detect_pending_cancellation(
+        self, subscriptions: List[Subscription]
+    ) -> List[ReviewSuggestion]:
+        """
+        Surface subscriptions where the sync pipeline auto-created a
+        cancellation suggestion that the user hasn't acted on yet.
+
+        These rows have ``suggested_cancellation_status`` populated but
+        their effective ``cancellation_status`` is still ``active`` —
+        meaning the AI saw a cancellation email but the user hasn't
+        clicked Accept or Dismiss on the subscription detail banner.
+
+        High priority: action is straightforward (one click) and delaying
+        leaves the subscription on books that should be marked cancelled.
+
+        Args:
+            subscriptions: List of subscriptions to analyze
+
+        Returns:
+            List of pending cancellation review suggestions
+        """
+        suggestions = []
+
+        for sub in subscriptions:
+            if not sub.suggested_cancellation_status:
+                continue
+
+            reason_text = (
+                sub.cancellation_suggestion_reason
+                or "An email looked like a cancellation confirmation."
+            )
+            message = (
+                f"AI detected a cancellation email for {sub.provider}. "
+                f"{reason_text} Confirm on the subscription page to mark "
+                "it as cancelled, or dismiss if it's a false positive."
+            )
+
+            suggestions.append(
+                ReviewSuggestion(
+                    subscription_id=sub.id,
+                    provider=sub.provider or "Unknown",
+                    amount=float(sub.amount) if sub.amount else None,
+                    currency=sub.currency,
+                    billing_cycle=sub.billing_cycle,
+                    reason=ReviewSuggestionReason.CANCELLATION_DETECTED,
+                    priority="high",
+                    message=message,
+                    action_by_date=None,
+                )
+            )
+
+        logger.info(f"Found {len(suggestions)} pending cancellation suggestions")
         return suggestions
 
     def _calculate_monthly_cost(self, subscription: Subscription) -> Optional[float]:
