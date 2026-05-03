@@ -107,4 +107,31 @@ describe('CancellationSuggestionBanner', () => {
     expect(await screen.findByText('Suggestion Accepted')).toBeInTheDocument()
     expect(onUpdate).toHaveBeenCalledTimes(1)
   })
+
+  it('calls dismiss-suggestion endpoint, hides the banner, and fires onUpdate when Dismiss is clicked', async () => {
+    server.use(
+      http.post('*/subscriptions/sub-1/dismiss-suggestion', () =>
+        HttpResponse.json({ success: true, message: 'dismissed' }),
+      ),
+    )
+    const onUpdate = vi.fn()
+    const user = userEvent.setup()
+
+    renderWithProviders(
+      <CancellationSuggestionBanner
+        subscription={buildSubscriptionWithSuggestion()}
+        onUpdate={onUpdate}
+      />,
+    )
+
+    await user.click(
+      screen.getByRole('button', { name: 'Dismiss Suggestion' }),
+    )
+
+    expect(await screen.findByText('Suggestion Dismissed')).toBeInTheDocument()
+    expect(
+      screen.queryByText('AI Detected Potential Cancellation'),
+    ).not.toBeInTheDocument()
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+  })
 })
