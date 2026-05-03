@@ -82,36 +82,6 @@ Currently Fastmail users must generate an API/app-password manually and paste it
 
 ---
 
-### Cancellation Workflows — Visibility Polish ✂️
-
-**Status:** Core feature shipped, polish remaining
-**Priority:** Medium
-**Estimated Effort:** Small (~1.5 days)
-
-> Core cancellation feature (AI research, status tracking, auto-detect via email) is shipped — see
-> docs/_archive/roadmap-phase-1-completed.md for the full inventory of what's live today.
-
-The detection-suggestion mechanism only surfaces inside the subscription detail page. Two visibility
-gaps make it easy for the user to miss a freshly-detected cancellation.
-
-**Remaining work:**
-- [ ] Emit a notification (one per detected cancellation) when the sync pipeline creates a
-      `suggested_cancellation_status` on a subscription, so the user sees it from the bell / Notifications page
-- [ ] Add `cancellation_detected` reason to the Reviews dashboard so AI-detected suggestions
-      appear next to trial-ending / likely-unused / price-increased cards
-- [ ] Backend tests for `maybe_create_cancellation_suggestion`, accept/dismiss endpoints, and the
-      new dashboard branch
-- [ ] Frontend tests for `CancellationSuggestionBanner` and the new Reviews filter option
-
-**Out of scope (decided 2026-05-03):**
-- Truly automated cancellation (clicking "cancel" on the user's behalf via browser automation)
-  is unrealistic — most providers gate cancellation behind login + 2FA + CAPTCHA, and the
-  per-provider maintenance burden is huge. Current AI-instructions-as-help is the right ceiling.
-- Broader lifecycle event detection (paused / price_increased / payment_failed) is parked as a
-  potential future feature; revisit once visibility polish is shipped.
-
----
-
 ### Data Export & Sharing 📤
 
 **Status:** Partially Complete
@@ -274,4 +244,4 @@ gaps make it easy for the user to miss a freshly-detected cancellation.
 
 ---
 
-*Last Updated: 2026-05-03 (Cancellation Workflows: documented that core feature is shipped; only visibility polish remains)*
+*Last Updated: 2026-05-03 (Cancellation Workflows: visibility polish fully shipped; section moved to archive)*
