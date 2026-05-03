@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse, delay } from 'msw'
 import { ReviewDashboardPage } from './ReviewDashboardPage'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -92,5 +93,26 @@ describe('ReviewDashboardPage', () => {
     expect(screen.getByText('Spotify')).toBeInTheDocument()
     expect(screen.getAllByText('Cancellation Detected')).toHaveLength(2) // option + badge
     expect(screen.getByText('Showing 2 of 2 suggestions')).toBeInTheDocument()
+  })
+
+  it('filters suggestions when the Reason select is changed', async () => {
+    server.use(
+      http.get('*/reviews/suggestions', () =>
+        HttpResponse.json(buildSuggestionsResponse()),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderWithProviders(<ReviewDashboardPage />)
+    await screen.findByText('Netflix')
+
+    // Two <Select>s render: Priority is first in DOM order
+    // (ReviewDashboardPage.tsx:270), Reason is second (:288).
+    const selects = screen.getAllByRole('combobox')
+    await user.selectOptions(selects[1], 'cancellation_detected')
+
+    expect(screen.getByText('Netflix')).toBeInTheDocument()
+    expect(screen.queryByText('Spotify')).not.toBeInTheDocument()
+    expect(screen.getByText('Showing 1 of 2 suggestions')).toBeInTheDocument()
   })
 })
