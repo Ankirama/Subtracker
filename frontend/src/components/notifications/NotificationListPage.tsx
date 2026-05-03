@@ -53,6 +53,7 @@ const NOTIFICATION_TYPE_FILTER_OPTIONS: Array<{ value: NotificationType; label: 
   { value: 'SYNC_SKIPPED_MANY', label: 'Sync Skipped' },
   { value: 'SYNC_CIRCUIT_BREAKER', label: 'Sync Halted' },
   { value: 'SYNC_PREVIEW_AVAILABLE', label: 'Sync Preview' },
+  { value: 'CANCELLATION_DETECTED', label: 'Cancellation Detected' },
 ]
 
 const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
@@ -67,6 +68,7 @@ const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   SYNC_SKIPPED_MANY: 'Sync Skipped',
   SYNC_CIRCUIT_BREAKER: 'Sync Halted',
   SYNC_PREVIEW_AVAILABLE: 'Sync preview',
+  CANCELLATION_DETECTED: 'Cancellation Detected',
 }
 
 const getNotificationIcon = (type: string) =>

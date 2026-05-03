@@ -59,4 +59,5 @@ export const NOTIFICATION_TYPE_ICONS: Record<NotificationType, string> = {
   SYNC_SKIPPED_MANY: '⏭️',
   SYNC_CIRCUIT_BREAKER: '🛑',
   SYNC_PREVIEW_AVAILABLE: '🔍',
+  CANCELLATION_DETECTED: '✂️',
 }

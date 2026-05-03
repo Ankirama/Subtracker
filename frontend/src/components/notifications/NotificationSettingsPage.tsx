@@ -83,6 +83,12 @@ const NOTIFICATION_TYPES: Array<{
     description: 'Important updates and announcements',
     hasSettings: false,
   },
+  {
+    type: 'CANCELLATION_DETECTED',
+    label: 'Cancellation Detected',
+    description: 'Alert when an email looks like a cancellation confirmation for one of your subscriptions',
+    hasSettings: false,
+  },
 ]
 
 const DAYS_OF_WEEK = [

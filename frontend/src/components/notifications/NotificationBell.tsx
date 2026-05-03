@@ -178,6 +178,8 @@ export const NotificationBell = () => {
         return '🛑'
       case 'SYNC_PREVIEW_AVAILABLE':
         return '🔍'
+      case 'CANCELLATION_DETECTED':
+        return '✂️'
       default:
         return '📬'
     }

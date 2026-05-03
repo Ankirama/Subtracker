@@ -397,6 +397,7 @@ Subscription Tracker Team
             NotificationType.INACTIVE_SUBSCRIPTION,
             NotificationType.PRICE_CHANGE,
             NotificationType.SYSTEM_ANNOUNCEMENT,
+            NotificationType.CANCELLATION_DETECTED,
         ]
 
         for notification_type in notification_types:
