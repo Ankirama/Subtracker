@@ -82,42 +82,33 @@ Currently Fastmail users must generate an API/app-password manually and paste it
 
 ---
 
-### Cancellation Workflows ✂️
+### Cancellation Workflows — Visibility Polish ✂️
 
-**Status:** Planned (queued — Phase 1 not yet started)
-**Priority:** High (User-requested killer feature)
-**Estimated Effort:** Large (8 phases)
+**Status:** Core feature shipped, polish remaining
+**Priority:** Medium
+**Estimated Effort:** Small (~1.5 days)
 
-> Completed sub-items (trial ending reminders, trial period tracking) are recorded in
-> docs/_archive/roadmap-phase-1-completed.md.
+> Core cancellation feature (AI research, status tracking, auto-detect via email) is shipped — see
+> docs/_archive/roadmap-phase-1-completed.md for the full inventory of what's live today.
 
-**Features to Implement:**
-- [ ] **Phase 1:** Database schema & migrations (provider_cancellation_info table, subscription status fields)
-- [ ] **Phase 2:** AI cancellation research service (OpenAI-powered research for unknown providers)
-- [ ] **Phase 3:** Backend API endpoints (cancellation info, status updates, review suggestions)
-- [ ] **Phase 4:** Review suggestions algorithm (smart recommendations: trials ending, unused, price increases)
-- [ ] **Phase 5:** Frontend cancellation tab (instructions display, difficulty ratings, status tracking)
-- [ ] **Phase 6:** Frontend review dashboard (proactive suggestions widget with dismiss/snooze)
-- [ ] **Phase 7:** Testing & refinement (unit tests, integration tests, performance optimization)
-- [ ] **Phase 8:** Documentation & deployment (API docs, user guides, production deployment)
+The detection-suggestion mechanism only surfaces inside the subscription detail page. Two visibility
+gaps make it easy for the user to miss a freshly-detected cancellation.
 
-**Key Innovations:**
-- AI-powered cancellation research for any provider (not just pre-built database)
-- Smart "subscriptions to review" suggestions (trials ending, unused, price increases)
-- Difficulty ratings (easy/medium/hard) with step-by-step instructions
-- Pause option support (for services that allow pausing)
-- Direct cancellation links when available
+**Remaining work:**
+- [ ] Emit a notification (one per detected cancellation) when the sync pipeline creates a
+      `suggested_cancellation_status` on a subscription, so the user sees it from the bell / Notifications page
+- [ ] Add `cancellation_detected` reason to the Reviews dashboard so AI-detected suggestions
+      appear next to trial-ending / likely-unused / price-increased cards
+- [ ] Backend tests for `maybe_create_cancellation_suggestion`, accept/dismiss endpoints, and the
+      new dashboard branch
+- [ ] Frontend tests for `CancellationSuggestionBanner` and the new Reviews filter option
 
-**Technical Stack:**
-- AI Research: OpenAI GPT-4o-mini with structured JSON output
-- Caching: Store research results (90-day refresh cycle)
-- Database: PostgreSQL with provider_cancellation_info table
-- Frontend: React + Chakra UI with cancellation tab component
-
-**Implementation Plan:**
-See detailed plan: `backend/claudedocs/cancellation_workflows_implementation_plan.md`
-
-**Current Phase:** Phase 1 - Database Schema & Migrations
+**Out of scope (decided 2026-05-03):**
+- Truly automated cancellation (clicking "cancel" on the user's behalf via browser automation)
+  is unrealistic — most providers gate cancellation behind login + 2FA + CAPTCHA, and the
+  per-provider maintenance burden is huge. Current AI-instructions-as-help is the right ceiling.
+- Broader lifecycle event detection (paused / price_increased / payment_failed) is parked as a
+  potential future feature; revisit once visibility polish is shipped.
 
 ---
 
@@ -283,4 +274,4 @@ See detailed plan: `backend/claudedocs/cancellation_workflows_implementation_pla
 
 ---
 
-*Last Updated: 2026-05-02 (sync with reality: shipped sync date range visibility, fixed AddMailboxModal toast bug, corrected Cancellation Workflows status)*
+*Last Updated: 2026-05-03 (Cancellation Workflows: documented that core feature is shipped; only visibility polish remains)*
