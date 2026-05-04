@@ -13,5 +13,5 @@ export const defaultUser: User = {
 
 export const handlers = [
   http.get('*/auth/me', () => HttpResponse.json(defaultUser)),
-  http.get('*/notifications/unread-count', () => HttpResponse.json({ count: 0 })),
+  http.get('*/notifications/unread-count', () => HttpResponse.json({ unread_count: 0 })),
 ]
