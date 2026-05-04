@@ -115,4 +115,29 @@ describe('NotificationBell', () => {
       await within(trigger.parentElement!).findByText('1'),
     ).toBeInTheDocument()
   })
+
+  it('hides the badge after "Mark all read" succeeds', async () => {
+    server.use(
+      http.get('*/notifications/unread-count', () =>
+        HttpResponse.json({ unread_count: 2 }),
+      ),
+      http.get('*/notifications', () =>
+        HttpResponse.json(buildNotificationsResponse()),
+      ),
+      http.post('*/notifications/mark-all-read', () =>
+        HttpResponse.json({ success: true, marked_read: 2 }),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderWithProviders(<NotificationBell />)
+    const trigger = await screen.findByRole('button', { name: 'Notifications' })
+    await user.click(trigger)
+    await user.click(await screen.findByRole('button', { name: /mark all read/i }))
+
+    // Wait for the success toast to confirm the async path settled, then
+    // assert the badge container no longer contains the prior count.
+    await screen.findByText('All notifications marked as read')
+    expect(within(trigger.parentElement!).queryByText('2')).not.toBeInTheDocument()
+  })
 })
