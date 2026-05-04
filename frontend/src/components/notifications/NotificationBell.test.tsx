@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { NotificationBell } from './NotificationBell'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -52,5 +53,23 @@ describe('NotificationBell', () => {
 
     const trigger = await screen.findByRole('button', { name: 'Notifications' })
     expect(within(trigger.parentElement!).getByText('3')).toBeInTheDocument()
+  })
+
+  it('loads and renders notifications when the popover is opened', async () => {
+    server.use(
+      http.get('*/notifications/unread-count', () =>
+        HttpResponse.json({ unread_count: 2 }),
+      ),
+      http.get('*/notifications', () =>
+        HttpResponse.json(buildNotificationsResponse()),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderWithProviders(<NotificationBell />)
+    await user.click(await screen.findByRole('button', { name: 'Notifications' }))
+
+    expect(await screen.findByText('Spotify trial ending soon')).toBeInTheDocument()
+    expect(screen.getByText('Netflix renewal in 7 days')).toBeInTheDocument()
   })
 })
