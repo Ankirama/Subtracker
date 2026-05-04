@@ -91,4 +91,28 @@ describe('NotificationBell', () => {
       await screen.findByText('Failed to load notifications'),
     ).toBeInTheDocument()
   })
+
+  it('decrements the badge after marking one notification as read', async () => {
+    server.use(
+      http.get('*/notifications/unread-count', () =>
+        HttpResponse.json({ unread_count: 2 }),
+      ),
+      http.get('*/notifications', () =>
+        HttpResponse.json(buildNotificationsResponse()),
+      ),
+      http.post('*/notifications/mark-read', () =>
+        HttpResponse.json({ success: true, marked_read: 1 }),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderWithProviders(<NotificationBell />)
+    const trigger = await screen.findByRole('button', { name: 'Notifications' })
+    await user.click(trigger)
+    await user.click(await screen.findByText('Spotify trial ending soon'))
+
+    expect(
+      await within(trigger.parentElement!).findByText('1'),
+    ).toBeInTheDocument()
+  })
 })
