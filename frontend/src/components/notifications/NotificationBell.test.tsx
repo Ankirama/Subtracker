@@ -72,4 +72,23 @@ describe('NotificationBell', () => {
     expect(await screen.findByText('Spotify trial ending soon')).toBeInTheDocument()
     expect(screen.getByText('Netflix renewal in 7 days')).toBeInTheDocument()
   })
+
+  it('shows an error toast when the notifications fetch fails', async () => {
+    server.use(
+      http.get('*/notifications/unread-count', () =>
+        HttpResponse.json({ unread_count: 1 }),
+      ),
+      http.get('*/notifications', () =>
+        HttpResponse.json({ detail: 'boom' }, { status: 500 }),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderWithProviders(<NotificationBell />)
+    await user.click(await screen.findByRole('button', { name: 'Notifications' }))
+
+    expect(
+      await screen.findByText('Failed to load notifications'),
+    ).toBeInTheDocument()
+  })
 })
