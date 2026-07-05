@@ -140,4 +140,55 @@ describe('NotificationBell', () => {
     await screen.findByText('All notifications marked as read')
     expect(within(trigger.parentElement!).queryByText('2')).not.toBeInTheDocument()
   })
+
+  it('removes a notification and decrements the badge after deleting it', async () => {
+    server.use(
+      http.get('*/notifications/unread-count', () =>
+        HttpResponse.json({ unread_count: 2 }),
+      ),
+      http.get('*/notifications', () =>
+        HttpResponse.json(buildNotificationsResponse()),
+      ),
+      http.delete('*/notifications/notif-1', () =>
+        HttpResponse.json({ success: true }),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderWithProviders(<NotificationBell />)
+    const trigger = await screen.findByRole('button', { name: 'Notifications' })
+    await user.click(trigger)
+    await screen.findByText('Spotify trial ending soon')
+
+    // The first delete button belongs to the first (Spotify) notification.
+    const [deleteButton] = screen.getAllByRole('button', {
+      name: 'Delete notification',
+    })
+    await user.click(deleteButton)
+
+    await screen.findByText('Notification deleted')
+    expect(
+      screen.queryByText('Spotify trial ending soon'),
+    ).not.toBeInTheDocument()
+    expect(
+      await within(trigger.parentElement!).findByText('1'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows the empty state when there are no notifications', async () => {
+    server.use(
+      http.get('*/notifications/unread-count', () =>
+        HttpResponse.json({ unread_count: 0 }),
+      ),
+      http.get('*/notifications', () =>
+        HttpResponse.json(buildNotificationsResponse({ notifications: [] })),
+      ),
+    )
+    const user = userEvent.setup()
+
+    renderWithProviders(<NotificationBell />)
+    await user.click(await screen.findByRole('button', { name: 'Notifications' }))
+
+    expect(await screen.findByText('No notifications')).toBeInTheDocument()
+  })
 })
