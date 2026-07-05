@@ -55,6 +55,22 @@ describe('NotificationBell', () => {
     expect(within(trigger.parentElement!).getByText('3')).toBeInTheDocument()
   })
 
+  it('caps the badge at "99+" when the unread count exceeds 99', async () => {
+    server.use(
+      http.get('*/notifications/unread-count', () =>
+        HttpResponse.json({ unread_count: 150 }),
+      ),
+    )
+
+    renderWithProviders(<NotificationBell />)
+
+    const trigger = await screen.findByRole('button', { name: 'Notifications' })
+    expect(
+      await within(trigger.parentElement!).findByText('99+'),
+    ).toBeInTheDocument()
+    expect(within(trigger.parentElement!).queryByText('150')).not.toBeInTheDocument()
+  })
+
   it('loads and renders notifications when the popover is opened', async () => {
     server.use(
       http.get('*/notifications/unread-count', () =>
