@@ -37,9 +37,17 @@ to `main` (`ghcr.io/ankirama/subtracker-backend` and `-frontend`, tag `latest`).
   Dockhand → *Networks → Create* (name `proxy`), or `docker network create proxy`.
 - UGREEN DXP4800: it's an x86-64 box, so the `linux/amd64` GHCR images run natively — no
   multi-arch build needed.
-- Persistent data (Postgres, Redis, backups) is bind-mounted under `./data/` in the stack
-  directory, so the stack must sit on **local storage** (not an SMB/NFS share) — Postgres
-  corrupts on network filesystems. Docker creates the `./data/*` subdirs on first start.
+- All persistent data is bind-mounted under `./data/` in the stack directory, so the stack must
+  sit on **local storage** (not an SMB/NFS share) — Postgres corrupts on network filesystems.
+- Services run as `PUID:PGID` (default `1000:100`, the UGREEN "users" group) so the data files are
+  owned by your NAS user, not root. Because they run **non-root**, you must **pre-create the data
+  dirs and chown them** before the first deploy — SSH into the NAS and, from the stack directory
+  (e.g. `/app/data/dstacks/newworldstation/subtracker`), run:
+  ```bash
+  mkdir -p data/postgres data/redis data/backups data/logos data/logs
+  chown -R 1000:100 data
+  ```
+  (The frontend is the one exception — nginx runs as root to bind port 80 and stores nothing.)
 
 ## Step 1 — Make the GHCR images pullable
 
