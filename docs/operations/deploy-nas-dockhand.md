@@ -10,9 +10,9 @@ Files used:
 - `deploy/nas/docker-compose.nas.yml` — the stack (no Traefik; frontend nginx also proxies `/api`).
 - `deploy/nas/.env.nas.example` — the environment template.
 
-## How it works (vs production)
+## How it works (vs a Traefik server setup)
 
-The production `docker-compose.prod.yml` relies on an external **Traefik** to route
+A typical Traefik-based server setup relies on an external **Traefik** to route
 `/api → backend` and `/ → frontend` and to terminate TLS. A NAS usually has no Traefik, so
 the NAS stack instead reconfigures the **frontend nginx** (via an inline Compose `config`) to
 proxy `/api` to the backend. One container then serves the whole app, and your NAS reverse
