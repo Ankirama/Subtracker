@@ -120,7 +120,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - ${DATA_PATH:-./data}/postgres:/var/lib/postgresql/data
     # As a non-root user Postgres can't write its socket to the image's root-owned
     # /var/run/postgresql, so back that path with a writable tmpfs.
     tmpfs:
@@ -139,7 +139,7 @@ services:
     user: "${PUID:-1000}:${PGID:-100}"
     command: redis-server --appendonly yes
     volumes:
-      - ./data/redis:/data
+      - ${DATA_PATH:-./data}/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -150,7 +150,7 @@ services:
 
   # Automatic PostgreSQL backups: scheduled logical pg_dump with retention.
   # A logical dump is transaction-consistent; copying the live data directory is not.
-  # Dumps land (gzipped) in ./data/backups under last/daily/weekly/monthly.
+  # Dumps land (gzipped) in ${DATA_PATH:-./data}/backups under last/daily/weekly/monthly.
   pg_backup:
     image: prodrigestivill/postgres-backup-local:15
     container_name: subtracker_pg_backup
@@ -169,7 +169,7 @@ services:
       # Set to a Discord webhook URL to get success/failure notifications (optional).
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
     volumes:
-      - ./data/backups:/backups
+      - ${DATA_PATH:-./data}/backups:/backups
     configs:
       - source: pg_backup_notify
         target: /hooks/discord-notify
@@ -214,8 +214,8 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     volumes:
-      - ./data/logos:/app/logos
-      - ./data/logs:/app/logs
+      - ${DATA_PATH:-./data}/logos:/app/logos
+      - ${DATA_PATH:-./data}/logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -238,7 +238,7 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     volumes:
-      - ./data/logs:/app/logs
+      - ${DATA_PATH:-./data}/logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -291,11 +291,12 @@ services:
     networks: [internal, proxy]
     restart: unless-stopped
 
-# All persistent data is bind-mounted under ./data/ in the stack directory (local storage only —
-# Postgres corrupts on SMB/NFS). Every service runs as ${PUID:-1000}:${PGID:-100} (the frontend is
-# the exception — nginx needs root for port 80 and stores nothing), so the ./data subdirs must be
-# pre-created and owned by that uid/gid BEFORE the first deploy:
-#   mkdir -p data/{postgres,redis,backups,logos,logs} && chown -R 1000:100 data
+# All persistent data is bind-mounted under ${DATA_PATH:-./data} (default ./data in the stack dir;
+# set DATA_PATH to an absolute path like /volume2/docker/subtracker to store it elsewhere). It must
+# be on local storage — Postgres corrupts on SMB/NFS. Every service runs as ${PUID:-1000}:${PGID:-100}
+# (the frontend is the exception — nginx needs root for port 80 and stores nothing), so the subdirs
+# must be pre-created and owned by that uid/gid BEFORE the first deploy, e.g.:
+#   mkdir -p "$DATA_PATH"/{postgres,redis,backups,logos,logs} && chown -R 1000:100 "$DATA_PATH"
 # Without this, the non-root Postgres/Redis/backend containers can't write and fail to start.
 
 networks:
