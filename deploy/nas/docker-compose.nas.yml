@@ -71,6 +71,35 @@ configs:
           }
       }
 
+  # Discord notification hook for the pg_backup sidecar (mounted into /hooks).
+  # postgres-backup-local runs it via run-parts with the situation as $1
+  # (pre-backup | post-backup | error). Shell vars are written $$ so Compose
+  # passes a literal $ through to the container file.
+  pg_backup_notify:
+    content: |
+      #!/bin/sh
+      [ -z "$$DISCORD_WEBHOOK_URL" ] && exit 0
+      situation="$$1"
+      shift
+      details=$$(printf '%s' "$$*" | tr -d '"\\%' | tr '\n\r' '  ' | cut -c1-400)
+      case "$$situation" in
+        post-backup)
+          color=3066993
+          title="✅ Backup OK — $$POSTGRES_DB"
+          [ -z "$$details" ] && details="New dump stored in /backups"
+          ;;
+        error)
+          color=15158332
+          title="❌ Backup FAILED — $$POSTGRES_DB"
+          [ -z "$$details" ] && details="See subtracker_pg_backup logs"
+          ;;
+        *)
+          exit 0
+          ;;
+      esac
+      payload=$$(printf '{"embeds":[{"title":"[subtracker] %s","description":"%s","color":%s}]}' "$$title" "$$details" "$$color")
+      curl -sf -m 10 -H "Content-Type: application/json" -X POST -d "$$payload" "$$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || true
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -121,8 +150,14 @@ services:
       BACKUP_KEEP_MONTHS: ${BACKUP_KEEP_MONTHS:-6}
       # --clean --if-exists makes each dump self-contained (drops+recreates on restore)
       POSTGRES_EXTRA_OPTS: "--clean --if-exists"
+      # Set to a Discord webhook URL to get success/failure notifications (optional).
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
     volumes:
       - postgres_backups:/backups
+    configs:
+      - source: pg_backup_notify
+        target: /hooks/discord-notify
+        mode: 0555
     depends_on:
       postgres:
         condition: service_healthy

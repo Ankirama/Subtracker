@@ -135,6 +135,21 @@ Tune it from the Environment tab:
 - `BACKUP_SCHEDULE` — `@daily` (default), `@hourly`, `@weekly`, or a cron expr like `0 3 * * *`.
 - `BACKUP_KEEP_DAYS` / `BACKUP_KEEP_WEEKS` / `BACKUP_KEEP_MONTHS` — retention.
 
+### Notifications (Discord)
+
+Set `DISCORD_WEBHOOK_URL` to get a message on every backup — green ✅ on success, red ❌ on
+failure. A hook script (`/hooks/discord-notify`, mounted by the stack) fires on the sidecar's
+`post-backup` and `error` events; leave the variable blank to disable.
+
+1. In Discord: *Server Settings → Integrations → Webhooks → New Webhook*, pick a channel,
+   **Copy Webhook URL**.
+2. Paste it as `DISCORD_WEBHOOK_URL` in the stack Environment and redeploy.
+3. Test it: exec into `subtracker_pg_backup` and run
+   `sh /hooks/discord-notify post-backup "manual test"` to send a sample success message; or
+   trigger a real dump with `backup.sh` and watch the channel.
+
+The notification is best-effort (a failed webhook never breaks the backup).
+
 ### Get the backups off the NAS
 
 The dumps live in the `postgres_backups` Docker volume. Either:
