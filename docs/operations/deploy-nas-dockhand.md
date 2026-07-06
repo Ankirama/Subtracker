@@ -1,9 +1,10 @@
-# Deploy to a NAS with Dockhand (LAN / HTTP)
+# Deploy to a NAS with Dockhand (behind a reverse proxy)
 
 This guide deploys Subscription Tracker to a NAS using [Dockhand](https://dockhand.pro/)
-(a self-hosted Docker management UI). The stack runs on plain HTTP on the LAN; when you
-expose it on a public domain, TLS is terminated **upstream** (Cloudflare Tunnel or your
-NAS reverse proxy).
+(a self-hosted Docker management UI). The stack speaks plain HTTP internally and is exposed
+through a reverse proxy on the same NAS — **Nginx Proxy Manager (NPM)** in this guide — which
+terminates TLS. The frontend is **not** published on the LAN; NPM reaches it over a shared
+Docker network by container name.
 
 Files used:
 - `deploy/nas/docker-compose.nas.yml` — the stack (no Traefik; frontend nginx also proxies `/api`).
@@ -14,15 +15,14 @@ Files used:
 The production `docker-compose.prod.yml` relies on an external **Traefik** to route
 `/api → backend` and `/ → frontend` and to terminate TLS. A NAS usually has no Traefik, so
 the NAS stack instead reconfigures the **frontend nginx** (via an inline Compose `config`) to
-proxy `/api` to the backend. The result: one HTTP port serves the whole app.
+proxy `/api` to the backend. One container then serves the whole app, and your NAS reverse
+proxy sits in front of it.
 
 ```
-Browser --HTTPS--> [Cloudflare Tunnel / NAS reverse proxy]   (TLS here)
-                              |
-                        http://<NAS_IP>:8080
-                              |
-                     frontend (nginx)
-                      /  (SPA)     \  /api -> backend:8000
+Browser --HTTPS--> Nginx Proxy Manager        (TLS / Let's Encrypt here)
+                        |  (shared `proxy` Docker network)
+                subtracker_frontend:80 (nginx)
+                 /  (SPA)       \  /api -> backend:8000
 ```
 
 Images are pulled from GHCR, built automatically by `.github/workflows/cd.yml` on every push
@@ -32,7 +32,11 @@ to `main` (`ghcr.io/ankirama/subtracker-backend` and `-frontend`, tag `latest`).
 
 - Dockhand installed on the NAS. Docker Compose **v2.23.1+** (needed for the inline nginx
   `config`; check with `docker compose version`). Older Docker → see [Fallback](#fallback-older-docker-compose).
-- Ports 80/443 free on the NAS only if you also run a reverse proxy there.
+- A reverse proxy on the NAS (this guide uses Nginx Proxy Manager) with ports 80/443.
+- A shared Docker network named `proxy` that both NPM and this stack join. Create it once —
+  Dockhand → *Networks → Create* (name `proxy`), or `docker network create proxy`.
+- UGREEN DXP4800: it's an x86-64 box, so the `linux/amd64` GHCR images run natively — no
+  multi-arch build needed.
 
 ## Step 1 — Make the GHCR images pullable
 
@@ -60,11 +64,11 @@ private images.
    - `JWT_SECRET_KEY` — `openssl rand -hex 32`.
    - `ENCRYPTION_KEY` — `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
    - `OPENAI_API_KEY` — your key.
-   - `FRONTEND_PORT` — the LAN port to expose (default `8080`).
-   - `CORS_ORIGINS` — your public domain (and the `http://<NAS_IP>:8080` LAN origin while testing).
+   - `CORS_ORIGINS` — your public https domain (e.g. `https://subtracker.example.com`).
    - `GITHUB_REPOSITORY` — `ankirama/subtracker` (lowercase), `IMAGE_TAG` — `latest`.
-4. Deploy. On first start the `migrate` service runs `alembic upgrade head`, then postgres,
-   redis, backend, celery worker/beat and frontend come up.
+4. Make sure the shared `proxy` network exists (see Prerequisites), then deploy. On first
+   start the `migrate` service runs `alembic upgrade head`, then postgres, redis, backend,
+   celery worker/beat and frontend come up.
 
 ## Step 3 — Create the first admin user
 
@@ -75,27 +79,12 @@ container from Dockhand (*Containers → subtracker_backend → Exec/Console*) a
 python -m scripts.create_admin --email admin@example.com --password 'a-strong-password' --name 'Admin'
 ```
 
-## Step 4 — Access it on the LAN
+## Step 4 — Expose with Nginx Proxy Manager
 
-Browse to `http://<NAS_IP>:<FRONTEND_PORT>` (e.g. `http://192.168.1.50:8080`). Confirm the
-login page loads and that a request to `/api/...` works (open `/docs` — it should show the
-FastAPI UI, proving the nginx `/api` proxy is wired). Then expose it publicly (Step 5).
+The frontend has no published port; NPM reaches it over the shared `proxy` network.
 
-> UGREEN DXP4800 note: it's an x86-64 box, so the `linux/amd64` GHCR images run natively —
-> no multi-arch build needed. If port `8080` clashes with a UGOS service, set `FRONTEND_PORT`
-> to something free (e.g. `8090`).
-
-## Step 5 — Expose publicly with Nginx Proxy Manager
-
-NPM terminates TLS (Let's Encrypt) and proxies to the frontend. Pick one wiring:
-
-### Option A — shared Docker network (recommended, no LAN port exposed)
-
-Put NPM and the frontend on the same Docker network so NPM reaches the container by name,
-and the app is never published on the LAN.
-
-1. Create a shared network once (Dockhand → *Networks → Create*, or `docker network create proxy`).
-2. In the **NPM** stack, add that network to the NPM app service:
+1. **Connect NPM to the `proxy` network.** In the NPM stack add the external network to the
+   NPM app service, then redeploy NPM:
    ```yaml
    services:
      app:            # the jc21/nginx-proxy-manager service
@@ -104,35 +93,23 @@ and the app is never published on the LAN.
      proxy:
        external: true
    ```
-3. In `docker-compose.nas.yml`, add the same external network to the **frontend** service and
-   declare it (you can then drop the `ports:` mapping — NPM reaches it internally):
-   ```yaml
-   services:
-     frontend:
-       networks: [internal, proxy]
-       # ports: []            # optional: remove to keep it off the LAN entirely
-   networks:
-     proxy:
-       external: true
-   ```
-4. NPM → *Proxy Hosts → Add*: **Forward Hostname** `subtracker_frontend`, **Forward Port** `80`,
-   **Scheme** `http`.
+   (Or, in Dockhand → the NPM container → *Networks*, attach `proxy`.)
+2. **Add a proxy host.** NPM UI → *Hosts → Proxy Hosts → Add Proxy Host*:
+   - **Domain Names**: your public domain (e.g. `subtracker.example.com`).
+   - **Scheme** `http`, **Forward Hostname** `subtracker_frontend`, **Forward Port** `80`.
+   - Toggle **Block Common Exploits** and **Websockets Support** ON.
+   - **SSL** tab: request a new Let's Encrypt certificate, then enable **Force SSL** + **HTTP/2**.
+   - **Advanced** tab (only if large exports/uploads fail with 413): `client_max_body_size 25m;`.
+3. Confirm `CORS_ORIGINS` (Step 2) contains that https origin; redeploy the stack if you changed it.
 
-### Option B — via the published LAN port (simplest)
+> Prefer a published LAN port instead of a reverse proxy? Add
+> `ports: ["${FRONTEND_PORT:-8080}:80"]` to the frontend service, drop the `proxy` network,
+> set `FRONTEND_PORT`, and point any proxy at `http://<NAS_IP>:<FRONTEND_PORT>`.
 
-Keep the `ports: "${FRONTEND_PORT}:80"` mapping. In NPM → *Proxy Hosts → Add*:
-**Forward Hostname** `<NAS_IP>`, **Forward Port** `<FRONTEND_PORT>` (e.g. `8080`), **Scheme** `http`.
+## Step 5 — Verify
 
-### NPM proxy-host settings (both options)
-
-- **Domain Names**: your public domain (e.g. `subtracker.example.com`).
-- Toggle **Block Common Exploits** and **Websockets Support** ON.
-- **SSL** tab: request a new Let's Encrypt certificate, then enable **Force SSL** and **HTTP/2**.
-- **Advanced** tab (only if large exports/uploads fail with 413): add
-  `client_max_body_size 25m;`.
-
-Finally, set `CORS_ORIGINS` to the **https** public origin (e.g. `https://subtracker.example.com`)
-in the stack Environment and redeploy. The SPA calls `/api` same-origin, so this is belt-and-braces.
+Browse to `https://<your-domain>` — the login page should load. Open
+`https://<your-domain>/docs`: the FastAPI UI confirms the nginx `/api` proxy is wired end to end.
 
 ## Updating
 
@@ -156,6 +133,10 @@ snapshot `postgres_data` on a schedule.
   Confirm Docker Compose ≥ v2.23.1 (`docker compose version`); otherwise use the fallback below.
 - **`ImagePullBackOff` / pull denied** — GHCR images are private and Dockhand has no
   credentials (Step 1, Option B), or `GITHUB_REPOSITORY` is wrong/not lowercase.
+- **`network proxy declared as external, but could not be found`** — create it before
+  deploying: `docker network create proxy` (or Dockhand → *Networks*).
+- **NPM shows `502 Bad Gateway`** — NPM isn't on the `proxy` network (Step 4.1), the stack
+  isn't healthy yet, or the Forward Hostname/Port aren't `subtracker_frontend` / `80`.
 - **Backend restarts / DB connection errors** — check `POSTGRES_*` match between the postgres
   service and the constructed `DATABASE_URL`; wait for the `migrate` service to finish first.
 - **`env file .env not found`** — make sure the Environment tab is filled; Dockhand writes it
