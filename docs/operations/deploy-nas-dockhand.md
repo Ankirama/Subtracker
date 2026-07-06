@@ -75,12 +75,64 @@ container from Dockhand (*Containers → subtracker_backend → Exec/Console*) a
 python -m scripts.create_admin --email admin@example.com --password 'a-strong-password' --name 'Admin'
 ```
 
-## Step 4 — Access it
+## Step 4 — Access it on the LAN
 
-- **On the LAN**: `http://<NAS_IP>:8080`.
-- **Public domain**: point a **Cloudflare Tunnel** (or your NAS reverse proxy) at
-  `http://<NAS_IP>:8080`. TLS is handled by the tunnel/proxy — the stack stays HTTP.
-  Make sure the domain is in `CORS_ORIGINS`.
+Browse to `http://<NAS_IP>:<FRONTEND_PORT>` (e.g. `http://192.168.1.50:8080`). Confirm the
+login page loads and that a request to `/api/...` works (open `/docs` — it should show the
+FastAPI UI, proving the nginx `/api` proxy is wired). Then expose it publicly (Step 5).
+
+> UGREEN DXP4800 note: it's an x86-64 box, so the `linux/amd64` GHCR images run natively —
+> no multi-arch build needed. If port `8080` clashes with a UGOS service, set `FRONTEND_PORT`
+> to something free (e.g. `8090`).
+
+## Step 5 — Expose publicly with Nginx Proxy Manager
+
+NPM terminates TLS (Let's Encrypt) and proxies to the frontend. Pick one wiring:
+
+### Option A — shared Docker network (recommended, no LAN port exposed)
+
+Put NPM and the frontend on the same Docker network so NPM reaches the container by name,
+and the app is never published on the LAN.
+
+1. Create a shared network once (Dockhand → *Networks → Create*, or `docker network create proxy`).
+2. In the **NPM** stack, add that network to the NPM app service:
+   ```yaml
+   services:
+     app:            # the jc21/nginx-proxy-manager service
+       networks: [default, proxy]
+   networks:
+     proxy:
+       external: true
+   ```
+3. In `docker-compose.nas.yml`, add the same external network to the **frontend** service and
+   declare it (you can then drop the `ports:` mapping — NPM reaches it internally):
+   ```yaml
+   services:
+     frontend:
+       networks: [internal, proxy]
+       # ports: []            # optional: remove to keep it off the LAN entirely
+   networks:
+     proxy:
+       external: true
+   ```
+4. NPM → *Proxy Hosts → Add*: **Forward Hostname** `subtracker_frontend`, **Forward Port** `80`,
+   **Scheme** `http`.
+
+### Option B — via the published LAN port (simplest)
+
+Keep the `ports: "${FRONTEND_PORT}:80"` mapping. In NPM → *Proxy Hosts → Add*:
+**Forward Hostname** `<NAS_IP>`, **Forward Port** `<FRONTEND_PORT>` (e.g. `8080`), **Scheme** `http`.
+
+### NPM proxy-host settings (both options)
+
+- **Domain Names**: your public domain (e.g. `subtracker.example.com`).
+- Toggle **Block Common Exploits** and **Websockets Support** ON.
+- **SSL** tab: request a new Let's Encrypt certificate, then enable **Force SSL** and **HTTP/2**.
+- **Advanced** tab (only if large exports/uploads fail with 413): add
+  `client_max_body_size 25m;`.
+
+Finally, set `CORS_ORIGINS` to the **https** public origin (e.g. `https://subtracker.example.com`)
+in the stack Environment and redeploy. The SPA calls `/api` same-origin, so this is belt-and-braces.
 
 ## Updating
 
