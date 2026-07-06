@@ -64,9 +64,17 @@ private images.
    - `JWT_SECRET_KEY` — `openssl rand -hex 32`.
    - `ENCRYPTION_KEY` — `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
    - `OPENAI_API_KEY` — your key.
-   - `CORS_ORIGINS` — your public https domain (e.g. `https://subtracker.example.com`).
+   - `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — **required** (the backend won't start without
+     them): `npx web-push generate-vapid-keys`.
+   - `CORS_ORIGINS` and `FRONTEND_URL` — your public https domain (e.g. `https://subtracker.example.com`).
    - `GITHUB_REPOSITORY` — `ankirama/subtracker` (lowercase), `IMAGE_TAG` — `latest`.
-4. Make sure the shared `proxy` network exists (see Prerequisites), then deploy. On first
+   - Optional per feature: Google OAuth (`GOOGLE_CLIENT_ID` / `_SECRET` / `_REDIRECT_URI`) and
+     email (`RESEND_*`). See the notes in `.env.nas.example`.
+4. **If you use Google (Gmail) OAuth**: in Google Cloud Console → *APIs & Services →
+   Credentials → your OAuth client*, add the exact redirect URI
+   `https://<your-domain>/api/oauth/google/callback` under *Authorized redirect URIs*, and make
+   sure `GOOGLE_REDIRECT_URI` matches it.
+5. Make sure the shared `proxy` network exists (see Prerequisites), then deploy. On first
    start the `migrate` service runs `alembic upgrade head`, then postgres, redis, backend,
    celery worker/beat and frontend come up.
 
