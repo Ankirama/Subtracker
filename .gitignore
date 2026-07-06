@@ -106,6 +106,9 @@ backup.log
 data/
 certbot/
 
+# Claude Code local (machine-specific) settings — may hold secret env
+.claude/settings.local.json
+
 # Serena memories (development only)
 .serena/
 

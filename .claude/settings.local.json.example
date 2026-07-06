@@ -1,0 +1,6 @@
+{
+  "$comment": "Copy to .claude/settings.local.json (gitignored). Holds machine-local / secret env so commands never inline it (which would defeat permission allow rules and force prompts). The DATABASE_URL below is for HOST-LOCAL runs only (e.g. uv run pytest from a local venv); inside Docker, compose already provides DATABASE_URL.",
+  "env": {
+    "DATABASE_URL": "postgresql://postgres:devpassword@localhost:5432/subscription_tracker"
+  }
+}
