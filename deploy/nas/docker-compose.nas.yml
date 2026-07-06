@@ -104,6 +104,31 @@ services:
     networks: [internal]
     restart: unless-stopped
 
+  # Automatic PostgreSQL backups: scheduled logical pg_dump with retention.
+  # A logical dump is transaction-consistent; copying the live postgres_data volume is not.
+  # Dumps land (gzipped) in the postgres_backups volume under last/daily/weekly/monthly.
+  pg_backup:
+    image: prodrigestivill/postgres-backup-local:15
+    container_name: subtracker_pg_backup
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SCHEDULE: ${BACKUP_SCHEDULE:-@daily}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-7}
+      BACKUP_KEEP_WEEKS: ${BACKUP_KEEP_WEEKS:-4}
+      BACKUP_KEEP_MONTHS: ${BACKUP_KEEP_MONTHS:-6}
+      # --clean --if-exists makes each dump self-contained (drops+recreates on restore)
+      POSTGRES_EXTRA_OPTS: "--clean --if-exists"
+    volumes:
+      - postgres_backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+    restart: unless-stopped
+
   # One-shot: apply DB migrations, then exit. Backend waits for this to complete.
   migrate:
     image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-backend:${IMAGE_TAG:-latest}
@@ -207,6 +232,7 @@ volumes:
   redis_data:
   logos_data:
   backend_logs:
+  postgres_backups:
 
 networks:
   internal:

@@ -120,12 +120,49 @@ service re-runs `alembic upgrade head` automatically each deploy.
 To pin a specific build instead of `latest`, set `IMAGE_TAG` to a tag the CD workflow
 produced (e.g. `main-<sha>`).
 
-## Backups
+## Automatic PostgreSQL backups
 
-Postgres data lives in the `postgres_data` named volume; a `./backups` folder in the stack
-directory is mounted into postgres and backend. Use the repo's `scripts/backup.sh` /
-`scripts/restore.sh` patterns, or Dockhand's built-in volume backup (to S3/SFTP/B2), to
-snapshot `postgres_data` on a schedule.
+The stack ships a `pg_backup` sidecar
+([prodrigestivill/postgres-backup-local](https://github.com/prodrigestivill/docker-postgres-backup-local))
+that runs a scheduled logical `pg_dump` and prunes old dumps. Backups are written gzipped to
+the `postgres_backups` volume, organized into `last/`, `daily/`, `weekly/`, `monthly/`.
+
+> **Why not just copy the `postgres_data` volume?** Copying the live data directory while
+> Postgres is running can capture an inconsistent (corrupt) snapshot. A `pg_dump` is
+> transaction-consistent and restores cleanly — so this is what runs by default.
+
+Tune it from the Environment tab:
+- `BACKUP_SCHEDULE` — `@daily` (default), `@hourly`, `@weekly`, or a cron expr like `0 3 * * *`.
+- `BACKUP_KEEP_DAYS` / `BACKUP_KEEP_WEEKS` / `BACKUP_KEEP_MONTHS` — retention.
+
+### Get the backups off the NAS
+
+The dumps live in the `postgres_backups` Docker volume. Either:
+- point **Dockhand's** scheduled volume/stack backup at an offsite target (S3 / SFTP / B2), or
+- change the `pg_backup` volume to a bind mount on a NAS share you control, then sync it with
+  UGOS's own backup app:
+  ```yaml
+      volumes:
+        - /volume1/backups/subtracker:/backups   # instead of: postgres_backups:/backups
+  ```
+
+### Restore
+
+Dumps use `--clean --if-exists`, so they drop and recreate objects. Stop `backend`,
+`celery_worker` and `celery_beat` first to avoid writes during the restore, then exec into
+`subtracker_pg_backup` (it has `psql` and the credentials) and load a dump:
+
+```bash
+# list available dumps
+ls -lh /backups/daily/
+
+# restore one (adjust the filename)
+zcat /backups/daily/<db>-<timestamp>.sql.gz \
+  | psql "postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres:5432/$POSTGRES_DB"
+```
+
+Restart the stopped services afterwards. To verify backups are running, check the
+`subtracker_pg_backup` container logs — each run logs the dump it wrote.
 
 ## Troubleshooting
 
