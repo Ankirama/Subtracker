@@ -54,12 +54,12 @@ An intelligent subscription management platform that automatically discovers and
 
 5. **Start the application**
    ```bash
-   docker-compose -f docker-compose.dev.yml up -d
+   docker compose -f docker-compose.dev.yml up -d
    ```
 
 6. **Run database migrations**
    ```bash
-   docker-compose exec backend alembic upgrade head
+   docker compose exec backend alembic upgrade head
    ```
 
 7. **Access the application**
@@ -73,21 +73,21 @@ An intelligent subscription management platform that automatically discovers and
 
 ```bash
 # View logs
-docker-compose -f docker-compose.dev.yml logs -f backend
-docker-compose -f docker-compose.dev.yml logs -f celery_worker
+docker compose -f docker-compose.dev.yml logs -f backend
+docker compose -f docker-compose.dev.yml logs -f celery_worker
 
 # Restart a service
-docker-compose -f docker-compose.dev.yml restart backend
+docker compose -f docker-compose.dev.yml restart backend
 
 # Run tests
-docker-compose exec backend pytest
-docker-compose exec frontend npm test
+docker compose exec backend pytest
+docker compose exec frontend npm test
 
 # Access database
-docker-compose exec postgres psql -U postgres -d subscription_tracker
+docker compose exec postgres psql -U postgres -d subscription_tracker
 
 # Stop all services
-docker-compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yml down
 ```
 
 ### Project Structure
@@ -208,20 +208,20 @@ CORS_ORIGINS=http://localhost:5173
 **Services won't start**
 - Ensure Docker is running
 - Check if ports 5173, 8000, 5432, 6379 are available
-- Run `docker-compose -f docker-compose.dev.yml down` and try again
+- Run `docker compose -f docker-compose.dev.yml down` and try again
 
 **Database connection errors**
-- Wait for PostgreSQL to be healthy: `docker-compose ps`
-- Check logs: `docker-compose logs postgres`
+- Wait for PostgreSQL to be healthy: `docker compose ps`
+- Check logs: `docker compose logs postgres`
 
 **Migration errors**
-- Check migration status: `docker-compose exec backend alembic current`
-- Reset database (⚠️ loses data): `docker-compose down -v && docker-compose up -d`
+- Check migration status: `docker compose exec backend alembic current`
+- Reset database (⚠️ loses data): `docker compose down -v && docker compose up -d`
 
 **Frontend not loading**
 - Check backend is running: `curl http://localhost:8000/health`
 - Clear browser cache
-- Check frontend logs: `docker-compose logs frontend`
+- Check frontend logs: `docker compose logs frontend`
 
 ## Contributing
 

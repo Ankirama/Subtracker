@@ -39,20 +39,20 @@ Never push to `main` without explicit approval (see `.claude/rules/git-workflow.
 
 ```bash
 # Logs / restart (hot-reload)
-docker-compose -f docker-compose.dev.yml logs -f backend
-docker-compose -f docker-compose.dev.yml logs -f celery_worker
-docker-compose -f docker-compose.dev.yml restart backend
+docker compose -f docker-compose.dev.yml logs -f backend
+docker compose -f docker-compose.dev.yml logs -f celery_worker
+docker compose -f docker-compose.dev.yml restart backend
 
 # Migrations
-docker-compose exec backend alembic revision --autogenerate -m "description"
-docker-compose exec backend alembic upgrade head
+docker compose exec backend alembic revision --autogenerate -m "description"
+docker compose exec backend alembic upgrade head
 
 # Tests
-docker-compose exec backend pytest
-docker-compose exec frontend npm test
+docker compose exec backend pytest
+docker compose exec frontend npm test
 
 # DB access
-docker-compose exec postgres psql -U postgres -d subscription_tracker
+docker compose exec postgres psql -U postgres -d subscription_tracker
 ```
 
 Setup, deployment, backups: `docs/operations/`. Ad-hoc / rarer commands: `docs/operations/commands.md`.

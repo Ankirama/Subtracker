@@ -117,7 +117,7 @@ ls -lth backups/ | head -5
 
 **Solution:**
 ```bash
-docker-compose -f docker-compose.dev.yml up -d postgres
+docker compose -f docker-compose.dev.yml up -d postgres
 ```
 
 ### Permission Denied

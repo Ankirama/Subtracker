@@ -13,11 +13,11 @@ Run the project's mandatory pre-commit workflow defined in CLAUDE.md.
    - If there are no changes, stop here and report "Nothing to commit".
 
 2. **Backend formatter (black)**
-   - Run: `docker-compose -f docker-compose.dev.yml exec -T backend python -m black --check app/`
-   - If it fails, run `docker-compose -f docker-compose.dev.yml exec -T backend python -m black app/` to auto-fix, then re-run the check.
+   - Run: `docker compose -f docker-compose.dev.yml exec -T backend python -m black --check app/`
+   - If it fails, run `docker compose -f docker-compose.dev.yml exec -T backend python -m black app/` to auto-fix, then re-run the check.
 
 3. **Backend linter (flake8)**
-   - Run: `docker-compose -f docker-compose.dev.yml exec -T backend python -m flake8 app/ --max-line-length=120`
+   - Run: `docker compose -f docker-compose.dev.yml exec -T backend python -m flake8 app/ --max-line-length=120`
    - Errors block; warnings are tolerated. Surface both clearly.
 
 4. **Frontend linter**
@@ -30,6 +30,6 @@ Run the project's mandatory pre-commit workflow defined in CLAUDE.md.
 
 ## Notes
 
-- Use `-T` with `docker-compose exec` so it works in non-interactive mode.
-- If the backend container is not running, surface a clear error and suggest `docker-compose -f docker-compose.dev.yml up -d`.
+- Use `-T` with `docker compose exec` so it works in non-interactive mode.
+- If the backend container is not running, surface a clear error and suggest `docker compose -f docker-compose.dev.yml up -d`.
 - Never `git add` files yourself — the user controls staging.
