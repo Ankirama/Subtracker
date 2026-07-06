@@ -15,7 +15,7 @@ It runs frontend lint + `tsc` when `frontend/` changes, and backend black + flak
 container) when `backend/` changes. Or run `/precommit` for the full checklist.
 
 Manual fallback:
-- Backend: `docker-compose -f docker-compose.dev.yml exec backend python -m black --check app/`
+- Backend: `docker compose -f docker-compose.dev.yml exec backend python -m black --check app/`
   and `... python -m flake8 app/ --max-line-length=120` (auto-fix: drop `--check`).
 - Frontend: `npm run lint` in `frontend/`.
 

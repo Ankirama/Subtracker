@@ -32,7 +32,7 @@ fi
 # Start Docker Compose
 echo ""
 echo "🐳 Starting Docker services..."
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml up -d
 
 # Wait for services to be ready
 echo ""
@@ -42,12 +42,12 @@ sleep 10
 # Check service health
 echo ""
 echo "🔍 Checking service health..."
-docker-compose ps
+docker compose ps
 
 # Run database migrations
 echo ""
 echo "📊 Running database migrations..."
-docker-compose exec backend alembic upgrade head
+docker compose exec backend alembic upgrade head
 
 # Test backend health
 echo ""
@@ -64,9 +64,9 @@ echo "   Backend API: http://localhost:8000/docs"
 echo "   Backend Health: http://localhost:8000/health"
 echo ""
 echo "📊 Useful commands:"
-echo "   View logs: docker-compose logs -f"
-echo "   Stop services: docker-compose stop"
-echo "   Restart services: docker-compose restart"
+echo "   View logs: docker compose logs -f"
+echo "   Stop services: docker compose stop"
+echo "   Restart services: docker compose restart"
 echo ""
 echo "📚 Documentation:"
 echo "   Setup guide: SETUP.md"

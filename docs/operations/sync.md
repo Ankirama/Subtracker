@@ -94,7 +94,7 @@ OPENAI_MAX_REQUESTS_PER_MINUTE=500
 
 **After changing `.env`**:
 ```bash
-docker-compose -f docker-compose.dev.yml restart backend celery
+docker compose -f docker-compose.dev.yml restart backend celery
 ```
 
 #### Time Estimates
