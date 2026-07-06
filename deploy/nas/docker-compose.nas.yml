@@ -178,8 +178,13 @@ services:
     user: "${PUID:-1000}:${PGID:-100}"
     command: alembic upgrade head
     env_file: [.env]
+    # Alembic's env.py imports app.config, which validates ALL required settings at import time,
+    # so migrate needs the same infra vars as backend even though it only touches the DB.
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
