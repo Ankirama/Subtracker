@@ -212,6 +212,11 @@ Restart the stopped services afterwards. To verify backups are running, check th
   container needs the full set. Most often it's `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (they
   have no defaults) — add them to the `.env`. (`REDIS_URL` / `CELERY_*` are injected by the
   compose, so they don't need to be in `.env`.)
+- **API calls 307-redirect and the SPA shows "Failed to load ..."** — the `https` scheme wasn't
+  reaching the backend, so it built `http://` redirects the browser blocks. The compose fixes
+  this: nginx forwards NPM's `X-Forwarded-Proto`, and uvicorn runs with `--proxy-headers
+  --forwarded-allow-ips '*'`. Make sure you're on the latest compose and redeployed. (NPM sends
+  `X-Forwarded-Proto: https` by default, so no NPM change is needed.)
 - **`env file .env not found`** — make sure the Environment tab is filled; Dockhand writes it
   to the stack's `.env`. If your Dockhand version doesn't, add a `.env` file to the stack
   directory manually (SSH) with the same keys.

@@ -25,6 +25,15 @@ name: subtracker
 configs:
   frontend_nginx:
     content: |
+      # Trust the scheme the upstream reverse proxy (NPM) terminated TLS with. NPM forwards to
+      # this container over http, so $$scheme here is "http"; use its X-Forwarded-Proto instead,
+      # falling back to $$scheme for direct (LAN) access. Without this the backend builds http://
+      # redirects (e.g. the trailing-slash 307 on /api/subscriptions) that the browser blocks.
+      map $$http_x_forwarded_proto $$forwarded_scheme {
+          default $$http_x_forwarded_proto;
+          ''      $$scheme;
+      }
+
       server {
           listen 80;
           server_name _;
@@ -50,7 +59,7 @@ configs:
               proxy_set_header Host $$host;
               proxy_set_header X-Real-IP $$remote_addr;
               proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $$scheme;
+              proxy_set_header X-Forwarded-Proto $$forwarded_scheme;
               proxy_http_version 1.1;
               proxy_set_header Upgrade $$http_upgrade;
               proxy_set_header Connection "upgrade";
@@ -62,7 +71,7 @@ configs:
               proxy_pass http://backend:8000;
               proxy_set_header Host $$host;
               proxy_set_header X-Forwarded-For $$proxy_add_x_forwarded_for;
-              proxy_set_header X-Forwarded-Proto $$scheme;
+              proxy_set_header X-Forwarded-Proto $$forwarded_scheme;
           }
 
           # SPA routing — serve index.html for client-side routes
@@ -195,6 +204,9 @@ services:
     image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-backend:${IMAGE_TAG:-latest}
     container_name: subtracker_backend
     user: "${PUID:-1000}:${PGID:-100}"
+    # --proxy-headers + trusting the docker network lets uvicorn honour X-Forwarded-Proto from
+    # nginx/NPM, so it builds https:// (not http://) redirects and URLs behind the reverse proxy.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--proxy-headers", "--forwarded-allow-ips", "*"]
     env_file: [.env]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
