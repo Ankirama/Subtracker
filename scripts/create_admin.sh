@@ -1,11 +1,14 @@
 #!/bin/bash
 #
-# Create an admin user for Subscription Tracker
+# Create an admin user for Subscription Tracker (local dev).
 #
 # Usage:
 #   ./scripts/create_admin.sh admin@example.com yourpassword
 #   ./scripts/create_admin.sh admin@example.com yourpassword "Admin Name"
 #
+# For the NAS/Dockhand deployment, exec into the backend container instead and run:
+#   python -m scripts.create_admin --email <email> --password <password> [--name <name>]
+# (see docs/operations/deploy-nas-dockhand.md).
 
 set -e
 
@@ -27,28 +30,21 @@ EMAIL="$1"
 PASSWORD="$2"
 NAME="${3:-}"
 
-# Check if running in production (docker) or development
-if [ -f "docker-compose.prod.yml" ] && docker compose -f docker-compose.prod.yml ps --quiet backend 2>/dev/null | grep -q .; then
-    echo "Running in production mode (Docker)..."
-    if [ -n "$NAME" ]; then
-        docker compose -f docker-compose.prod.yml --env-file .env.production exec -T backend \
-            python -m scripts.create_admin --email "$EMAIL" --password "$PASSWORD" --name "$NAME"
-    else
-        docker compose -f docker-compose.prod.yml --env-file .env.production exec -T backend \
-            python -m scripts.create_admin --email "$EMAIL" --password "$PASSWORD"
-    fi
-elif [ -f "docker-compose.yml" ] && docker compose ps --quiet backend 2>/dev/null | grep -q .; then
-    echo "Running in development mode (Docker)..."
-    if [ -n "$NAME" ]; then
-        docker compose exec -T backend python -m scripts.create_admin --email "$EMAIL" --password "$PASSWORD" --name "$NAME"
-    else
-        docker compose exec -T backend python -m scripts.create_admin --email "$EMAIL" --password "$PASSWORD"
-    fi
-else
-    echo "No running Docker containers found."
+COMPOSE_FILE="docker-compose.dev.yml"
+
+if [ ! -f "$COMPOSE_FILE" ] || ! docker compose -f "$COMPOSE_FILE" ps --quiet backend 2>/dev/null | grep -q .; then
+    echo "No running backend container found for $COMPOSE_FILE."
     echo ""
-    echo "Please start the services first:"
-    echo "  Production: docker compose -f docker-compose.prod.yml --env-file .env.production up -d"
-    echo "  Development: docker compose up -d"
+    echo "Start the dev stack first:"
+    echo "  docker compose -f $COMPOSE_FILE up -d"
     exit 1
+fi
+
+echo "Creating admin user via $COMPOSE_FILE..."
+if [ -n "$NAME" ]; then
+    docker compose -f "$COMPOSE_FILE" exec -T backend \
+        python -m scripts.create_admin --email "$EMAIL" --password "$PASSWORD" --name "$NAME"
+else
+    docker compose -f "$COMPOSE_FILE" exec -T backend \
+        python -m scripts.create_admin --email "$EMAIL" --password "$PASSWORD"
 fi

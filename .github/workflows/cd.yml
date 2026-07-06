@@ -1,19 +1,18 @@
-name: CD - Deploy to Production
+name: Build & Publish Images
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:  # Allow manual deployment
+  workflow_dispatch:  # Allow manual builds
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
-  # Build and push Docker images
+  # Build and push Docker images to GHCR (consumed by the NAS/Dockhand deployment)
   build:
     name: Build Docker Images
     runs-on: ubuntu-latest
-    needs: []  # Can add CI workflow as dependency if needed
     permissions:
       contents: read
       packages: write
@@ -82,114 +81,3 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.name }}-frontend:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.name }}-frontend:buildcache,mode=max
-
-  # Deploy to production server
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: production
-      url: https://subscriptionstracker.io
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Set lowercase repository name
-        id: repo
-        run: |
-          echo "name=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Copy deployment script to server
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-        run: |
-          scp -i ~/.ssh/deploy_key deploy-prod.sh $SSH_USER@$SSH_HOST:$DEPLOY_PATH/
-
-      - name: Deploy to production
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          ssh -i ~/.ssh/deploy_key $SSH_USER@$SSH_HOST << 'ENDSSH'
-            set -e
-
-            echo "📦 Starting production deployment..."
-            cd ${{ secrets.DEPLOY_PATH }}
-
-            # Set environment variables for deployment
-            export GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
-            export GHCR_USER="${{ github.actor }}"
-            export GITHUB_REPOSITORY="${{ steps.repo.outputs.name }}"
-            export IMAGE_TAG="${{ github.sha }}"
-
-            # Run deployment script
-            chmod +x deploy-prod.sh
-            ./deploy-prod.sh ${{ github.sha }}
-
-          ENDSSH
-
-      - name: Deployment notification
-        if: always()
-        run: |
-          if [ ${{ job.status }} == 'success' ]; then
-            echo "✅ Deployment to production completed successfully"
-          else
-            echo "❌ Deployment to production failed"
-            exit 1
-          fi
-
-      - name: Deployment failed notification
-        if: failure()
-        run: |
-          echo "❌ Deployment failed"
-          echo "Note: Automatic rollback is handled by deploy-prod.sh script"
-          exit 1
-
-  # Post-deployment health checks
-  health-check:
-    name: Post-Deployment Health Check
-    runs-on: ubuntu-latest
-    needs: deploy
-    if: success()
-
-    steps:
-      - name: Check production health
-        run: |
-          echo "🏥 Checking production health..."
-
-          # Check main domain
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://subscriptionstracker.io)
-
-          if [ "$STATUS" == "200" ]; then
-            echo "✅ Production is healthy (status: $STATUS)"
-          else
-            echo "⚠️ Production returned status: $STATUS"
-            exit 1
-          fi
-
-      - name: Check API health
-        run: |
-          echo "🔍 Checking API health..."
-
-          # Check backend API
-          API_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://subscriptionstracker.io/health)
-
-          if [ "$API_STATUS" == "200" ]; then
-            echo "✅ API is healthy (status: $API_STATUS)"
-          else
-            echo "⚠️ API returned status: $API_STATUS"
-            exit 1
-          fi

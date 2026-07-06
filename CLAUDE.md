@@ -80,7 +80,9 @@ Read these on demand — do not preload them.
 | REST API conventions | `docs/architecture/api-conventions.md` |
 | Security model | `docs/architecture/security.md` |
 | Push notifications backend | `docs/features/push-notifications.md` |
-| Set up locally / deploy / backup / CI-CD | `docs/setup.md`, `docs/operations/` |
+| Set up the project locally | `docs/setup.md` |
+| Deploy (NAS / Dockhand) + automatic backups | `docs/operations/deploy-nas-dockhand.md` |
+| CI checks & GHCR image build | `docs/operations/ci-cd.md` |
 | Email sync (backend & frontend) | `docs/operations/sync.md` |
 | Roadmap (active / mobile) | `docs/roadmap/current.md`, `docs/roadmap/mobile.md` |
 | Code-level dependency map | `graphify-out/GRAPH_REPORT.md` |

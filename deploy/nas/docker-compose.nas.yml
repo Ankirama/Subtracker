@@ -1,6 +1,6 @@
 # Subscription Tracker — NAS / Dockhand deployment (no Traefik, behind a reverse proxy)
 #
-# Differences vs docker-compose.prod.yml:
+# Unlike a Traefik-based server setup:
 #   - No Traefik: the frontend nginx is reconfigured (inline `configs` below) to also
 #     proxy /api -> backend, so a single container serves the whole app.
 #   - The frontend is NOT published on the LAN. It joins the external `proxy` network so a

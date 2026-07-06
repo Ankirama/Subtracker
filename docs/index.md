@@ -7,9 +7,8 @@
 ## Setup & Operations
 
 - [Setup](setup.md) — local development setup
-- [Deployment](operations/deployment.md) — CI/CD workflow and production runbook
-- [CI/CD](operations/ci-cd.md) — pipeline configuration
-- [Backup](operations/backup.md) — PostgreSQL backup and restore
+- [Deploy (NAS / Dockhand)](operations/deploy-nas-dockhand.md) — deploy runbook and automatic PostgreSQL backups
+- [CI & Image Build](operations/ci-cd.md) — CI checks and GHCR image publishing
 - [Sync](operations/sync.md) — email sync (backend & frontend UI)
 - [Commands](operations/commands.md) — ad-hoc commands and scripts reference
 

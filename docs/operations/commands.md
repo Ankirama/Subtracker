@@ -25,43 +25,29 @@ WHERE status = 'failed'
 ORDER BY created_at DESC;
 ```
 
-## Shell Scripts Inventory (as of 2026-04-25)
+## Shell Scripts Inventory
 
-### Root-level
-
-| Script | Purpose | Status |
-|---|---|---|
-| `deploy-prod.sh` | Pulls pre-built images from GHCR and deploys to production; accepts optional `IMAGE_TAG` (default: `latest`) | `suspect` |
-| `deploy.sh` | Full deployment — pulls latest git changes, rebuilds containers, restarts services; accepts `dev\|prod` (default: `prod`) | `suspect` |
-| `restart.sh` | Restarts all services without pulling changes or rebuilding; accepts `dev\|prod` (default: `prod`) | `active` |
-| `update.sh` | Quick update — pulls latest git changes and restarts services without rebuilding; for code-only changes; accepts `dev\|prod` (default: `prod`) | `active` |
+Deployment and server backup scripts were removed when deployment moved to the
+NAS/Dockhand stack (see [deploy-nas-dockhand.md](deploy-nas-dockhand.md), which also
+covers automatic PostgreSQL backups). The remaining scripts all support local
+development or one-off admin tasks.
 
 ### `scripts/`
 
 | Script | Purpose | Status |
 |---|---|---|
-| `backup.sh` | Full database backup with retention management; designed for daily cron execution; reads `.env.production` | `suspect` |
-| `backup_postgres.sh` | PostgreSQL automated backup — creates timestamped `.sql.gz` backups and manages retention via `BACKUP_RETENTION_DAYS` | `suspect` |
+| `setup.sh` | Interactive development-environment setup: generates `.env`, encryption keys, and starts Docker services | `active` |
+| `quickstart.sh` | One-step setup + start: delegates to `scripts/setup.sh` then starts the application | `active` |
 | `create_admin.sh` | Creates an admin user in the application database; usage: `create_admin.sh <email> <password> [name]` | `active` |
-| `deploy-ci.sh` | Automated deployment script optimised for GitHub Actions CI/CD; not intended for manual use (use `deploy.sh` instead) | `suspect` |
-| `deploy.sh` | Production deployment script — project-relative counterpart to the root `deploy.sh`; pulls and restarts services | `suspect` |
-| `install_sudoers.sh` | Installs sudoers configuration so the deploy user can run backup scripts without a password; requires `sudo` | `active` |
-| `quickstart.sh` | One-step setup + start: delegates to `scripts/setup.sh` then starts the application | `suspect` |
-| `restore.sh` | Database restore from a backup file using project `.env.production`; counterpart to `backup.sh` | `suspect` |
-| `restore_postgres.sh` | PostgreSQL restore script — restores the database from a given backup file via the running container | `suspect` |
-| `setup.sh` | Interactive development-environment setup: generates `.env`, encryption keys, and starts Docker services | `suspect` |
-| `setup_auto_backup.sh` | Configures a cron job for daily automated PostgreSQL backups (user-crontab approach) | `suspect` |
-| `setup_cron_backup.sh` | Installs a system-wide cron job in `/etc/cron.d/` for PostgreSQL backups; supports `--uninstall` and `--status`; requires `sudo` | `suspect` |
+| `install-hooks.sh` | Installs the repo's git hooks (pre-commit lint/format) into `.git/hooks` | `active` |
+| `pre-commit.sh` | Pre-commit hook body: runs frontend lint + tsc and backend black + flake8 on changed files | `active` |
 | `sync_custom_period.sh` | Triggers an email sync over a custom time period with configurable rate limiting | `active` |
 
-## Suspected Duplicates / Cleanup Candidates
+## Cleanup Candidates
 
-The following pairs/triples warrant review (cleanup is OUT OF SCOPE for this refactor — captured here for a future sub-project):
+The following overlap warrants review (cleanup is OUT OF SCOPE for this refactor —
+captured here for a future sub-project):
 
-- `scripts/backup.sh` vs `scripts/backup_postgres.sh` — wrapper, or two parallel implementations?
-- `scripts/restore.sh` vs `scripts/restore_postgres.sh` — same question.
-- `scripts/setup_auto_backup.sh` vs `scripts/setup_cron_backup.sh` — likely overlap.
-- Root `deploy.sh` vs `scripts/deploy.sh` vs `scripts/deploy-ci.sh` vs root `deploy-prod.sh` — multiple deploy entry-points; document which is canonical.
 - `scripts/setup.sh` vs `scripts/quickstart.sh` — likely overlap with `docs/setup.md`.
 
 ## Ad-Hoc Commands Not Covered Elsewhere
