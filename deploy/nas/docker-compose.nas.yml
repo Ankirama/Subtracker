@@ -104,12 +104,18 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: subtracker_db
+    # Run as the NAS user so the bind-mounted data is owned by you, not root/postgres.
+    user: "${PUID:-1000}:${PGID:-100}"
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
+    # As a non-root user Postgres can't write its socket to the image's root-owned
+    # /var/run/postgresql, so back that path with a writable tmpfs.
+    tmpfs:
+      - /var/run/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 10s
@@ -121,6 +127,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: subtracker_redis
+    user: "${PUID:-1000}:${PGID:-100}"
     command: redis-server --appendonly yes
     volumes:
       - ./data/redis:/data
@@ -133,11 +140,12 @@ services:
     restart: unless-stopped
 
   # Automatic PostgreSQL backups: scheduled logical pg_dump with retention.
-  # A logical dump is transaction-consistent; copying the live postgres_data volume is not.
-  # Dumps land (gzipped) in the postgres_backups volume under last/daily/weekly/monthly.
+  # A logical dump is transaction-consistent; copying the live data directory is not.
+  # Dumps land (gzipped) in ./data/backups under last/daily/weekly/monthly.
   pg_backup:
     image: prodrigestivill/postgres-backup-local:15
     container_name: subtracker_pg_backup
+    user: "${PUID:-1000}:${PGID:-100}"
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_DB: ${POSTGRES_DB}
@@ -167,6 +175,7 @@ services:
   migrate:
     image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-backend:${IMAGE_TAG:-latest}
     container_name: subtracker_migrate
+    user: "${PUID:-1000}:${PGID:-100}"
     command: alembic upgrade head
     env_file: [.env]
     environment:
@@ -180,6 +189,7 @@ services:
   backend:
     image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-backend:${IMAGE_TAG:-latest}
     container_name: subtracker_backend
+    user: "${PUID:-1000}:${PGID:-100}"
     env_file: [.env]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -187,8 +197,8 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     volumes:
-      - logos_data:/app/logos
-      - backend_logs:/app/logs
+      - ./data/logos:/app/logos
+      - ./data/logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -202,6 +212,7 @@ services:
   celery_worker:
     image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-backend:${IMAGE_TAG:-latest}
     container_name: subtracker_celery
+    user: "${PUID:-1000}:${PGID:-100}"
     command: celery -A app.celery_app worker --loglevel=warning --concurrency=2
     env_file: [.env]
     environment:
@@ -210,7 +221,7 @@ services:
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     volumes:
-      - backend_logs:/app/logs
+      - ./data/logs:/app/logs
     depends_on:
       postgres:
         condition: service_healthy
@@ -224,6 +235,7 @@ services:
   celery_beat:
     image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-backend:${IMAGE_TAG:-latest}
     container_name: subtracker_celery_beat
+    user: "${PUID:-1000}:${PGID:-100}"
     command: celery -A app.celery_app beat --loglevel=warning
     env_file: [.env]
     environment:
@@ -244,6 +256,8 @@ services:
   frontend:
     image: ghcr.io/${GITHUB_REPOSITORY:-ankirama/subtracker}-frontend:${IMAGE_TAG:-latest}
     container_name: subtracker_frontend
+    # No `user:` override: nginx must run as root to bind port 80, and this container holds no
+    # persistent data (only the read-only config below), so file ownership is irrelevant.
     configs:
       - source: frontend_nginx
         target: /etc/nginx/conf.d/default.conf
@@ -260,14 +274,12 @@ services:
     networks: [internal, proxy]
     restart: unless-stopped
 
-# Persistent data that matters (Postgres, Redis, backups) is bind-mounted under ./data/ so it
-# lives in the stack directory on the NAS (local storage only — not an SMB/NFS share). Postgres,
-# Redis and the backup sidecar run as root and chown their own dirs, so bind mounts are safe.
-# logos/logs stay as named volumes: the backend runs as a non-root user and couldn't write to
-# root-owned bind-mount dirs.
-volumes:
-  logos_data:
-  backend_logs:
+# All persistent data is bind-mounted under ./data/ in the stack directory (local storage only —
+# Postgres corrupts on SMB/NFS). Every service runs as ${PUID:-1000}:${PGID:-100} (the frontend is
+# the exception — nginx needs root for port 80 and stores nothing), so the ./data subdirs must be
+# pre-created and owned by that uid/gid BEFORE the first deploy:
+#   mkdir -p data/{postgres,redis,backups,logos,logs} && chown -R 1000:100 data
+# Without this, the non-root Postgres/Redis/backend containers can't write and fail to start.
 
 networks:
   internal:
