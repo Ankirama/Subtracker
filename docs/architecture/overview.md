@@ -132,6 +132,34 @@ The end-to-end email-to-subscription flow is detailed in `email-pipeline.md`. Br
 4. **Production hosting**: Cloud provider preference (AWS, GCP, Azure, DigitalOcean)?
 5. **Domain name**: What domain for production deployment?
 
+## Code Layout
+
+```
+backend/
+├── app/
+│   ├── api/              # FastAPI route handlers (prefixed /api/)
+│   ├── models/           # SQLAlchemy models
+│   ├── services/         # Business logic (EmailProcessor, AIService, …)
+│   ├── tasks/            # Celery tasks
+│   ├── email_providers/  # Provider interface + JMAP/Gmail/Outlook impl
+│   ├── security/         # Auth, encryption, JWT
+│   └── main.py           # FastAPI app init
+├── alembic/              # DB migrations
+└── tests/
+
+frontend/src/
+├── components/           # Organized by feature (auth, subscriptions, …)
+├── hooks/                # useSubscriptions, useAuth, …
+├── contexts/             # Auth, Settings
+├── api/                  # API client
+├── types/                # TypeScript types
+└── utils/
+```
+
+The email processing pipeline in one line:
+`mailbox → fetch (batch 100) → classify (template/AI) → extract → dedup (multi-factor) →`
+`confidence route (>85% auto / 50–84% review / <50% reject) → save`.
+
 ## Code-Level Map
 
 For class/function-level dependency analysis, read `graphify-out/GRAPH_REPORT.md`. The graph is regenerated automatically at session end whenever backend Python files change (Stop hook).
