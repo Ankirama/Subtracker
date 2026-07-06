@@ -37,6 +37,9 @@ to `main` (`ghcr.io/ankirama/subtracker-backend` and `-frontend`, tag `latest`).
   Dockhand → *Networks → Create* (name `proxy`), or `docker network create proxy`.
 - UGREEN DXP4800: it's an x86-64 box, so the `linux/amd64` GHCR images run natively — no
   multi-arch build needed.
+- Persistent data (Postgres, Redis, backups) is bind-mounted under `./data/` in the stack
+  directory, so the stack must sit on **local storage** (not an SMB/NFS share) — Postgres
+  corrupts on network filesystems. Docker creates the `./data/*` subdirs on first start.
 
 ## Step 1 — Make the GHCR images pullable
 
@@ -133,7 +136,8 @@ produced (e.g. `main-<sha>`).
 The stack ships a `pg_backup` sidecar
 ([prodrigestivill/postgres-backup-local](https://github.com/prodrigestivill/docker-postgres-backup-local))
 that runs a scheduled logical `pg_dump` and prunes old dumps. Backups are written gzipped to
-the `postgres_backups` volume, organized into `last/`, `daily/`, `weekly/`, `monthly/`.
+`./data/backups/` in the stack directory (bind mount), organized into `last/`, `daily/`,
+`weekly/`, `monthly/`.
 
 > **Why not just copy the `postgres_data` volume?** Copying the live data directory while
 > Postgres is running can capture an inconsistent (corrupt) snapshot. A `pg_dump` is
@@ -160,14 +164,10 @@ The notification is best-effort (a failed webhook never breaks the backup).
 
 ### Get the backups off the NAS
 
-The dumps live in the `postgres_backups` Docker volume. Either:
-- point **Dockhand's** scheduled volume/stack backup at an offsite target (S3 / SFTP / B2), or
-- change the `pg_backup` volume to a bind mount on a NAS share you control, then sync it with
-  UGOS's own backup app:
-  ```yaml
-      volumes:
-        - /volume1/backups/subtracker:/backups   # instead of: postgres_backups:/backups
-  ```
+The dumps live at `./data/backups/` in the stack directory (e.g.
+`/app/data/dstacks/newworldstation/subtracker/data/backups/`), so they're directly visible on
+the NAS. For an offsite copy, either point **Dockhand's** scheduled backup at a remote target
+(S3 / SFTP / B2), or have UGOS's own backup app sync that folder.
 
 ### Restore
 

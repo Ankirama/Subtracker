@@ -109,8 +109,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./backups:/backups
+      - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
       interval: 10s
@@ -124,7 +123,7 @@ services:
     container_name: subtracker_redis
     command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data
+      - ./data/redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -153,7 +152,7 @@ services:
       # Set to a Discord webhook URL to get success/failure notifications (optional).
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
     volumes:
-      - postgres_backups:/backups
+      - ./data/backups:/backups
     configs:
       - source: pg_backup_notify
         target: /hooks/discord-notify
@@ -189,7 +188,6 @@ services:
       CELERY_RESULT_BACKEND: redis://redis:6379/0
     volumes:
       - logos_data:/app/logos
-      - ./backups:/app/backups
       - backend_logs:/app/logs
     depends_on:
       postgres:
@@ -262,12 +260,14 @@ services:
     networks: [internal, proxy]
     restart: unless-stopped
 
+# Persistent data that matters (Postgres, Redis, backups) is bind-mounted under ./data/ so it
+# lives in the stack directory on the NAS (local storage only — not an SMB/NFS share). Postgres,
+# Redis and the backup sidecar run as root and chown their own dirs, so bind mounts are safe.
+# logos/logs stay as named volumes: the backend runs as a non-root user and couldn't write to
+# root-owned bind-mount dirs.
 volumes:
-  postgres_data:
-  redis_data:
   logos_data:
   backend_logs:
-  postgres_backups:
 
 networks:
   internal:
