@@ -37,15 +37,18 @@ to `main` (`ghcr.io/ankirama/subtracker-backend` and `-frontend`, tag `latest`).
   Dockhand → *Networks → Create* (name `proxy`), or `docker network create proxy`.
 - UGREEN DXP4800: it's an x86-64 box, so the `linux/amd64` GHCR images run natively — no
   multi-arch build needed.
-- All persistent data is bind-mounted under `./data/` in the stack directory, so the stack must
-  sit on **local storage** (not an SMB/NFS share) — Postgres corrupts on network filesystems.
+- All persistent data is bind-mounted under **`DATA_PATH`** (default `./data` in the stack dir).
+  Set `DATA_PATH` to an absolute path (e.g. `/volume2/docker/subtracker`) to store it on a chosen
+  volume. It **must** be on **local storage** (not an SMB/NFS share) — Postgres corrupts on network
+  filesystems.
 - Services run as `PUID:PGID` (default `1000:100`, the UGREEN "users" group) so the data files are
   owned by your NAS user, not root. Because they run **non-root**, you must **pre-create the data
-  dirs and chown them** before the first deploy — SSH into the NAS and, from the stack directory
-  (e.g. `/app/data/dstacks/newworldstation/subtracker`), run:
+  dirs and chown them** before the first deploy — SSH into the NAS and run (substitute your
+  `DATA_PATH`; the default is the `data/` subdir of the stack directory):
   ```bash
-  mkdir -p data/postgres data/redis data/backups data/logos data/logs
-  chown -R 1000:100 data
+  DATA_PATH=/volume2/docker/subtracker   # or ./data inside the stack dir
+  mkdir -p "$DATA_PATH"/{postgres,redis,backups,logos,logs}
+  chown -R 1000:100 "$DATA_PATH"
   ```
   (The frontend is the one exception — nginx runs as root to bind port 80 and stores nothing.)
 
@@ -144,8 +147,8 @@ produced (e.g. `main-<sha>`).
 The stack ships a `pg_backup` sidecar
 ([prodrigestivill/postgres-backup-local](https://github.com/prodrigestivill/docker-postgres-backup-local))
 that runs a scheduled logical `pg_dump` and prunes old dumps. Backups are written gzipped to
-`./data/backups/` in the stack directory (bind mount), organized into `last/`, `daily/`,
-`weekly/`, `monthly/`.
+`$DATA_PATH/backups/` (default `./data/backups/`), organized into `last/`, `daily/`, `weekly/`,
+`monthly/`.
 
 > **Why not just copy the `postgres_data` volume?** Copying the live data directory while
 > Postgres is running can capture an inconsistent (corrupt) snapshot. A `pg_dump` is
@@ -172,10 +175,10 @@ The notification is best-effort (a failed webhook never breaks the backup).
 
 ### Get the backups off the NAS
 
-The dumps live at `./data/backups/` in the stack directory (e.g.
-`/app/data/dstacks/newworldstation/subtracker/data/backups/`), so they're directly visible on
-the NAS. For an offsite copy, either point **Dockhand's** scheduled backup at a remote target
-(S3 / SFTP / B2), or have UGOS's own backup app sync that folder.
+The dumps live at `$DATA_PATH/backups/` (default `./data/backups/`, e.g.
+`/volume2/docker/subtracker/backups/`), so they're directly visible on the NAS. For an offsite
+copy, either point **Dockhand's** scheduled backup at a remote target (S3 / SFTP / B2), or have
+UGOS's own backup app sync that folder.
 
 ### Restore
 
