@@ -207,6 +207,11 @@ Restart the stopped services afterwards. To verify backups are running, check th
   isn't healthy yet, or the Forward Hostname/Port aren't `subtracker_frontend` / `80`.
 - **Backend restarts / DB connection errors** — check `POSTGRES_*` match between the postgres
   service and the constructed `DATABASE_URL`; wait for the `migrate` service to finish first.
+- **`migrate` exits 1 with `pydantic ... ValidationError ... Field required`** — a required
+  setting is missing from the loaded `.env`. `app.config` is validated at import time, so every
+  container needs the full set. Most often it's `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (they
+  have no defaults) — add them to the `.env`. (`REDIS_URL` / `CELERY_*` are injected by the
+  compose, so they don't need to be in `.env`.)
 - **`env file .env not found`** — make sure the Environment tab is filled; Dockhand writes it
   to the stack's `.env`. If your Dockhand version doesn't, add a `.env` file to the stack
   directory manually (SSH) with the same keys.
