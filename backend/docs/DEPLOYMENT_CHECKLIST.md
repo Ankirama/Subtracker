@@ -237,7 +237,7 @@ alembic upgrade head
 # Restart backend service
 systemctl restart subscription-tracker-backend
 # OR
-docker-compose up -d backend
+docker compose up -d backend
 ```
 
 **Action Items:**
@@ -331,8 +331,8 @@ kubectl set image deployment/backend \
 systemctl restart subscription-tracker-backend
 
 # OR Docker Compose
-docker-compose pull backend
-docker-compose up -d backend
+docker compose pull backend
+docker compose up -d backend
 ```
 
 **Action Items:**
@@ -487,8 +487,8 @@ Questions? Check out our User Guide: [link]
 kubectl rollout undo deployment/backend
 
 # OR Docker Compose
-docker-compose down backend
-docker-compose up -d backend-v1.0.0
+docker compose down backend
+docker compose up -d backend-v1.0.0
 
 # OR systemd
 systemctl stop subscription-tracker-backend

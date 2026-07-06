@@ -571,7 +571,7 @@ curl -X POST http://localhost:8000/api/auth/refresh \
 
 ```bash
 # Run the test script
-docker-compose exec backend python scripts/test_auth.py
+docker compose exec backend python scripts/test_auth.py
 ```
 
 Or from your local machine:

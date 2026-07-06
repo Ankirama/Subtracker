@@ -14,7 +14,7 @@ Generate, review, and apply an Alembic migration. The argument is the migration 
    - Refuse if it contains shell metacharacters that would break the `-m` flag (`"`, `` ` ``, `$`).
 
 2. **Generate the revision**
-   - Run: `docker-compose -f docker-compose.dev.yml exec -T backend alembic revision --autogenerate -m "<description>"`
+   - Run: `docker compose -f docker-compose.dev.yml exec -T backend alembic revision --autogenerate -m "<description>"`
    - Capture the path of the new migration file from stdout.
 
 3. **Review the generated migration for pitfalls**
@@ -28,11 +28,11 @@ Generate, review, and apply an Alembic migration. The argument is the migration 
    - If anything is flagged, present the concerns and ask the user to confirm before applying.
 
 4. **Apply**
-   - Run: `docker-compose -f docker-compose.dev.yml exec -T backend alembic upgrade head`
+   - Run: `docker compose -f docker-compose.dev.yml exec -T backend alembic upgrade head`
    - On success, surface the new revision id and `alembic current`.
 
 5. **Rollback offer on failure**
-   - If `upgrade head` fails, surface the error and offer: `docker-compose -f docker-compose.dev.yml exec -T backend alembic downgrade -1` (do not run automatically).
+   - If `upgrade head` fails, surface the error and offer: `docker compose -f docker-compose.dev.yml exec -T backend alembic downgrade -1` (do not run automatically).
 
 ## Notes
 

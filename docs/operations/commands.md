@@ -69,15 +69,15 @@ The following pairs/triples warrant review (cleanup is OUT OF SCOPE for this ref
 ### Migrations
 ```bash
 # Roll back the most recent migration
-docker-compose exec backend alembic downgrade -1
+docker compose exec backend alembic downgrade -1
 ```
 
 ### Installing dependencies
 ```bash
 # Backend: install then pin in backend/requirements.txt, and restart the container
-docker-compose exec backend pip install <package>
-docker-compose -f docker-compose.dev.yml restart backend
+docker compose exec backend pip install <package>
+docker compose -f docker-compose.dev.yml restart backend
 
 # Frontend
-docker-compose exec frontend npm install <package>
+docker compose exec frontend npm install <package>
 ```

@@ -12,7 +12,7 @@
   backend container — see `.claude/rules/git-workflow.md`).
 - **Frontend is Chakra UI**, not Tailwind: function components + hooks, TypeScript `strict`,
   ESLint + Prettier clean, no inline styles. Wrap the app in Chakra's `ThemeProvider`.
-- **Tests**: backend `pytest` (via `docker-compose exec backend pytest`); frontend Vitest +
+- **Tests**: backend `pytest` (via `docker compose exec backend pytest`); frontend Vitest +
   React Testing Library. Tests required for new logic.
 
 ## Broad exception handling (backend)
@@ -38,7 +38,7 @@ mixed-language file — translate inline before committing.
 - **Always filter by `user_id`** for multi-tenancy (see `.claude/rules/security.md`).
 
 ## Testing config (avoid env-prefix prompts)
-Canonical run: `docker-compose exec backend pytest` (compose provides the test env). A
+Canonical run: `docker compose exec backend pytest` (compose provides the test env). A
 host-local `uv run pytest` only works if you first build a venv from `backend/requirements.txt`.
 Never inline `DATABASE_URL=...` / other env prefixes — they defeat permission allow rules and
 force prompts. For host-local runs, put machine-local test env in `.claude/settings.local.json`
