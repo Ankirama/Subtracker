@@ -17,12 +17,86 @@ from app.models.mailbox import Mailbox
 from app.models.price_history import PriceHistory
 from app.models.subscription import Subscription
 from app.models.user import User
-from app.schemas.subscription import SubscriptionResponse
+from app.schemas.subscription import (
+    SubscriptionMergeGroupRequest,
+    SubscriptionResponse,
+)
 from app.security.dependencies import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _merge_source_into_target(
+    db: Session, source_sub: Subscription, target_sub: Subscription
+) -> None:
+    """Merge one source subscription into a target within the caller's transaction.
+
+    Performs every side effect of a merge EXCEPT committing/rolling back and the
+    age-based swap (both owned by the caller):
+
+    - records a ``PriceHistory`` entry when both amounts are known and differ,
+    - fills empty target fields from the source (target value wins on conflict),
+    - transfers ``subscription_emails`` links and ``PriceHistory`` rows from
+      source to target,
+    - deletes the source subscription.
+
+    The caller is responsible for ownership checks, the transaction boundary, and
+    deciding which subscription is the target.
+    """
+    # Record a price change when both amounts are known and differ
+    if (
+        source_sub.amount
+        and target_sub.amount
+        and source_sub.amount != target_sub.amount
+    ):
+        change_percentage = (
+            (float(target_sub.amount) - float(source_sub.amount))
+            / float(source_sub.amount)
+        ) * 100
+        change_type = (
+            "increase"
+            if float(target_sub.amount) > float(source_sub.amount)
+            else "decrease"
+        )
+
+        price_history_record = PriceHistory(
+            subscription_id=target_sub.id,
+            old_amount=source_sub.amount,
+            new_amount=target_sub.amount,
+            currency=target_sub.currency or source_sub.currency,
+            change_type=change_type,
+            change_percentage=round(change_percentage, 2),
+            detected_from="manual_merge",
+            notes=f"Merged duplicate subscription - price changed from {source_sub.amount} to {target_sub.amount}",
+        )
+        db.add(price_history_record)
+
+    # Fill empty target fields from the source (existing target values win)
+    target_sub.amount = target_sub.amount or source_sub.amount
+    target_sub.currency = target_sub.currency or source_sub.currency
+    target_sub.billing_cycle = target_sub.billing_cycle or source_sub.billing_cycle
+    target_sub.renewal_date = target_sub.renewal_date or source_sub.renewal_date
+    target_sub.custom_label = target_sub.custom_label or source_sub.custom_label
+    target_sub.updated_at = datetime.now()
+
+    # Transfer all email links from source to target
+    db.execute(
+        subscription_emails.update()
+        .where(subscription_emails.c.subscription_id == source_sub.id)
+        .values(subscription_id=target_sub.id)
+    )
+
+    # Transfer all price history records from source to target
+    db.execute(
+        PriceHistory.__table__.update()
+        .where(PriceHistory.subscription_id == source_sub.id)
+        .values(subscription_id=target_sub.id)
+    )
+
+    # Delete source subscription
+    db.delete(source_sub)
 
 
 @router.post("/{subscription_id}/merge/{target_id}")
@@ -73,74 +147,122 @@ async def merge_subscriptions(
         source_sub, target_sub = target_sub, source_sub
 
     try:
-        # Check if amounts differ (create price history)
-        if (
-            source_sub.amount
-            and target_sub.amount
-            and source_sub.amount != target_sub.amount
-        ):
-            change_percentage = (
-                (float(target_sub.amount) - float(source_sub.amount))
-                / float(source_sub.amount)
-            ) * 100
-            change_type = (
-                "increase"
-                if float(target_sub.amount) > float(source_sub.amount)
-                else "decrease"
-            )
+        # Capture identifiers/labels before the source row is deleted so they
+        # remain readable for the response and log line after commit.
+        source_id = source_sub.id
+        target_id_kept = target_sub.id
+        source_provider = source_sub.provider
+        target_provider = target_sub.provider
 
-            price_history_record = PriceHistory(
-                subscription_id=target_sub.id,
-                old_amount=source_sub.amount,
-                new_amount=target_sub.amount,
-                currency=target_sub.currency or source_sub.currency,
-                change_type=change_type,
-                change_percentage=round(change_percentage, 2),
-                detected_from="manual_merge",
-                notes=f"Merged duplicate subscription - price changed from {source_sub.amount} to {target_sub.amount}",
-            )
-            db.add(price_history_record)
-
-        # Update target with newer information from source
-        target_sub.amount = target_sub.amount or source_sub.amount
-        target_sub.currency = target_sub.currency or source_sub.currency
-        target_sub.billing_cycle = target_sub.billing_cycle or source_sub.billing_cycle
-        target_sub.renewal_date = target_sub.renewal_date or source_sub.renewal_date
-        target_sub.custom_label = target_sub.custom_label or source_sub.custom_label
-        target_sub.updated_at = datetime.now()
-
-        # Transfer all email links from source to target
-        db.execute(
-            subscription_emails.update()
-            .where(subscription_emails.c.subscription_id == source_sub.id)
-            .values(subscription_id=target_sub.id)
-        )
-
-        # Transfer all price history records from source to target
-        db.execute(
-            PriceHistory.__table__.update()
-            .where(PriceHistory.subscription_id == source_sub.id)
-            .values(subscription_id=target_sub.id)
-        )
-
-        # Delete source subscription
-        db.delete(source_sub)
+        _merge_source_into_target(db, source_sub, target_sub)
         db.commit()
 
         logger.info(
-            f"Merged subscription {source_sub.id} into {target_sub.id} for provider {target_sub.provider}"
+            f"Merged subscription {source_id} into {target_id_kept} for provider {target_provider}"
         )
 
         return {
             "success": True,
-            "message": f"Successfully merged {source_sub.provider} subscriptions",
-            "target_subscription_id": str(target_sub.id),
-            "deleted_subscription_id": str(source_sub.id),
+            "message": f"Successfully merged {source_provider} subscriptions",
+            "target_subscription_id": str(target_id_kept),
+            "deleted_subscription_id": str(source_id),
         }
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — any failure rolls back and surfaces as 500
         db.rollback()
         logger.error(f"Error merging subscriptions: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to merge subscriptions: {str(e)}",
+        )
+
+
+@router.post("/merge-group")
+async def merge_subscription_group(
+    payload: SubscriptionMergeGroupRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Merge multiple source subscriptions into one explicit target (N->1).
+
+    Unlike the pairwise merge, the target is always kept: the user's chosen
+    target wins and there is NO age-based swap. Every source is merged into the
+    target inside a single transaction (one commit; rollback on any error).
+    """
+    # De-duplicate defensively while preserving the caller's order.
+    source_ids = list(dict.fromkeys(payload.source_ids))
+
+    if not source_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="source_ids must not be empty",
+        )
+
+    if payload.target_id in source_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="target_id cannot also be one of the source_ids",
+        )
+
+    # Target must exist and belong to the current user.
+    target_sub = (
+        db.query(Subscription)
+        .filter(
+            Subscription.id == payload.target_id,
+            Subscription.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not target_sub:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Target subscription not found",
+        )
+
+    # Every source must exist and belong to the current user.
+    source_subs: List[Subscription] = []
+    for source_id in source_ids:
+        source_sub = (
+            db.query(Subscription)
+            .filter(
+                Subscription.id == source_id,
+                Subscription.user_id == current_user.id,
+            )
+            .first()
+        )
+        if not source_sub:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Source subscription {source_id} not found",
+            )
+        source_subs.append(source_sub)
+
+    try:
+        target_id_kept = str(target_sub.id)
+        deleted_ids = [str(source_sub.id) for source_sub in source_subs]
+
+        for source_sub in source_subs:
+            _merge_source_into_target(db, source_sub, target_sub)
+
+        db.commit()
+
+        logger.info(
+            "Group-merged %d source subscription(s) into target %s",
+            len(deleted_ids),
+            target_id_kept,
+        )
+
+        return {
+            "success": True,
+            "message": f"Successfully merged {len(deleted_ids)} subscription(s) into target",
+            "target_subscription_id": target_id_kept,
+            "deleted_subscription_ids": deleted_ids,
+        }
+
+    except Exception as e:  # noqa: BLE001 — any failure rolls back and surfaces as 500
+        db.rollback()
+        logger.error(f"Error group-merging subscriptions: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to merge subscriptions: {str(e)}",
@@ -313,7 +435,8 @@ async def split_subscription(
             db.refresh(sub)
 
         logger.info(
-            f"Split subscription {subscription_id} into {len(new_subscriptions)} subscriptions for user {current_user.id}"
+            f"Split subscription {subscription_id} into "
+            f"{len(new_subscriptions)} subscriptions for user {current_user.id}"
         )
 
         return {

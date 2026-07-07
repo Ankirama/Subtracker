@@ -99,6 +99,19 @@ class SubscriptionUpdate(BaseModel):
         return v
 
 
+class SubscriptionMergeGroupRequest(BaseModel):
+    """Request body for merging multiple source subscriptions into one target (N->1).
+
+    ``source_ids`` emptiness and ``target_id`` membership are validated in the
+    endpoint so they surface as ``400`` errors (not Pydantic ``422``).
+    """
+
+    target_id: UUID = Field(..., description="Subscription to keep; always preserved")
+    source_ids: list[UUID] = Field(
+        ..., description="Subscriptions to merge into the target and then delete"
+    )
+
+
 class SubscriptionResponse(SubscriptionBase):
     """Schema for subscription response."""
 

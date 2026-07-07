@@ -1257,6 +1257,192 @@ class TestMergeEndpoint:
         assert str(rows[0][0]) == str(target.id)
 
 
+class TestMergeGroupEndpoint:
+    """
+    Tests for POST /api/subscriptions/merge-group (N->1 group merge).
+    The explicit target is always kept (no age-based swap), and all sources
+    are merged in a single transaction.
+    """
+
+    def _make_sub(self, db_session, mailbox, **overrides):
+        from datetime import datetime, timezone
+        from app.models.subscription import Subscription
+
+        defaults = {
+            "user_id": mailbox.user_id,
+            "mailbox_id": mailbox.id,
+            "provider": "Netflix",
+            "amount": 15.99,
+            "currency": "EUR",
+            "billing_cycle": "monthly",
+            "category": "streaming",
+            "is_active": True,
+            "is_confirmed": True,
+            "extraction_method": "ai",
+            "confidence_score": 0.95,
+            "first_detected_at": datetime.now(timezone.utc),
+            "last_confirmed_at": datetime.now(timezone.utc),
+        }
+        defaults.update(overrides)
+        sub = Subscription(**defaults)
+        db_session.add(sub)
+        db_session.commit()
+        db_session.refresh(sub)
+        return sub
+
+    def test_merge_group_happy_path_deletes_sources_keeps_target(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """Two sources merged into an explicit target: sources deleted, target kept."""
+        from app.models.subscription import Subscription
+
+        target = self._make_sub(db_session, test_mailbox)
+        source_a = self._make_sub(db_session, test_mailbox, amount=20.0)
+        source_b = self._make_sub(db_session, test_mailbox, amount=25.0)
+
+        response = client.post(
+            "/api/subscriptions/merge-group",
+            headers=auth_headers,
+            json={
+                "target_id": str(target.id),
+                "source_ids": [str(source_a.id), str(source_b.id)],
+            },
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["success"] is True
+        assert body["target_subscription_id"] == str(target.id)
+        assert set(body["deleted_subscription_ids"]) == {
+            str(source_a.id),
+            str(source_b.id),
+        }
+
+        assert db_session.get(Subscription, target.id) is not None
+        assert db_session.get(Subscription, source_a.id) is None
+        assert db_session.get(Subscription, source_b.id) is None
+
+    def test_merge_group_keeps_explicit_target_even_when_older_source_exists(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """No age-based swap: the chosen (newer) target is kept even if a source is older."""
+        from datetime import datetime, timezone, timedelta
+        from app.models.subscription import Subscription
+
+        older_source = self._make_sub(
+            db_session,
+            test_mailbox,
+            first_detected_at=datetime.now(timezone.utc) - timedelta(days=90),
+        )
+        target = self._make_sub(
+            db_session,
+            test_mailbox,
+            first_detected_at=datetime.now(timezone.utc),
+        )
+
+        response = client.post(
+            "/api/subscriptions/merge-group",
+            headers=auth_headers,
+            json={
+                "target_id": str(target.id),
+                "source_ids": [str(older_source.id)],
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["target_subscription_id"] == str(target.id)
+        assert db_session.get(Subscription, target.id) is not None
+        assert db_session.get(Subscription, older_source.id) is None
+
+    def test_merge_group_transfers_email_links_to_target(
+        self, client, db_session, test_mailbox, test_email, auth_headers
+    ):
+        """Email linked to a source is re-linked to the target after the group merge."""
+        import uuid
+        from sqlalchemy import text
+
+        target = self._make_sub(db_session, test_mailbox)
+        source = self._make_sub(db_session, test_mailbox, amount=20.0)
+
+        db_session.execute(
+            text(
+                """
+                INSERT INTO subscription_emails
+                  (id, subscription_id, email_id, extraction_role, extraction_data)
+                VALUES (:id, :sid, :eid, 'detection', '{}')
+            """
+            ),
+            {"id": str(uuid.uuid4()), "sid": str(source.id), "eid": str(test_email.id)},
+        )
+        db_session.commit()
+
+        response = client.post(
+            "/api/subscriptions/merge-group",
+            headers=auth_headers,
+            json={"target_id": str(target.id), "source_ids": [str(source.id)]},
+        )
+        assert response.status_code == 200
+
+        rows = db_session.execute(
+            text(
+                "SELECT subscription_id FROM subscription_emails WHERE email_id = :eid"
+            ),
+            {"eid": str(test_email.id)},
+        ).fetchall()
+        assert len(rows) == 1
+        assert str(rows[0][0]) == str(target.id)
+
+    def test_merge_group_returns_400_when_target_in_source_ids(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        target = self._make_sub(db_session, test_mailbox)
+        source = self._make_sub(db_session, test_mailbox)
+
+        response = client.post(
+            "/api/subscriptions/merge-group",
+            headers=auth_headers,
+            json={
+                "target_id": str(target.id),
+                "source_ids": [str(source.id), str(target.id)],
+            },
+        )
+        assert response.status_code == 400
+        assert "target_id" in response.json()["detail"].lower()
+
+    def test_merge_group_returns_400_when_source_ids_empty(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        target = self._make_sub(db_session, test_mailbox)
+
+        response = client.post(
+            "/api/subscriptions/merge-group",
+            headers=auth_headers,
+            json={"target_id": str(target.id), "source_ids": []},
+        )
+        assert response.status_code == 400
+        assert "source_ids" in response.json()["detail"].lower()
+
+    def test_merge_group_returns_404_when_source_belongs_to_other_user(
+        self, client, db_session, test_mailbox, other_user_mailbox, auth_headers
+    ):
+        """A source owned by another user must not be mergeable → 404, nothing deleted."""
+        from app.models.subscription import Subscription
+
+        target = self._make_sub(db_session, test_mailbox)
+        foreign_source = self._make_sub(db_session, other_user_mailbox)
+
+        response = client.post(
+            "/api/subscriptions/merge-group",
+            headers=auth_headers,
+            json={
+                "target_id": str(target.id),
+                "source_ids": [str(foreign_source.id)],
+            },
+        )
+        assert response.status_code == 404
+        # The foreign subscription is untouched.
+        assert db_session.get(Subscription, foreign_source.id) is not None
+        assert db_session.get(Subscription, target.id) is not None
+
+
 class TestUpdateRenewalStatusEndpoint:
     """
     Chartests for POST /api/subscriptions/update-renewal-status.
