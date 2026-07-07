@@ -914,6 +914,7 @@ class TestDuplicatesEndpoint:
         amount,
         billing_cycle="monthly",
         custom_label="",
+        extraction_metadata=None,
     ):
         """Helper to create a subscription with sensible defaults."""
         from datetime import datetime, timezone
@@ -932,6 +933,7 @@ class TestDuplicatesEndpoint:
             is_confirmed=True,
             extraction_method="ai",
             confidence_score=0.95,
+            extraction_metadata=extraction_metadata or {},
             first_detected_at=datetime.now(timezone.utc),
             last_confirmed_at=datetime.now(timezone.utc),
         )
@@ -1061,6 +1063,172 @@ class TestDuplicatesEndpoint:
         by_id = {s["id"]: s for s in groups[0]["subscriptions"]}
         assert by_id[str(sub_a.id)]["email_count"] == 1
         assert by_id[str(sub_b.id)]["email_count"] == 0
+
+    def _refs(self, references):
+        """Build an extraction_metadata dict carrying service_references."""
+        return {"service_references": references}
+
+    def test_non_overlapping_refs_are_not_grouped(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """Same provider+cycle but disjoint refs → two distinct services, no group."""
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="OVH",
+            amount=10.0,
+            billing_cycle="none",
+            extraction_metadata=self._refs({"domain": "www.ovh"}),
+        )
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="OVH",
+            amount=10.0,
+            billing_cycle="none",
+            extraction_metadata=self._refs({"domain": "www.paypalobjects"}),
+        )
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+        # Different domains → not duplicates.
+        assert response.json() == []
+
+    def test_overlapping_refs_are_grouped(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """Same provider+cycle and a shared ref pair → grouped as duplicates."""
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="OVH",
+            amount=10.0,
+            billing_cycle="none",
+            extraction_metadata=self._refs({"domain": "www.ovh"}),
+        )
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="OVH",
+            amount=10.0,
+            billing_cycle="none",
+            extraction_metadata=self._refs({"domain": "www.ovh"}),
+        )
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+        groups = response.json()
+        assert len(groups) == 1
+        assert groups[0]["count"] == 2
+        assert groups[0]["provider"] == "OVH"
+
+    def test_no_ref_subs_still_group(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """Two ref-less subs in the same provider+cycle still group (best effort)."""
+        self._make_subscription(
+            db_session, test_mailbox, provider="Netflix", amount=15.99
+        )
+        self._make_subscription(
+            db_session, test_mailbox, provider="Netflix", amount=15.99
+        )
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+        groups = response.json()
+        assert len(groups) == 1
+        assert groups[0]["count"] == 2
+
+    def test_ref_sub_and_no_ref_sub_are_not_grouped(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """A ref-bearing sub and a ref-less sub go to different clusters → no group."""
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="Twitch",
+            amount=4.99,
+            extraction_metadata=self._refs({"channel_name": "twitch"}),
+        )
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="Twitch",
+            amount=4.99,
+            extraction_metadata={},
+        )
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+        # One ref cluster of size 1 + one no-ref cluster of size 1 → nothing to report.
+        assert response.json() == []
+
+    def test_twitch_real_case_mixed(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """One channel-ref sub + two ref-less subs: only the ref-less pair groups."""
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="Twitch",
+            amount=4.99,
+            extraction_metadata=self._refs({"channel_name": "twitch"}),
+        )
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="Twitch",
+            amount=4.99,
+            extraction_metadata={},
+        )
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="Twitch",
+            amount=4.99,
+            extraction_metadata={},
+        )
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+        groups = response.json()
+        # Only the two no-ref subs form a duplicate group.
+        assert len(groups) == 1
+        assert groups[0]["count"] == 2
+
+    def test_transitive_ref_overlap_forms_one_cluster(
+        self, client, db_session, test_mailbox, auth_headers
+    ):
+        """A-B share one ref, B-C share another → A, B, C land in one cluster."""
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="OVH",
+            amount=10.0,
+            extraction_metadata=self._refs({"domain": "shared.com"}),
+        )
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="OVH",
+            amount=10.0,
+            extraction_metadata=self._refs(
+                {"domain": "shared.com", "service_code": "FR00000001"}
+            ),
+        )
+        self._make_subscription(
+            db_session,
+            test_mailbox,
+            provider="OVH",
+            amount=10.0,
+            extraction_metadata=self._refs({"service_code": "FR00000001"}),
+        )
+
+        response = client.get("/api/subscriptions/duplicates", headers=auth_headers)
+        assert response.status_code == 200
+        groups = response.json()
+        assert len(groups) == 1
+        assert groups[0]["count"] == 3
 
 
 class TestMergeEndpoint:
