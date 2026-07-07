@@ -63,7 +63,6 @@ export default function DuplicatesPage() {
   const queryClient = useQueryClient()
   const { isOpen, onOpen, onClose } = useDisclosure()
   const [selectedGroup, setSelectedGroup] = useState<DuplicateGroup | null>(null)
-  const [sourceId, setSourceId] = useState<string>('')
   const [targetId, setTargetId] = useState<string>('')
 
   // Fetch duplicate groups
@@ -72,10 +71,16 @@ export default function DuplicatesPage() {
     queryFn: () => subscriptionsAPI.getDuplicates()
   })
 
-  // Merge mutation
+  // Every subscription in the selected group except the chosen target.
+  const sourceIds =
+    selectedGroup?.subscriptions
+      .map((sub) => sub.id)
+      .filter((id) => id !== targetId) ?? []
+
+  // Merge mutation: merge the whole group into a single target in one call.
   const mergeMutation = useMutation({
-    mutationFn: ({ sourceId, targetId }: { sourceId: string; targetId: string }) =>
-      subscriptionsAPI.merge(sourceId, targetId),
+    mutationFn: ({ targetId, sourceIds }: { targetId: string; sourceIds: string[] }) =>
+      subscriptionsAPI.mergeGroup(targetId, sourceIds),
     onSuccess: (data) => {
       toast({
         title: 'Merge Successful',
@@ -102,18 +107,17 @@ export default function DuplicatesPage() {
 
   const handleMergeClick = (group: DuplicateGroup) => {
     setSelectedGroup(group)
-    // Pre-select oldest as target, newest as source
+    // Pre-select the oldest subscription as the target to keep.
     const sorted = [...group.subscriptions].sort((a, b) =>
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     )
     setTargetId(sorted[0].id) // Oldest
-    setSourceId(sorted[sorted.length - 1].id) // Newest
     onOpen()
   }
 
   const handleMerge = () => {
-    if (sourceId && targetId) {
-      mergeMutation.mutate({ sourceId, targetId })
+    if (targetId && sourceIds.length > 0) {
+      mergeMutation.mutate({ targetId, sourceIds })
     }
   }
 
@@ -258,14 +262,15 @@ export default function DuplicatesPage() {
                   <Box>
                     <AlertTitle>About Merging</AlertTitle>
                     <AlertDescription fontSize="sm">
-                      The target subscription will be kept and updated with information from the source.
-                      All emails will be transferred to the target. The source subscription will be deleted.
+                      The subscription you select as the target will be kept. All other duplicates in
+                      this group will be merged into it — their emails are transferred to the target
+                      and the source subscriptions are deleted.
                     </AlertDescription>
                   </Box>
                 </Alert>
 
                 <Box>
-                  <Text fontWeight="bold" mb={2}>Select subscriptions to merge:</Text>
+                  <Text fontWeight="bold" mb={2}>Select the subscription to keep:</Text>
                   <VStack align="stretch" spacing={2}>
                     {selectedGroup.subscriptions.map((sub) => (
                       <HStack
@@ -275,22 +280,7 @@ export default function DuplicatesPage() {
                         borderRadius="md"
                         bg={targetId === sub.id ? 'blue.50' : 'white'}
                         cursor="pointer"
-                        onClick={() => {
-                          if (targetId === sub.id) {
-                            // If clicking target, make it source if not already source
-                            if (sourceId !== sub.id) {
-                              setSourceId(sub.id)
-                              setTargetId('')
-                            }
-                          } else if (sourceId === sub.id) {
-                            // If clicking source, make it target
-                            setTargetId(sub.id)
-                            setSourceId('')
-                          } else {
-                            // Clicking unselected, make it target
-                            setTargetId(sub.id)
-                          }
-                        }}
+                        onClick={() => setTargetId(sub.id)}
                       >
                         <ProviderLogo providerName={sub.provider} size="sm" />
                         <Box flex={1}>
@@ -304,24 +294,25 @@ export default function DuplicatesPage() {
                             Created {formatDate(sub.created_at)} • {sub.email_count} emails
                           </Text>
                         </Box>
-                        {targetId === sub.id && (
+                        {targetId === sub.id ? (
                           <Badge colorScheme="blue">Target (Keep)</Badge>
-                        )}
-                        {sourceId === sub.id && (
-                          <Badge colorScheme="gray">Source (Delete)</Badge>
+                        ) : (
+                          <Badge colorScheme="gray">Will be merged</Badge>
                         )}
                       </HStack>
                     ))}
                   </VStack>
                 </Box>
 
-                {targetId && sourceId && (
+                {targetId && sourceIds.length > 0 && (
                   <Alert status="warning">
                     <AlertIcon />
                     <Box fontSize="sm">
                       <AlertTitle>Confirm Merge</AlertTitle>
                       <AlertDescription>
-                        This will delete the source subscription and cannot be undone.
+                        This will merge {sourceIds.length}{' '}
+                        {sourceIds.length === 1 ? 'subscription' : 'subscriptions'} into the target
+                        and delete {sourceIds.length === 1 ? 'it' : 'them'}. This cannot be undone.
                         All data will be preserved in the target subscription.
                       </AlertDescription>
                     </Box>
@@ -338,7 +329,7 @@ export default function DuplicatesPage() {
               colorScheme="blue"
               onClick={handleMerge}
               isLoading={mergeMutation.isPending}
-              isDisabled={!sourceId || !targetId}
+              isDisabled={!targetId || sourceIds.length === 0}
             >
               Merge Subscriptions
             </Button>

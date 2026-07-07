@@ -14,6 +14,7 @@ from app.provider_config.provider_patterns import (
     extract_service_references,
     format_custom_label,
 )
+from app.services.reference_matching import references_match
 
 logger = logging.getLogger(__name__)
 
@@ -189,14 +190,13 @@ Service Type:"""
             return False
 
         existing_refs = existing_metadata.get("service_references", {})
-        if not existing_refs:
-            return False
 
-        # Check if any reference matches
-        for key, value in references.items():
-            if key in existing_refs and existing_refs[key] == value:
-                logger.info(f"Found matching service reference: {key}={value}")
-                return True
+        # Delegate the pure comparison to the shared leaf helper so the
+        # matching rule has a single source of truth (also used by the
+        # duplicate-detection endpoint).
+        if references_match(references, existing_refs):
+            logger.info(f"Found matching service reference for: {references}")
+            return True
 
         return False
 

@@ -96,6 +96,22 @@ export const subscriptionsAPI = {
     return response.data
   },
 
+  mergeGroup: async (
+    targetId: string,
+    sourceIds: string[]
+  ): Promise<{
+    success: boolean
+    message: string
+    target_subscription_id: string
+    deleted_subscription_ids: string[]
+  }> => {
+    const response = await apiClient.post('/subscriptions/merge-group', {
+      target_id: targetId,
+      source_ids: sourceIds,
+    })
+    return response.data
+  },
+
   split: async (
     id: string,
     emailGroups: Array<{

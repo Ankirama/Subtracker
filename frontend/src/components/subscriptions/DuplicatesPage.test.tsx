@@ -104,16 +104,21 @@ describe('DuplicatesPage', () => {
     ).toBeInTheDocument()
   })
 
-  it('merges a group: opens the modal, pre-selects target/source, and merges', async () => {
+  it('merges a group: opens the modal, keeps the oldest, and merges all others into it', async () => {
     mockDuplicates([buildGroup()])
-    let mergeCall: { sourceId: string; targetId: string } | null = null
+    let mergeCall: { target_id: string; source_ids: string[] } | null = null
     server.use(
-      http.post('*/subscriptions/:sourceId/merge/:targetId', ({ params }) => {
-        mergeCall = {
-          sourceId: params.sourceId as string,
-          targetId: params.targetId as string,
+      http.post('*/subscriptions/merge-group', async ({ request }) => {
+        mergeCall = (await request.json()) as {
+          target_id: string
+          source_ids: string[]
         }
-        return HttpResponse.json({ success: true, message: 'Merged 2 into 1' })
+        return HttpResponse.json({
+          success: true,
+          message: 'Merged 2 into 1',
+          target_subscription_id: 'old',
+          deleted_subscription_ids: ['new'],
+        })
       }),
     )
     const user = userEvent.setup()
@@ -123,19 +128,19 @@ describe('DuplicatesPage', () => {
       await screen.findByRole('button', { name: 'Merge Duplicates' }),
     )
 
-    // Modal opens with the oldest pre-selected as target, newest as source.
+    // Modal opens with the oldest pre-selected as target; the rest are merged.
     expect(
       await screen.findByText('Merge Duplicate Subscriptions'),
     ).toBeInTheDocument()
     expect(screen.getByText('Target (Keep)')).toBeInTheDocument()
-    expect(screen.getByText('Source (Delete)')).toBeInTheDocument()
+    expect(screen.getByText('Will be merged')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Merge Subscriptions' }))
 
     expect(await screen.findByText('Merge Successful')).toBeInTheDocument()
     expect(screen.getByText('Merged 2 into 1')).toBeInTheDocument()
-    // Newest is the source (deleted), oldest is the target (kept).
-    expect(mergeCall).toEqual({ sourceId: 'new', targetId: 'old' })
+    // Oldest is the target (kept); every other subscription is a source.
+    expect(mergeCall).toEqual({ target_id: 'old', source_ids: ['new'] })
     await waitForElementToBeRemoved(() =>
       screen.queryByText('Merge Duplicate Subscriptions'),
     )
@@ -144,7 +149,7 @@ describe('DuplicatesPage', () => {
   it('shows an error toast when the merge fails', async () => {
     mockDuplicates([buildGroup()])
     server.use(
-      http.post('*/subscriptions/:sourceId/merge/:targetId', () =>
+      http.post('*/subscriptions/merge-group', () =>
         HttpResponse.json({ detail: 'nope' }, { status: 500 }),
       ),
     )
