@@ -14,4 +14,4 @@
 - **Mailbox credentials are Fernet-encrypted at rest** (`ENCRYPTION_KEY`). Decrypt only at
   point of use; never log decrypted credentials or tokens.
 - No secrets in code, logs, error messages, or client bundles.
-- Security is every agent's job; the security-auditor is the backstop, run via `/review`.
+- Security is every agent's job; the `security-auditor` agent is the backstop at review time.
