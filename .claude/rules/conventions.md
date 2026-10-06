@@ -7,13 +7,18 @@
 ## Stack overrides (vs global defaults)
 - **Backend is FastAPI**, not Django: thin route handlers in `app/api/`, business logic in
   `app/services/`, SQLAlchemy 2.0 models in `app/models/`, Pydantic v2 for validation.
-- **Format & lint with black + flake8**, not ruff:
-  `python -m black app/` and `python -m flake8 app/ --max-line-length=120` (run in the
-  backend container — see `.claude/rules/git-workflow.md`).
+- **Backend lint is black + ruff in CI, black + flake8 in the pre-commit hook** (checked
+  2026-10-06). CI (`.github/workflows/ci.yml`) runs `black --check .` and `ruff check .`
+  in `backend/` (config `backend/ruff.toml`); `scripts/pre-commit.sh` runs black + `flake8
+  --max-line-length=120` in the dev container. Code must pass **both** ruff and flake8 until
+  the hook is aligned with CI (follow-up). ruff is not in `requirements.txt`.
 - **Frontend is Chakra UI**, not Tailwind: function components + hooks, TypeScript `strict`,
-  ESLint + Prettier clean, no inline styles. Wrap the app in Chakra's `ThemeProvider`.
-- **Tests**: backend `pytest` (via `docker compose exec backend pytest`); frontend Vitest +
-  React Testing Library. Tests required for new logic.
+  ESLint clean (CI also runs `tsc --noEmit --strict`), no inline styles. Prettier is **not**
+  a dependency — don't assume a formatter on the frontend.
+- **Tests**: backend `pytest` in `backend/tests/`; frontend Vitest + React Testing Library +
+  MSW, tests co-located as `*.test.ts(x)`, shared helpers in `frontend/src/test/`. Tests
+  required for new logic. **Backend tests are disabled in CI** ("temporarily", see the
+  commented step in `ci.yml`) — run them locally before a PR; frontend tests do run in CI.
 
 ## Broad exception handling (backend)
 `except Exception` / bare `except:` is allowed **only** with a reason annotation:
@@ -38,7 +43,8 @@ mixed-language file — translate inline before committing.
 - **Always filter by `user_id`** for multi-tenancy (see `.claude/rules/security.md`).
 
 ## Testing config (avoid env-prefix prompts)
-Canonical run: `docker compose exec backend pytest` (compose provides the test env). A
+Canonical run: `docker compose -f docker-compose.dev.yml exec backend pytest` (compose
+provides the test env; there is no default compose file, so `-f` is required). A
 host-local `uv run pytest` only works if you first build a venv from `backend/requirements.txt`.
 Never inline `DATABASE_URL=...` / other env prefixes — they defeat permission allow rules and
 force prompts. For host-local runs, put machine-local test env in `.claude/settings.local.json`
